@@ -262,7 +262,22 @@ export function renderDOM() {
                 const sBadge = document.createElement("div");
                 Object.assign(sBadge.style, { position: "absolute", top: "6px", right: "8px", fontSize: "9px", fontWeight: "bold", padding: "2px 6px", borderRadius: "2px", textTransform: "uppercase", display: "none", pointerEvents: "none" });
                 const grid = document.createElement("div"); grid.style.display = "flex"; grid.style.flexDirection = "column"; grid.style.gap = "6px";
-                const p = document.createElement("div"); Object.assign(p.style, { fontSize: "11px", opacity: "0.5", textAlign: "center", padding: "12px", marginTop: "12px", userSelect: "none" });
+                const p = document.createElement("div"); 
+					Object.assign(p.style, { 
+						fontSize: "11px", 
+						opacity: "0.5", 
+						textAlign: "center", 
+						padding: "12px", 
+						marginTop: "12px", 
+						userSelect: "none",
+    
+						// --- NEW: Cleanly truncate text without nested scrollbars ---
+						display: "-webkit-box",
+						WebkitLineClamp: "15",      // Caps the text at 15 lines (roughly matches standard card heights)
+						WebkitBoxOrient: "vertical",
+						overflow: "hidden",         // Hides anything beyond those 15 lines
+						wordBreak: "break-word"     // Prevents giant seamless URLs/strings from breaking the width
+					});
                 const pt = document.createElement("div"); Object.assign(pt.style, { width: "100%", height: "4px", background: "#333", borderRadius: "2px", marginTop: "8px", overflow: "hidden", display: "none" });
                 const pb = document.createElement("div"); Object.assign(pb.style, { width: `0%`, height: "100%", background: "#3b82f6", transition: "width 0.1s linear" });
                 pt.appendChild(pb);
