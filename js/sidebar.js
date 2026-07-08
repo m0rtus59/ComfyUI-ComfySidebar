@@ -1184,6 +1184,6 @@ app.registerExtension({
         });
         syncQueue();
 
-        app.extensionManager.registerSidebarTab({ id: "classic-comfy-sidebar", icon: "pi pi-images", title: "Comfy Queue", tooltip: "Comfy Queue (Q)", type: "custom", render: (el) => { el.appendChild(sidebarContainer); } });
+        app.extensionManager.registerSidebarTab({ id: "classic-comfy-sidebar", icon: "pi pi-images", title: "Queue", tooltip: "Comfy Queue (Q)", type: "custom", render: (el) => { el.appendChild(sidebarContainer); } });
     }
 });
