@@ -92,6 +92,20 @@ export function setupApiListeners() {
     api.addEventListener("status", syncQueue);
     
     api.addEventListener("execution_start", (e) => {
+        // Auto-sweep cancelled and errored jobs if setting is enabled
+        if (app.ui.settings.getSettingValue("Comfy Sidebar.Auto Clear Interrupted") ?? false) {
+            const toDelete = [];
+            for (const [p, s] of promptStates.entries()) {
+                if (s.status === "cancelled" || s.status === "error") {
+                    toDelete.push(p);
+                    promptStates.delete(p);
+                }
+            }
+            if (toDelete.length > 0) {
+                api.fetchApi("/history", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ delete: toDelete }) }).catch(()=>{});
+            }
+        }
+
         const pid = e.detail.prompt_id;
         State.currentlyActivePromptId = pid; 
         const activeWorkspaceWorkflow = app.graph.serialize();

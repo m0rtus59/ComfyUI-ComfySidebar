@@ -13,6 +13,9 @@ app.registerExtension({
         app.ui.settings.addSetting({ id: "Comfy Sidebar.Show Pending Count Only", name: "If disabled, each queued job will have a separate individual card", type: "boolean", defaultValue: true });
         app.ui.settings.addSetting({ id: "Comfy Sidebar.Show Working Node Name", name: "Shows the name of the node which is currently in the process", type: "boolean", defaultValue: true });
         app.ui.settings.addSetting({ id: "Comfy Sidebar.Override Stock Job History Tab", name: "Replaces the stock Job History sidebar with Comfy Queue", type: "boolean", defaultValue: false });
+        
+        // Settings toggle for Auto-clear Interrupted runs
+        app.ui.settings.addSetting({ id: "Comfy Sidebar.Auto Clear Interrupted", name: "Auto-clear cancelled & failed jobs on new generation", type: "boolean", defaultValue: false });
     },
 
     async setup() {

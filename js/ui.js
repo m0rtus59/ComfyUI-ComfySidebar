@@ -146,45 +146,70 @@ export function setupSidebarUI() {
     titleGroup.appendChild(title);
     standardHeader.appendChild(titleGroup);
 
-    const clearHistoryBtn = document.createElement("button");
-    clearHistoryBtn.textContent = "Clear History";
-    Object.assign(clearHistoryBtn.style, {
-        background: "transparent", color: "var(--desc-color, #aaa)", border: "1px solid var(--border-color, #555)",
-        borderRadius: "3px", padding: "3px 8px", cursor: "pointer", fontSize: "11px", fontWeight: "bold", transition: "all 0.15s ease-in-out"
-    });
+    // Dynamic Compact Actions Group
+    const actionsGroup = document.createElement("div");
+    Object.assign(actionsGroup.style, { display: "flex", gap: "6px", alignItems: "center" });
 
-    let clearHistoryTimeout = null, isClearHistoryPending = false;
-    const resetClearHistoryBtn = () => {
-        isClearHistoryPending = false;
-        clearHistoryBtn.textContent = "Clear History";
-        Object.assign(clearHistoryBtn.style, { color: "var(--desc-color, #aaa)", background: "transparent", borderColor: "var(--border-color, #555)", boxShadow: "none" });
-        if (clearHistoryTimeout) { clearTimeout(clearHistoryTimeout); clearHistoryTimeout = null; }
+    const createActionBtn = (iconClass, tooltip, hoverColor, onClickFn) => {
+        const btn = document.createElement("button");
+        btn.className = iconClass;
+        btn.title = tooltip;
+        Object.assign(btn.style, {
+            background: "transparent", color: "var(--desc-color, #aaa)", border: "1px solid var(--border-color, #555)",
+            borderRadius: "3px", padding: "4px 8px", cursor: "pointer", fontSize: "13px", transition: "all 0.15s ease-in-out"
+        });
+
+        let timeout = null, isPending = false;
+        const reset = () => {
+            isPending = false;
+            Object.assign(btn.style, { color: "var(--desc-color, #aaa)", background: "transparent", borderColor: "var(--border-color, #555)", boxShadow: "none" });
+            if (timeout) { clearTimeout(timeout); timeout = null; }
+        };
+
+        btn.onmouseenter = () => { if (!isPending) { btn.style.borderColor = "var(--fg-color, #eee)"; btn.style.color = "var(--fg-color, #eee)"; } };
+        btn.onmouseleave = () => { if (!isPending) { btn.style.borderColor = "var(--border-color, #555)"; btn.style.color = "var(--desc-color, #aaa)"; } };
+
+        btn.onclick = async (ev) => {
+            ev.stopPropagation();
+            if (!isPending) {
+                isPending = true;
+                Object.assign(btn.style, { color: "#fff", background: hoverColor, borderColor: hoverColor, boxShadow: `0 0 8px ${hoverColor}80` });
+                timeout = setTimeout(reset, 1500); // 1.5s to confirm
+            } else {
+                reset();
+                await onClickFn();
+            }
+        };
+        return btn;
     };
 
-    clearHistoryBtn.addEventListener("mouseenter", () => {
-        if (!isClearHistoryPending) { clearHistoryBtn.style.borderColor = "var(--fg-color, #eee)"; clearHistoryBtn.style.color = "var(--fg-color, #eee)"; }
-    });
-    clearHistoryBtn.addEventListener("mouseleave", () => {
-        if (!isClearHistoryPending) { clearHistoryBtn.style.borderColor = "var(--border-color, #555)"; clearHistoryBtn.style.color = "var(--desc-color, #aaa)"; }
-    });
-
-    clearHistoryBtn.onclick = async (ev) => {
-        ev.stopPropagation();
-        if (!isClearHistoryPending) {
-            isClearHistoryPending = true;
-            clearHistoryBtn.textContent = "Confirm?";
-            Object.assign(clearHistoryBtn.style, { color: "#fff", background: "#dc3545", borderColor: "#dc3545", boxShadow: "0 0 8px rgba(220, 53, 69, 0.6)" });
-            clearHistoryTimeout = setTimeout(resetClearHistoryBtn, 1500);
-        } else {
-            resetClearHistoryBtn();
-            for (const [pid, state] of promptStates.entries()) {
-                if (state.status !== "pending" && state.status !== "active") { promptStates.delete(pid); cardElements.delete(pid); }
+    const btnClearInterrupted = createActionBtn("pi pi-eraser", "Clear Cancelled & Failed", "#ffc107", async () => {
+        const toDelete = [];
+        for (const [pid, state] of promptStates.entries()) {
+            if (state.status === "cancelled" || state.status === "error") {
+                toDelete.push(pid);
+                promptStates.delete(pid);
             }
-            try { await api.fetchApi("/history", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clear: true }) }); } catch (err) {}
+        }
+        if (toDelete.length > 0) {
+            try { await api.fetchApi("/history", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ delete: toDelete }) }); } catch (err) {}
             renderDOM();
         }
-    };
-    standardHeader.appendChild(clearHistoryBtn);
+    });
+
+    const btnClearAll = createActionBtn("pi pi-trash", "Clear All History", "#dc3545", async () => {
+        for (const [pid, state] of promptStates.entries()) {
+            if (state.status !== "pending" && state.status !== "active") {
+                promptStates.delete(pid);
+            }
+        }
+        try { await api.fetchApi("/history", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clear: true }) }); } catch (err) {}
+        renderDOM();
+    });
+
+    actionsGroup.appendChild(btnClearInterrupted);
+    actionsGroup.appendChild(btnClearAll);
+    standardHeader.appendChild(actionsGroup);
 
     const searchContainer = document.createElement("div");
     Object.assign(searchContainer.style, { display: "none", width: "100%", alignItems: "center", background: "var(--comfy-input-bg, #181818)", border: "1px solid var(--border-color, #555)", borderRadius: "4px", padding: "2px 8px", boxSizing: "border-box", height: "26px" });
@@ -263,21 +288,10 @@ export function renderDOM() {
                 Object.assign(sBadge.style, { position: "absolute", top: "6px", right: "8px", fontSize: "9px", fontWeight: "bold", padding: "2px 6px", borderRadius: "2px", textTransform: "uppercase", display: "none", pointerEvents: "none" });
                 const grid = document.createElement("div"); grid.style.display = "flex"; grid.style.flexDirection = "column"; grid.style.gap = "6px";
                 const p = document.createElement("div"); 
-					Object.assign(p.style, { 
-						fontSize: "11px", 
-						opacity: "0.5", 
-						textAlign: "center", 
-						padding: "12px", 
-						marginTop: "12px", 
-						userSelect: "none",
-    
-						// --- NEW: Cleanly truncate text without nested scrollbars ---
-						display: "-webkit-box",
-						WebkitLineClamp: "15",      // Caps the text at 15 lines (roughly matches standard card heights)
-						WebkitBoxOrient: "vertical",
-						overflow: "hidden",         // Hides anything beyond those 15 lines
-						wordBreak: "break-word"     // Prevents giant seamless URLs/strings from breaking the width
-					});
+                Object.assign(p.style, { 
+                    fontSize: "11px", opacity: "0.5", textAlign: "center", padding: "12px", marginTop: "12px", userSelect: "none",
+                    display: "-webkit-box", WebkitLineClamp: "15", WebkitBoxOrient: "vertical", overflow: "hidden", wordBreak: "break-word"
+                });
                 const pt = document.createElement("div"); Object.assign(pt.style, { width: "100%", height: "4px", background: "#333", borderRadius: "2px", marginTop: "8px", overflow: "hidden", display: "none" });
                 const pb = document.createElement("div"); Object.assign(pb.style, { width: `0%`, height: "100%", background: "#3b82f6", transition: "width 0.1s linear" });
                 pt.appendChild(pb);
@@ -398,9 +412,9 @@ export function renderDOM() {
 
             if (state.images.length === 0) {
                 if (state.texts && state.texts.length > 0) {
-                    cardObj.placeholder.textContent = state.texts.join("\n"); Object.assign(cardObj.placeholder.style, { whiteSpace: "pre-wrap", textAlign: "left", fontSize: "10px", opacity: "0.8" });
+                    cardObj.placeholder.textContent = state.texts.join("\n"); Object.assign(cardObj.placeholder.style, { whiteSpace: "pre-wrap", textAlign: "left" });
                 } else {
-                    cardObj.placeholder.textContent = state.progressText || "No Outputs"; Object.assign(cardObj.placeholder.style, { whiteSpace: "normal", textAlign: "center", fontSize: "11px", opacity: "0.5" });
+                    cardObj.placeholder.textContent = state.progressText || "No Outputs"; Object.assign(cardObj.placeholder.style, { whiteSpace: "normal", textAlign: "center" });
                 }
             }
 

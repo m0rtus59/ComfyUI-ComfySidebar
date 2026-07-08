@@ -15,8 +15,10 @@ export function injectStyles() {
         .comfy-sidebar-card.pending { --border-color: #6c757d; --hover-color: #adb5bd; }
         .comfy-sidebar-card.cancelled { --border-color: #ffc107; --hover-color: #ffe082; }
         .comfy-sidebar-card.error { --border-color: #dc3545; --hover-color: #f87171; }
+        
         .comfy-sidebar-card.pending .pi-times { display: none !important; }
         .comfy-sidebar-card.pending:hover .pi-times { display: flex !important; }
+        
         .comfy-sidebar-card-timer {
             position: absolute; top: 6px; left: 8px; font-size: 10px;
             font-family: monospace; opacity: 0.7; background: rgba(0, 0, 0, 0.6);
