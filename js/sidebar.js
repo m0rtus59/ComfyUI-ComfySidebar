@@ -1,8 +1,9 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 
-// --- Global Drag Payloads ---
+// --- Global Drag & Search Payloads ---
 let currentDraggedImgData = null;
+let currentSearchQuery = "";
 const promptStates = new Map();     
 const cardElements = new Map();     
 
@@ -43,6 +44,22 @@ style.textContent = `
     .comfy-sidebar-card.pending:hover .pi-times {
         display: flex !important;
     }
+
+    /* Small timer style in the top-left corner of the card */
+    .comfy-sidebar-card-timer {
+        position: absolute;
+        top: 6px;
+        left: 8px;
+        font-size: 10px;
+        font-family: monospace;
+        opacity: 0.7;
+        background: rgba(0, 0, 0, 0.6);
+        padding: 2px 4px;
+        border-radius: 3px;
+        pointer-events: none;
+        z-index: 5;
+        color: #fff;
+    }
 `;
 document.head.appendChild(style);
 
@@ -51,6 +68,73 @@ const isVideoFormat = (url) => {
     const s = url.toLowerCase();
     return s.includes(".mp4") || s.includes(".webm");
 };
+
+// Filters metadata inside the prompt structure
+function matchesFilter(state, query) {
+    if (!query) return true;
+    const q = query.toLowerCase();
+
+    // 1. Check Prompt ID
+    if (state.pid && String(state.pid).toLowerCase().includes(q)) {
+        return true;
+    }
+
+    // 2. Check Text outputs
+    if (state.texts && state.texts.some(t => String(t).toLowerCase().includes(q))) {
+        return true;
+    }
+
+    // 3. Check Image/Video output filenames
+    if (state.images && state.images.some(img => {
+        const filename = img.filename || "";
+        return filename.toLowerCase().includes(q);
+    })) {
+        return true;
+    }
+
+    // 4. Check active/working node name
+    if (state.activeNodeName && state.activeNodeName.toLowerCase().includes(q)) {
+        return true;
+    }
+
+    // 5. Structural lookup within snapshotted workflow JSON (nodes, widget values, etc.)
+    if (state.workflow && Array.isArray(state.workflow.nodes)) {
+        for (const node of state.workflow.nodes) {
+            if (node.title && node.title.toLowerCase().includes(q)) return true;
+            if (node.type && node.type.toLowerCase().includes(q)) return true;
+            if (Array.isArray(node.widgets)) {
+                for (const w of node.widgets) {
+                    if (w && w.value !== undefined && w.value !== null) {
+                        if (String(w.value).toLowerCase().includes(q)) return true;
+                    }
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
+// Prunes historical tasks from state matching the client queue history setting
+function pruneHistory() {
+    const maxItems = app.ui.settings.getSettingValue("Comfy.Queue.MaxHistoryItems") ?? 64;
+    
+    // Select non-pending, non-active tasks
+    const tasks = Array.from(promptStates.entries())
+        .filter(([pid, state]) => state.status !== "pending" && state.status !== "active");
+    
+    // Sort ascending by timestamp (oldest first)
+    tasks.sort((a, b) => a[1].timestamp - b[1].timestamp);
+    
+    if (tasks.length > maxItems) {
+        const deleteCount = tasks.length - maxItems;
+        for (let i = 0; i < deleteCount; i++) {
+            const [pid] = tasks[i];
+            promptStates.delete(pid);
+            cardElements.delete(pid);
+        }
+    }
+}
 
 // Creates a dark fullscreen preview overlay supporting both images and video formats
 function showFullscreenPreview(imgSrcs) {
@@ -363,7 +447,10 @@ const saveStatesToLocalStorage = () => {
                 progressText: state.progressText || "",
                 timestamp: state.timestamp,
                 activeNodeName: state.activeNodeName || "",
-                rendered: state.rendered || false
+                rendered: state.rendered || false,
+                startTime: state.startTime,
+                endTime: state.endTime,
+                duration: state.duration
             });
         }
         localStorage.setItem("comfy_sidebar_prompt_states", JSON.stringify(serializable));
@@ -409,9 +496,229 @@ app.registerExtension({
             background: "var(--comfy-menu-bg, #121212)", color: "var(--fg-color, #eee)"
         });
 
+        // --- Flexbox layout header container with fixed boundary height ---
         const header = document.createElement("div");
-        header.innerHTML = `<h3 style="margin: 0 0 12px 0; font-size: 14px; font-weight: bold; text-align: center; opacity: 0.9; color: var(--fg-color, #eee);">Queue</h3>`;
+        Object.assign(header.style, {
+            position: "relative",
+            marginBottom: "12px",
+            height: "26px",
+            display: "flex",
+            alignItems: "center"
+        });
+
+        // 1. Standard Header Panel (Title + Magnifying Glass + Action Trigger Button)
+        const standardHeader = document.createElement("div");
+        Object.assign(standardHeader.style, {
+            display: "flex",
+            width: "100%",
+            alignItems: "center",
+            justifyContent: "space-between"
+        });
+
+        const titleGroup = document.createElement("div");
+        Object.assign(titleGroup.style, {
+            display: "flex",
+            alignItems: "center",
+            gap: "8px"
+        });
+
+        const searchIcon = document.createElement("span");
+        searchIcon.className = "pi pi-search";
+        searchIcon.title = "Search History";
+        Object.assign(searchIcon.style, {
+            cursor: "pointer",
+            fontSize: "13px",
+            opacity: "0.6",
+            transition: "opacity 0.15s ease-in-out"
+        });
+        searchIcon.onmouseenter = () => searchIcon.style.opacity = "1";
+        searchIcon.onmouseleave = () => searchIcon.style.opacity = "0.6";
+
+        const title = document.createElement("h3");
+        title.textContent = "Queue";
+        Object.assign(title.style, {
+            margin: "0",
+            fontSize: "14px",
+            fontWeight: "bold",
+            opacity: "0.9",
+            color: "var(--fg-color, #eee)"
+        });
+
+        titleGroup.appendChild(searchIcon);
+        titleGroup.appendChild(title);
+        standardHeader.appendChild(titleGroup);
+
+        const clearHistoryBtn = document.createElement("button");
+        clearHistoryBtn.textContent = "Clear History";
+        Object.assign(clearHistoryBtn.style, {
+            background: "transparent",
+            color: "var(--desc-color, #aaa)",
+            border: "1px solid var(--border-color, #555)",
+            borderRadius: "3px",
+            padding: "3px 8px",
+            cursor: "pointer",
+            fontSize: "11px",
+            fontWeight: "bold",
+            transition: "all 0.15s ease-in-out"
+        });
+
+        // Double-click confirm pattern with timeout
+        let clearHistoryTimeout = null;
+        let isClearHistoryPending = false;
+
+        const resetClearHistoryBtn = () => {
+            isClearHistoryPending = false;
+            clearHistoryBtn.textContent = "Clear History";
+            clearHistoryBtn.style.color = "var(--desc-color, #aaa)";
+            clearHistoryBtn.style.background = "transparent";
+            clearHistoryBtn.style.borderColor = "var(--border-color, #555)";
+            clearHistoryBtn.style.boxShadow = "none";
+            if (clearHistoryTimeout) {
+                clearTimeout(clearHistoryTimeout);
+                clearHistoryTimeout = null;
+            }
+        };
+
+        // Add visual response highlights
+        clearHistoryBtn.addEventListener("mouseenter", () => {
+            if (!isClearHistoryPending) {
+                clearHistoryBtn.style.borderColor = "var(--fg-color, #eee)";
+                clearHistoryBtn.style.color = "var(--fg-color, #eee)";
+            }
+        });
+        clearHistoryBtn.addEventListener("mouseleave", () => {
+            if (!isClearHistoryPending) {
+                clearHistoryBtn.style.borderColor = "var(--border-color, #555)";
+                clearHistoryBtn.style.color = "var(--desc-color, #aaa)";
+            }
+        });
+
+        clearHistoryBtn.onclick = async (ev) => {
+            ev.stopPropagation();
+            if (!isClearHistoryPending) {
+                isClearHistoryPending = true;
+                clearHistoryBtn.textContent = "Confirm?";
+                clearHistoryBtn.style.color = "#fff";
+                clearHistoryBtn.style.background = "#dc3545";
+                clearHistoryBtn.style.borderColor = "#dc3545";
+                clearHistoryBtn.style.boxShadow = "0 0 8px rgba(220, 53, 69, 0.6)"; // Muted glowing red shadow ring
+                clearHistoryTimeout = setTimeout(() => {
+                    resetClearHistoryBtn();
+                }, 1500); // 1.5 seconds confirmation window
+            } else {
+                resetClearHistoryBtn();
+                
+                // Filter and delete only completed/error/cancelled items from promptStates
+                for (const [pid, state] of promptStates.entries()) {
+                    if (state.status !== "pending" && state.status !== "active") {
+                        promptStates.delete(pid);
+                        cardElements.delete(pid);
+                    }
+                }
+                
+                // Clear backend history
+                try {
+                    await api.fetchApi("/history", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ clear: true })
+                    });
+                } catch (err) {
+                    console.error("Comfy Sidebar: Failed to clear backend history:", err);
+                }
+                renderDOM();
+            }
+        };
+
+        standardHeader.appendChild(clearHistoryBtn);
+
+        // 2. Search Container (Hidden by default, overlays standard header when active)
+        const searchContainer = document.createElement("div");
+        Object.assign(searchContainer.style, {
+            display: "none",
+            width: "100%",
+            alignItems: "center",
+            background: "var(--comfy-input-bg, #181818)",
+            border: "1px solid var(--border-color, #555)",
+            borderRadius: "4px",
+            padding: "2px 8px",
+            boxSizing: "border-box",
+            height: "26px"
+        });
+
+        const searchInputIcon = document.createElement("span");
+        searchInputIcon.className = "pi pi-search";
+        Object.assign(searchInputIcon.style, {
+            fontSize: "11px",
+            opacity: "0.5",
+            marginRight: "6px"
+        });
+
+        const searchInput = document.createElement("input");
+        searchInput.type = "text";
+        searchInput.placeholder = "Filter by text, images, nodes...";
+        Object.assign(searchInput.style, {
+            flex: "1",
+            background: "transparent",
+            border: "none",
+            outline: "none",
+            color: "var(--comfy-input-color, var(--fg-color, #eee))",
+            fontSize: "11px",
+            padding: "0"
+        });
+
+        const clearSearchBtn = document.createElement("span");
+        clearSearchBtn.className = "pi pi-times";
+        clearSearchBtn.title = "Clear & Close Search";
+        Object.assign(clearSearchBtn.style, {
+            cursor: "pointer",
+            fontSize: "11px",
+            opacity: "0.6",
+            marginLeft: "6px",
+            transition: "opacity 0.15s ease"
+        });
+        clearSearchBtn.onmouseenter = () => clearSearchBtn.style.opacity = "1";
+        clearSearchBtn.onmouseleave = () => clearSearchBtn.style.opacity = "0.6";
+
+        searchContainer.appendChild(searchInputIcon);
+        searchContainer.appendChild(searchInput);
+        searchContainer.appendChild(clearSearchBtn);
+
+        header.appendChild(standardHeader);
+        header.appendChild(searchContainer);
         sidebarContainer.appendChild(header);
+
+        // --- Search Overlay Transition Bindings ---
+        searchIcon.onclick = (e) => {
+            e.stopPropagation();
+            standardHeader.style.display = "none";
+            searchContainer.style.display = "flex";
+            searchInput.focus();
+        };
+
+        const closeSearch = () => {
+            searchInput.value = "";
+            currentSearchQuery = "";
+            searchContainer.style.display = "none";
+            standardHeader.style.display = "flex";
+            renderDOM();
+        };
+
+        clearSearchBtn.onclick = (e) => {
+            e.stopPropagation();
+            closeSearch();
+        };
+
+        searchInput.onkeydown = (e) => {
+            if (e.key === "Escape") {
+                closeSearch();
+            }
+        };
+
+        searchInput.oninput = () => {
+            currentSearchQuery = searchInput.value.trim();
+            renderDOM();
+        };
 
         cardStack = document.createElement("div");
         Object.assign(cardStack.style, { flex: "1", overflowY: "auto", scrollbarWidth: "thin", display: "block" });
@@ -426,6 +733,19 @@ app.registerExtension({
         });
         resizeObserver.observe(sidebarContainer);
 
+        // Continuous high-performance update loop for active card timers
+        setInterval(() => {
+            for (const [pid, state] of promptStates.entries()) {
+                if (state.status === "active" && state.startTime) {
+                    const cardObj = cardElements.get(pid);
+                    if (cardObj && cardObj.timerEl) {
+                        const elapsed = (Date.now() - state.startTime) / 1000;
+                        cardObj.timerEl.textContent = elapsed.toFixed(2) + "s";
+                    }
+                }
+            }
+        }, 100);
+
         // --- NON-DESTRUCTIVE DOM RENDERER ---
         let renderTimeout = null;
         const renderDOM = () => {
@@ -439,6 +759,11 @@ app.registerExtension({
                 
                 if (showPendingSummary) {
                     tasksArray = tasksArray.filter(t => t.status !== "pending");
+                }
+
+                // Apply active text and metadata filters
+                if (currentSearchQuery) {
+                    tasksArray = tasksArray.filter(t => matchesFilter(t, currentSearchQuery));
                 }
 
                 // Sorting: Force newest items at the top of the queue
@@ -463,6 +788,11 @@ app.registerExtension({
                     if (!cardObj) {
                         const card = document.createElement("div");
                         card.className = `comfy-sidebar-card ${state.status}`;
+
+                        // Dedicated corner timer element
+                        const timerEl = document.createElement("div");
+                        timerEl.className = "comfy-sidebar-card-timer";
+                        card.appendChild(timerEl);
 
                         // Cancel Task (X) Trigger (Unified size + underlayer)
                         const cancelX = document.createElement("span");
@@ -522,12 +852,12 @@ app.registerExtension({
 
                         const btnJson = document.createElement("span");
                         btnJson.className = "pi pi-file";
-                        btnJson.title = "Save Workflow JSON";
+                        btnJson.title = "Save Workflow";
                         Object.assign(btnJson.style, { cursor: "pointer", fontSize: "20px", color: "#aaa" });
 
                         const btnDel = document.createElement("span");
                         btnDel.className = "pi pi-trash";
-                        btnDel.title = "Delete Element from History";
+                        btnDel.title = "Delete Element";
                         Object.assign(btnDel.style, { cursor: "pointer", fontSize: "20px", color: "#dc3545", transition: "all 0.1s ease-in-out" });
 
                         hoverPanel.appendChild(btnImg);
@@ -535,7 +865,7 @@ app.registerExtension({
                         hoverPanel.appendChild(btnDel);
                         card.appendChild(hoverPanel);
 
-                        cardObj = { element: card, statusBadge: sBadge, grid, placeholder: p, progressContainer: pt, progressBar: pb, cancelBtn: cancelX, hoverPanel, btnImg, btnJson, btnDel, statusText, firstImgElement: null, lastImagesSignature: "" };
+                        cardObj = { element: card, timerEl, statusBadge: sBadge, grid, placeholder: p, progressContainer: pt, progressBar: pb, cancelBtn: cancelX, hoverPanel, btnImg, btnJson, btnDel, statusText, firstImgElement: null, lastImagesSignature: "" };
                         
                         // Card events
                         card.addEventListener("mouseenter", () => {
@@ -600,6 +930,22 @@ app.registerExtension({
                     cardObj.element.className = `comfy-sidebar-card ${state.status}`;
                     // Restore HTML5 draggable attribute dynamically to resolve drag-and-drop bug
                     cardObj.element.setAttribute("draggable", "true");
+
+                    // Set visual output for the timer
+                    if (state.status === "active") {
+                        if (state.startTime) {
+                            const elapsed = (Date.now() - state.startTime) / 1000;
+                            cardObj.timerEl.textContent = elapsed.toFixed(2) + "s";
+                        } else {
+                            cardObj.timerEl.textContent = "...";
+                        }
+                        cardObj.timerEl.style.display = "block";
+                    } else if (state.duration !== undefined && state.duration !== null) {
+                        cardObj.timerEl.textContent = state.duration.toFixed(2) + "s";
+                        cardObj.timerEl.style.display = "block";
+                    } else {
+                        cardObj.timerEl.style.display = "none";
+                    }
 
                     // Text overlay badges for Cancelled/Error runs
                     if (state.status === "cancelled") {
@@ -1007,12 +1353,16 @@ app.registerExtension({
                 st.progressText = "Sampling...";
                 st.workflow = activeWorkspaceWorkflow;
                 st.rendered = false; // Reset rendering lock when transitioning state
+                st.startTime = Date.now();
+                st.duration = null;
             } else {
                 globalOrderCounter++;
                 promptStates.set(pid, {
                     pid: pid, status: "active", images: [], progress: 0,
                     progressText: "Sampling...", timestamp: globalOrderCounter,
-                    workflow: activeWorkspaceWorkflow
+                    workflow: activeWorkspaceWorkflow,
+                    startTime: Date.now(),
+                    duration: null
                 });
             }
             syncQueue();
@@ -1080,6 +1430,10 @@ app.registerExtension({
             st.status = statusStr;
             st.progressText = "";
             st.rendered = false; // Reset dynamic lock so we render final outputs exactly once
+            st.endTime = Date.now();
+            if (st.startTime) {
+                st.duration = (st.endTime - st.startTime) / 1000;
+            }
             try {
                 const res = await fetch(`/history/${pid}`);
                 const hItem = await res.json();
@@ -1094,6 +1448,7 @@ app.registerExtension({
                     st.texts = findTextsInOutputs(hItem[pid].outputs);
                 }
             } catch (err) {}
+            pruneHistory();
             syncQueue();
         };
 
@@ -1182,6 +1537,7 @@ app.registerExtension({
                 rendered: true // Mark history loaded outputs as already rendered
             });
         });
+        pruneHistory();
         syncQueue();
 
         app.extensionManager.registerSidebarTab({ id: "classic-comfy-sidebar", icon: "pi pi-images", title: "Queue", tooltip: "Comfy Queue (Q)", type: "custom", render: (el) => { el.appendChild(sidebarContainer); } });
