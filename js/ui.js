@@ -375,13 +375,39 @@ export function renderDOM() {
                     cardObj.grid.innerHTML = ""; cardObj.firstImgElement = null; cardObj.placeholder.style.display = "block";
                 } else {
                     cardObj.placeholder.style.display = "none";
-                    if (cardObj.grid.children.length === state.images.length) {
+// Check if we can reuse elements (count matches AND tag types match)
+                    let canReuse = cardObj.grid.children.length === state.images.length;
+                    if (canReuse) {
                         state.images.forEach((img, idx) => {
                             const src = img.url ? img.url : `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder)}`;
-                            const thumb = cardObj.grid.children[idx];
-                            if (thumb.src !== src) {
-                                if (src.startsWith("blob:")) { const tempImg = new Image(); tempImg.onload = () => { const oldBlob = thumb._lastBlob; thumb.src = src; thumb._lastBlob = src; if (oldBlob && oldBlob !== src) try { URL.revokeObjectURL(oldBlob); } catch(e){} }; tempImg.src = src; }
-                                else thumb.src = src;
+                            const wrapper = cardObj.grid.children[idx];
+                            // Fallback in case the DOM still has old unwrapped elements
+                            const mediaEl = (wrapper.tagName === "IMG" || wrapper.tagName === "VIDEO") ? wrapper : wrapper.querySelector("img, video");
+                            if (!mediaEl || isVideoFormat(src) !== (mediaEl.tagName.toLowerCase() === "video")) canReuse = false;
+                        });
+                    }
+
+                    if (canReuse) {
+                        state.images.forEach((img, idx) => {
+                            let src = img.url ? img.url : `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder)}`;
+                            const isVideo = isVideoFormat(src);
+                            if (isVideo) src = src + "#t=0.001"; // Keep the first-frame trick on update
+
+                            const wrapper = cardObj.grid.children[idx];
+                            const mediaEl = (wrapper.tagName === "IMG" || wrapper.tagName === "VIDEO") ? wrapper : wrapper.querySelector("img, video");
+                            
+                            if (mediaEl.getAttribute("src") !== src && mediaEl.src !== src) {
+                                if (src.startsWith("blob:") && !isVideo) { 
+                                    const tempImg = new Image(); 
+                                    tempImg.onload = () => { 
+                                        const oldBlob = mediaEl._lastBlob; 
+                                        mediaEl.src = src; 
+                                        mediaEl._lastBlob = src; 
+                                        if (oldBlob && oldBlob !== src) try { URL.revokeObjectURL(oldBlob); } catch(e){} 
+                                    }; 
+                                    tempImg.src = src; 
+                                }
+                                else mediaEl.src = src;
                             }
                         });
                     } else {
@@ -389,9 +415,42 @@ export function renderDOM() {
                         state.images.forEach(img => {
                             const src = img.url ? img.url : `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder)}`;
                             const isVideo = isVideoFormat(src);
+                            
+                            // Container to hold both the media and the play icon
+                            const wrapper = document.createElement("div");
+                            Object.assign(wrapper.style, { position: "relative", width: "100%", display: "block" });
+
                             const thumb = isVideo ? document.createElement("video") : document.createElement("img");
                             Object.assign(thumb.style, { width: "100%", borderRadius: "2px", display: "block", cursor: "zoom-in" });
-                            if (isVideo) { thumb.autoplay = true; thumb.loop = true; thumb.muted = true; thumb.playsInline = true; }
+                            
+                            if (isVideo) { 
+                                thumb.muted = true; 
+                                thumb.playsInline = true; 
+                                thumb.preload = "metadata";
+                                thumb.loop = true;
+                                
+                                // Create the Play Icon overlay with perfectly centered scalable SVG
+                                const playIcon = document.createElement("div");
+                                Object.assign(playIcon.style, {
+                                    position: "absolute", top: "0", left: "0", width: "100%", height: "100%",
+                                    pointerEvents: "none", zIndex: "5", transition: "opacity 0.2s ease"
+                                });
+                                
+                                // The radius 16.65 ensures the circle is exactly 1/3 of the shorter edge.
+                                // The polygon coordinates are an optically centered equilateral triangle.
+                                playIcon.innerHTML = `
+                                    <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" style="width: 100%; height: 100%; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));">
+                                        <circle cx="50" cy="50" r="16.65" fill="rgba(0, 0, 0, 0.55)" />
+                                        <polygon points="45.7,42.5 45.7,57.5 58.7,50" fill="rgba(255, 255, 255, 0.9)" />
+                                    </svg>
+                                `;
+                                wrapper.appendChild(playIcon);
+
+                                // Play on Hover, Pause on Leave, and fade out the play button
+                                thumb.onmouseenter = () => { playIcon.style.opacity = "0"; thumb.play().catch(()=>{}); };
+                                thumb.onmouseleave = () => { playIcon.style.opacity = "1"; thumb.pause(); };
+                            }
+                            
                             if (!keepAspect) { thumb.style.aspectRatio = "1 / 1"; thumb.style.objectFit = "cover"; }
                             thumb.setAttribute("draggable", "false"); 
                             
@@ -399,11 +458,14 @@ export function renderDOM() {
                                 thumb.onload = () => { if (keepAspect && thumb.naturalWidth && thumb.naturalHeight) thumb.style.aspectRatio = `${thumb.naturalWidth} / ${thumb.naturalHeight}`; };
                                 if (src.startsWith("blob:")) { const tempImg = new Image(); tempImg.onload = () => { thumb.src = src; thumb._lastBlob = src; }; tempImg.src = src; } else thumb.src = src;
                             } else {
-                                thumb.onloadedmetadata = () => { if (keepAspect && thumb.videoWidth && thumb.videoHeight) thumb.style.aspectRatio = `${thumb.videoWidth} / ${thumb.videoHeight}`; }; thumb.src = src;
+                                thumb.onloadedmetadata = () => { if (keepAspect && thumb.videoWidth && thumb.videoHeight) thumb.style.aspectRatio = `${thumb.videoWidth} / ${thumb.videoHeight}`; }; 
+                                thumb.src = src + "#t=0.001";
                             }
                             thumb.onclick = (ev) => { ev.stopPropagation(); showFullscreenPreview(state.images.map(i => i.url ? i.url : `/view?filename=${encodeURIComponent(i.filename)}&type=${i.type}&subfolder=${encodeURIComponent(i.subfolder)}`)); };
+                            
+                            wrapper.insertBefore(thumb, wrapper.firstChild);
                             if (!cardObj.firstImgElement) cardObj.firstImgElement = thumb;
-                            cardObj.grid.appendChild(thumb);
+                            cardObj.grid.appendChild(wrapper);
                         });
                     }
                 }
