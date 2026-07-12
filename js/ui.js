@@ -285,7 +285,7 @@ export function renderDOM() {
                 const cancelX = document.createElement("span"); cancelX.className = "pi pi-times";
                 Object.assign(cancelX.style, { position: "absolute", top: "4px", right: "4px", color: "#dc3545", cursor: "pointer", fontSize: "20px", display: "none", zIndex: "10", background: "rgba(0,0,0,0.85)", padding: "8px 12px", borderRadius: "4px", transition: "color 0.2s" });
                 const sBadge = document.createElement("div");
-                Object.assign(sBadge.style, { position: "absolute", top: "6px", right: "8px", fontSize: "9px", fontWeight: "bold", padding: "2px 6px", borderRadius: "2px", textTransform: "uppercase", display: "none", pointerEvents: "none" });
+                Object.assign(sBadge.style, { position: "absolute", top: "6px", right: "8px", fontSize: "9px", fontWeight: "bold", padding: "2px 6px", borderRadius: "2px", textTransform: "uppercase", display: "none", pointerEvents: "none", zIndex: "10" });
                 const grid = document.createElement("div"); grid.style.display = "flex"; grid.style.flexDirection = "column"; grid.style.gap = "6px";
                 const p = document.createElement("div"); 
                 Object.assign(p.style, { 
