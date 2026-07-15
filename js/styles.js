@@ -1,3 +1,4 @@
+// styles.js
 export function injectStyles() {
     const style = document.createElement("style");
     style.textContent = `
@@ -16,13 +17,41 @@ export function injectStyles() {
         .comfy-sidebar-card.cancelled { --border-color: #ffc107; --hover-color: #ffe082; }
         .comfy-sidebar-card.error { --border-color: #dc3545; --hover-color: #f87171; }
         
-        .comfy-sidebar-card.pending .pi-times { display: none !important; }
-        .comfy-sidebar-card.pending:hover .pi-times { display: flex !important; }
+        .comfy-sidebar-card.pending .comfy-sidebar-queue-cancel-btn,
+        .comfy-sidebar-card.active .comfy-sidebar-queue-cancel-btn { 
+            display: none !important; 
+        }
+
+        .comfy-sidebar-card.pending:hover .comfy-sidebar-queue-cancel-btn,
+        .comfy-sidebar-card.active:hover .comfy-sidebar-queue-cancel-btn { 
+            display: flex !important; 
+        }
         
         .comfy-sidebar-card-timer {
             position: absolute; top: 6px; left: 8px; font-size: 10px;
             font-family: monospace; opacity: 0.7; background: rgba(0, 0, 0, 0.6);
             padding: 2px 4px; border-radius: 3px; pointer-events: none; z-index: 5; color: #fff;
+        }
+
+        /* --- Custom Queue Cancel Button to Mimic ComfyUI Native Destructive Button --- */
+        .comfy-sidebar-queue-cancel-btn {
+            display: none;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 32px !important;
+            height: 32px !important;
+            background-color: #7f1d1d !important; /* Native deep red */
+            color: #e2e8f0 !important; /* Native slate white icon */
+            font-size: 11px !important; /* Muted native cross size */
+            border-radius: 6px !important; /* Native corner rounding */
+            cursor: pointer !important;
+            transition: background-color 0.15s ease, color 0.15s ease !important;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+        }
+
+        .comfy-sidebar-queue-cancel-btn:hover {
+            background-color: #991b1b !important; /* Slightly brighter red on hover */
+            color: #ffffff !important;
         }
     `;
     document.head.appendChild(style);

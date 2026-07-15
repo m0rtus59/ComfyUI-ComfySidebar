@@ -85,7 +85,7 @@ export const findStandardQueueButton = () => {
 };
 
 export const applySidebarOverride = () => {
-    const overrideStock = app.ui.settings.getSettingValue("Comfy Sidebar.Override Stock Job History Tab") ?? false;
+    const overrideStock = app.ui.settings.getSettingValue("Comfy Sidebar.Hide Sidebar Tabs.Override Stock Job History Tab") ?? false;
     const stdBtn = findStandardQueueButton();
     const ourBtn = findOurSidebarButton();
     
@@ -282,8 +282,15 @@ export function renderDOM() {
             if (!cardObj) {
                 const card = document.createElement("div");
                 const timerEl = document.createElement("div"); timerEl.className = "comfy-sidebar-card-timer";
-                const cancelX = document.createElement("span"); cancelX.className = "pi pi-times";
-                Object.assign(cancelX.style, { position: "absolute", top: "4px", right: "4px", color: "#dc3545", cursor: "pointer", fontSize: "20px", display: "none", zIndex: "10", background: "rgba(0,0,0,0.85)", padding: "8px 12px", borderRadius: "4px", transition: "color 0.2s" });
+                const cancelX = document.createElement("span"); 
+                cancelX.className = "pi pi-times comfy-sidebar-queue-cancel-btn";
+                Object.assign(cancelX.style, { 
+                    position: "absolute", 
+                    top: "4px", 
+                    right: "4px", 
+                    display: "none", 
+                    zIndex: "10" 
+                });
                 const sBadge = document.createElement("div");
                 Object.assign(sBadge.style, { position: "absolute", top: "6px", right: "8px", fontSize: "9px", fontWeight: "bold", padding: "2px 6px", borderRadius: "2px", textTransform: "uppercase", display: "none", pointerEvents: "none", zIndex: "10" });
                 const grid = document.createElement("div"); grid.style.display = "flex"; grid.style.flexDirection = "column"; grid.style.gap = "6px";
@@ -300,7 +307,16 @@ export function renderDOM() {
                 
                 const btnImg = document.createElement("span"); btnImg.className = "pi pi-image"; Object.assign(btnImg.style, { cursor: "pointer", fontSize: "20px", color: "#aaa" });
                 const btnJson = document.createElement("span"); btnJson.className = "pi pi-file"; Object.assign(btnJson.style, { cursor: "pointer", fontSize: "20px", color: "#aaa" });
-                const btnDel = document.createElement("span"); btnDel.className = "pi pi-trash"; Object.assign(btnDel.style, { cursor: "pointer", fontSize: "20px", color: "#dc3545", transition: "all 0.1s ease-in-out" });
+                const btnDel = document.createElement("span"); 
+                btnDel.className = "pi pi-trash"; 
+                Object.assign(btnDel.style, { 
+                    cursor: "pointer", 
+                    fontSize: "20px", 
+                    color: "#dc3545", 
+                    transition: "all 0.1s ease-in-out",
+                    padding: "2px",
+                    transform: "scale(1)"
+                });
                 hoverPanel.append(btnImg, btnJson, btnDel);
                 card.append(timerEl, cancelX, sBadge, grid, p, pt, statusText, hoverPanel);
                 
@@ -344,8 +360,21 @@ export function renderDOM() {
 
             if (state.status === "pending" && !showPendingSummary) {
                 cardObj.cancelBtn.style.display = "flex";
-                cardObj.cancelBtn.onclick = async (ev) => { ev.stopPropagation(); await api.fetchApi("/queue", { method: "POST", body: JSON.stringify({ delete: [state.pid] }) }); await syncQueueFn(); };
-            } else cardObj.cancelBtn.style.display = "none";
+                cardObj.cancelBtn.onclick = async (ev) => { 
+                    ev.stopPropagation(); 
+                    await api.fetchApi("/queue", { method: "POST", body: JSON.stringify({ delete: [state.pid] }) }); 
+                    await syncQueueFn(); 
+                };
+            } else if (state.status === "active") {
+                cardObj.cancelBtn.style.display = "flex";
+                cardObj.cancelBtn.onclick = async (ev) => { 
+                    ev.stopPropagation(); 
+                    await api.interrupt(); // Natively interrupts current execution
+                    await syncQueueFn(); 
+                };
+            } else {
+                cardObj.cancelBtn.style.display = "none";
+            }
 
             if (state.images && state.images.length > 0) {
                 cardObj.btnImg.style.display = "inline";
@@ -358,14 +387,36 @@ export function renderDOM() {
             } else cardObj.btnJson.style.display = "none";
 
             let deleteTimeout = null, isDeletePending = false;
-            const resetDeleteBtn = () => { isDeletePending = false; Object.assign(cardObj.btnDel.style, { color: "#dc3545", background: "none", padding: "0" }); cardObj.btnDel.title = "Delete Element from History"; if (deleteTimeout) { clearTimeout(deleteTimeout); deleteTimeout = null; } };
+            const resetDeleteBtn = () => { 
+                isDeletePending = false; 
+                Object.assign(cardObj.btnDel.style, { 
+                    color: "#dc3545", 
+                    background: "none", 
+                    padding: "2px", 
+                    transform: "scale(1)" 
+                }); 
+                cardObj.btnDel.title = "Delete Element from History"; 
+                if (deleteTimeout) { clearTimeout(deleteTimeout); deleteTimeout = null; } 
+            };
+            
             cardObj.btnDel.onclick = async (ev) => {
                 ev.stopPropagation();
                 if (!isDeletePending) {
-                    isDeletePending = true; Object.assign(cardObj.btnDel.style, { color: "#fff", background: "#dc3545", borderRadius: "4px", padding: "2px" }); cardObj.btnDel.title = "Click again to confirm deletion";
+                    isDeletePending = true; 
+                    Object.assign(cardObj.btnDel.style, { 
+                        color: "#fff", 
+                        background: "#dc3545", 
+                        borderRadius: "4px", 
+                        padding: "2px", 
+                        transform: "scale(1.2)" 
+                    }); 
+                    cardObj.btnDel.title = "Click again to confirm deletion";
                     deleteTimeout = setTimeout(resetDeleteBtn, 1000);
                 } else {
-                    resetDeleteBtn(); promptStates.delete(state.pid); await api.fetchApi("/history", { method: "POST", body: JSON.stringify({ delete: [state.pid] }) }); renderDOM();
+                    resetDeleteBtn(); 
+                    promptStates.delete(state.pid); 
+                    await api.fetchApi("/history", { method: "POST", body: JSON.stringify({ delete: [state.pid] }) }); 
+                    renderDOM();
                 }
             };
 
