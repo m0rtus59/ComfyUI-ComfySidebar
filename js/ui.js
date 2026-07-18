@@ -605,7 +605,7 @@ export function renderDOM() {
 
                     const btnFocus = document.createElement("span");
                     btnFocus.className = "pi pi-eye";
-                    btnFocus.title = "Focus Node";
+                    btnFocus.title = "Show Node";
                     styleActionBtn(btnFocus);
                     leftHoverPanel.appendChild(btnFocus);
 

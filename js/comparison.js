@@ -5,6 +5,9 @@ let activeComparisonViewer = null;
 let videoSyncActive = false;
 let syncAnimationFrameId = null;
 
+// Track the global keydown reference across instances defensively
+let globalKeydownHandler = null;
+
 const createMediaElement = (src, muted = false) => {
     const isVideo = isVideoFormat(src);
     const el = isVideo ? document.createElement("video") : document.createElement("img");
@@ -13,7 +16,7 @@ const createMediaElement = (src, muted = false) => {
         el.playsInline = true;
         el.autoplay = true;
         el.loop = true;
-        el.controls = false; // Disable native controls to prevent layout shifts
+        el.controls = false; 
     }
     Object.assign(el.style, {
         gridArea: "1 / 1", maxWidth: "100%", maxHeight: "80vh",
@@ -23,7 +26,6 @@ const createMediaElement = (src, muted = false) => {
     return el;
 };
 
-// Video Playback Manager: Binds timeline progress bar, timeline scrubbing, and play/pause triggers
 const setupVideoPlayback = (vid, container) => {
     if (!vid) return;
 
@@ -33,10 +35,9 @@ const setupVideoPlayback = (vid, container) => {
     vid.addEventListener("loadedmetadata", onMetaLoaded);
     if (vid.readyState >= 1) onMetaLoaded();
 
-    // Synced Scrubber Progress Bar Overlay
     const controlBar = document.createElement("div");
     Object.assign(controlBar.style, {
-        position: "absolute", bottom: "16px", left: "50%", transform: "translateX(-50%)",
+        position: "absolute", bottom: "16px", left: "50%",
         display: "flex", alignItems: "center", gap: "12px", background: "rgba(10,10,10,0.85)",
         padding: "8px 16px", borderRadius: "8px", zIndex: "40", fontSize: "11px",
         fontFamily: "monospace", color: "#eee", width: "80%", maxWidth: "500px",
@@ -102,7 +103,6 @@ const setupVideoPlayback = (vid, container) => {
     const syncLoop = () => {
         if (!videoSyncActive) return;
 
-        // Update progress & labels
         const cur = vid.currentTime || 0;
         const dur = vid.duration || 0;
         if (dur > 0) {
@@ -115,9 +115,7 @@ const setupVideoPlayback = (vid, container) => {
             timeLabel.textContent = `${formatTime(cur)} / ${formatTime(dur)}`;
         }
 
-        // Dynamically match play button in case video loops
         playBtn.className = vid.paused ? "pi pi-play" : "pi pi-pause";
-
         syncAnimationFrameId = requestAnimationFrame(syncLoop);
     };
     requestAnimationFrame(syncLoop);
@@ -133,14 +131,16 @@ const setupVideoPlayback = (vid, container) => {
 };
 
 function createComparisonViewer(baseSrc) {
-    const isBaseVideo = isVideoFormat(baseSrc);
+    // DEFENSIVE CHECK: Force-remove any globally orphaned keydown handlers before binding a new one
+    if (globalKeydownHandler) {
+        document.removeEventListener("keydown", globalKeydownHandler);
+        globalKeydownHandler = null;
+    }
 
-    // Mount the viewer overlay container directly inside ComfyUI's canvas parent.
-    // This allows menus/sidebars outside the canvas area to naturally render on top.
+    const isBaseVideo = isVideoFormat(baseSrc);
     const canvasEl = document.querySelector("#graph-canvas, canvas");
     const targetContainer = canvasEl ? canvasEl.parentNode : document.body;
 
-    // Ensure the canvas container is positioned relatively so our overlay stretches accurately
     if (targetContainer && targetContainer !== document.body) {
         targetContainer.style.position = "relative";
     }
@@ -151,7 +151,7 @@ function createComparisonViewer(baseSrc) {
         position: "absolute", top: "0", left: "0", width: "100%", height: "100%",
         background: "rgba(10, 10, 10, 0.95)", display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: "center",
-        zIndex: "10", // Above base LGraph grid but strictly below other UI components
+        zIndex: "10", 
         pointerEvents: "auto", userSelect: "none", "-webkit-user-select": "none"
     });
 
@@ -168,7 +168,6 @@ function createComparisonViewer(baseSrc) {
     header.appendChild(infoText);
     container.appendChild(header);
 
-    // Close button
     const closeBtn = document.createElement("span");
     closeBtn.className = "pi pi-times";
     closeBtn.title = "Close Comparison (Esc)";
@@ -180,7 +179,6 @@ function createComparisonViewer(baseSrc) {
     closeBtn.onmouseleave = () => closeBtn.style.color = "#aaa";
     container.appendChild(closeBtn);
 
-    // Workspace wrapper holding both elements aligned pixel-perfectly
     const wrapper = document.createElement("div");
     Object.assign(wrapper.style, {
         position: "relative", display: "grid", placeItems: "center",
@@ -188,21 +186,17 @@ function createComparisonViewer(baseSrc) {
     });
     container.appendChild(wrapper);
 
-    // Close strictly on clicking empty background space of the overlay backdrop
     container.onclick = (e) => {
         if (e.target === container) {
             destroy();
         }
     };
 
-    // Media A (Base reference - Left. Created unmuted to enable audio playback)
     let mediaA = createMediaElement(baseSrc, false);
     wrapper.appendChild(mediaA);
 
-    // Media B (Comparison target - Right)
     let mediaB = null;
 
-    // Draggable Split Slider Handle
     const slider = document.createElement("div");
     Object.assign(slider.style, {
         position: "absolute", top: "0", bottom: "0", left: "50%",
@@ -223,7 +217,7 @@ function createComparisonViewer(baseSrc) {
     slider.appendChild(sliderButton);
     wrapper.appendChild(slider);
 
-    let splitRatio = 50; // Percentage
+    let splitRatio = 50; 
     let isDragging = false;
     let destroyVideoPlaybackFn = null;
 
@@ -231,7 +225,6 @@ function createComparisonViewer(baseSrc) {
         splitRatio = Math.max(0, Math.min(100, percent));
         slider.style.left = `${splitRatio}%`;
         if (mediaB) {
-            // Symmetrical split comparison layout: Image A on Left, Image B on Right
             mediaB.style.clipPath = `polygon(${splitRatio}% 0, 100% 0, 100% 100%, ${splitRatio}% 100%)`;
         }
     };
@@ -241,7 +234,6 @@ function createComparisonViewer(baseSrc) {
         e.stopPropagation();
         isDragging = true; 
         
-        // Symmetrical Click Teleportation: Snaps split-line directly to mouse coordinates
         const rect = wrapper.getBoundingClientRect();
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const percent = ((clientX - rect.left) / rect.width) * 100;
@@ -256,7 +248,6 @@ function createComparisonViewer(baseSrc) {
     };
     const endDrag = () => { isDragging = false; };
 
-    // Allows dragging/clicking from any region of the wrapper
     wrapper.addEventListener("mousedown", startDrag);
     wrapper.addEventListener("touchstart", startDrag);
     
@@ -270,7 +261,11 @@ function createComparisonViewer(baseSrc) {
         window.removeEventListener("touchmove", doDrag);
         window.removeEventListener("mouseup", endDrag);
         window.removeEventListener("touchend", endDrag);
-        document.removeEventListener("keydown", handleKeys);
+        
+        if (globalKeydownHandler) {
+            document.removeEventListener("keydown", globalKeydownHandler);
+            globalKeydownHandler = null;
+        }
         
         videoSyncActive = false;
         if (syncAnimationFrameId) cancelAnimationFrame(syncAnimationFrameId);
@@ -289,11 +284,13 @@ function createComparisonViewer(baseSrc) {
             updateSliderPosition(splitRatio > 50 ? 0 : 100);
         }
     };
-    document.addEventListener("keydown", handleKeys);
+    
+    // Assign to our module-scoped tracker and register
+    globalKeydownHandler = handleKeys;
+    document.addEventListener("keydown", globalKeydownHandler);
 
     targetContainer.appendChild(container);
 
-    // Initialize single-video playbacks if the base output is an MP4
     if (isBaseVideo) {
         destroyVideoPlaybackFn = setupVideoPlayback(mediaA, container);
     }
@@ -303,13 +300,11 @@ function createComparisonViewer(baseSrc) {
             const isTargetVideo = isVideoFormat(targetSrc);
 
             if (isBaseVideo) {
-                // If in Video Playback Mode: clicking another item replaces the player or opens image comparison
                 destroy();
                 showFullscreenPreview([targetSrc]);
                 return;
             }
 
-            // If in Image Comparison Mode: ignore video targets ("images compare only to other images")
             if (isTargetVideo) {
                 return;
             }
@@ -330,12 +325,10 @@ function createComparisonViewer(baseSrc) {
 export function showFullscreenPreview(imgSrcs) {
     if (!imgSrcs || imgSrcs.length === 0) return;
     
-    // If the comparison overlay is already open, dynamically load the target
     if (activeComparisonViewer) {
         activeComparisonViewer.loadTarget(imgSrcs[0]);
         return;
     }
 
-    // Otherwise, open a fresh side-by-side comparison workspace
     activeComparisonViewer = createComparisonViewer(imgSrcs[0]);
 }
