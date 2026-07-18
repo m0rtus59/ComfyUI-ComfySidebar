@@ -85,7 +85,7 @@ export const findStandardQueueButton = () => {
 };
 
 export const applySidebarOverride = () => {
-    const overrideStock = app.ui.settings.getSettingValue("Comfy Sidebar.Hide Sidebar Tabs.Override Stock Job History Tab") ?? false;
+    const overrideStock = app.ui.settings.getSettingValue("Comfy Sidebar.Hide Junk.Override Stock Job History Tab") ?? false;
     const stdBtn = findStandardQueueButton();
     const ourBtn = findOurSidebarButton();
     
@@ -326,24 +326,31 @@ export function renderDOM() {
                 card.addEventListener("mouseleave", () => cardObj.hoverPanel.style.display = "none");
                 
                 card.addEventListener("dragstart", (e) => {
-                    if (cardObj.firstImgElement) e.dataTransfer.setDragImage(cardObj.firstImgElement, 15, 15);
-                    if (state.images && state.images[0]) {
-                        State.currentDraggedImgData = { ...state.images[0], workflow: state.workflow };
-                        const img = state.images[0];
-                        const fileUrl = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder)}`;
-                        try { e.dataTransfer.setData("DownloadURL", `image/png:${img.filename || "output.png"}:${fileUrl}`); e.dataTransfer.setData("text/uri-list", fileUrl); e.dataTransfer.setData("text/plain", fileUrl); e.dataTransfer.items.add(new File([""], img.filename || "output.png", { type: "image/png" })); } catch (err) {}
-                    } else if (state.workflow) {
-                        State.currentDraggedImgData = { workflow: state.workflow };
+                    // Custom dragstart is only used for JSON-only workflows to supply a local DownloadURL.
+                    // For image cards, dragging is handled natively by the browser on the child <img> tag.
+                    if (state.workflow && (!state.images || state.images.length === 0)) {
+                        if (cardObj.firstImgElement) e.dataTransfer.setDragImage(cardObj.firstImgElement, 15, 15);
                         const jsonStr = JSON.stringify(state.workflow, null, 2);
-                        try { e.dataTransfer.setData("DownloadURL", `application/json:workflow_${state.pid}.json:data:application/json;base64,` + btoa(unescape(encodeURIComponent(jsonStr)))); e.dataTransfer.setData("text/plain", jsonStr); e.dataTransfer.setData("application/json", jsonStr); } catch (err) {}
+                        try { 
+                            e.dataTransfer.setData("DownloadURL", `application/json:workflow_${state.pid}.json:data:application/json;base64,` + btoa(unescape(encodeURIComponent(jsonStr)))); 
+                            e.dataTransfer.setData("text/plain", jsonStr); 
+                            e.dataTransfer.setData("application/json", jsonStr); 
+                        } catch (err) {}
+                        e.dataTransfer.effectAllowed = "copy";
                     }
-                    e.dataTransfer.effectAllowed = "copy";
                 });
                 cardElements.set(state.pid, cardObj);
             }
 
             cardObj.element.className = `comfy-sidebar-card ${state.status}`;
-            cardObj.element.setAttribute("draggable", "true");
+            
+            // Native drag isolation: completely remove draggable flags on image containers.
+            // This exposes the child <img> tag directly to Chrome's native filesystem drag APIs.
+            if (state.images && state.images.length > 0) {
+                cardObj.element.removeAttribute("draggable");
+            } else {
+                cardObj.element.setAttribute("draggable", "true");
+            }
 
             if (state.status === "active") {
                 cardObj.timerEl.textContent = state.startTime ? ((Date.now() - state.startTime) / 1000).toFixed(2) + "s" : "...";
@@ -430,7 +437,7 @@ export function renderDOM() {
                     let canReuse = cardObj.grid.children.length === state.images.length;
                     if (canReuse) {
                         state.images.forEach((img, idx) => {
-                            const src = img.url ? img.url : `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder)}`;
+                            const src = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder)}`;
                             const wrapper = cardObj.grid.children[idx];
                             // Fallback in case the DOM still has old unwrapped elements
                             const mediaEl = (wrapper.tagName === "IMG" || wrapper.tagName === "VIDEO") ? wrapper : wrapper.querySelector("img, video");
@@ -440,7 +447,7 @@ export function renderDOM() {
 
                     if (canReuse) {
                         state.images.forEach((img, idx) => {
-                            let src = img.url ? img.url : `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder)}`;
+                            let src = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder)}`;
                             const isVideo = isVideoFormat(src);
                             if (isVideo) src = src + "#t=0.001"; // Keep the first-frame trick on update
 
@@ -464,7 +471,7 @@ export function renderDOM() {
                     } else {
                         cardObj.grid.innerHTML = ""; cardObj.firstImgElement = null;
                         state.images.forEach(img => {
-                            const src = img.url ? img.url : `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder)}`;
+                            const src = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder)}`;
                             const isVideo = isVideoFormat(src);
                             
                             // Container to hold both the media and the play icon
@@ -472,7 +479,15 @@ export function renderDOM() {
                             Object.assign(wrapper.style, { position: "relative", width: "100%", display: "block" });
 
                             const thumb = isVideo ? document.createElement("video") : document.createElement("img");
-                            Object.assign(thumb.style, { width: "100%", borderRadius: "2px", display: "block", cursor: "zoom-in" });
+                            
+                            // Fully-qualified absolute same-origin HTTP URLs mapped alongside webkitUserDrag force flags
+                            Object.assign(thumb.style, { 
+                                width: "100%", 
+                                borderRadius: "2px", 
+                                display: "block", 
+                                cursor: "zoom-in",
+                                webkitUserDrag: "element"
+                            });
                             
                             if (isVideo) { 
                                 thumb.muted = true; 
@@ -503,7 +518,13 @@ export function renderDOM() {
                             }
                             
                             if (!keepAspect) { thumb.style.aspectRatio = "1 / 1"; thumb.style.objectFit = "cover"; }
-                            thumb.setAttribute("draggable", "false"); 
+                            
+                            // Keep native image tags naturally draggable
+                            if (!isVideo) {
+                                thumb.setAttribute("draggable", "true");
+                            } else {
+                                thumb.setAttribute("draggable", "false");
+                            }
                             
                             if (!isVideo) {
                                 thumb.onload = () => { if (keepAspect && thumb.naturalWidth && thumb.naturalHeight) thumb.style.aspectRatio = `${thumb.naturalWidth} / ${thumb.naturalHeight}`; };
@@ -512,7 +533,10 @@ export function renderDOM() {
                                 thumb.onloadedmetadata = () => { if (keepAspect && thumb.videoWidth && thumb.videoHeight) thumb.style.aspectRatio = `${thumb.videoWidth} / ${thumb.videoHeight}`; }; 
                                 thumb.src = src + "#t=0.001";
                             }
-                            thumb.onclick = (ev) => { ev.stopPropagation(); showFullscreenPreview(state.images.map(i => i.url ? i.url : `/view?filename=${encodeURIComponent(i.filename)}&type=${i.type}&subfolder=${encodeURIComponent(i.subfolder)}`)); };
+                            thumb.onclick = (ev) => { 
+                                ev.stopPropagation(); 
+                                showFullscreenPreview(state.images.map(i => i.url ? i.url : window.location.origin + `/view?filename=${encodeURIComponent(i.filename)}&type=${encodeURIComponent(i.type || 'output')}&subfolder=${encodeURIComponent(i.subfolder || '')}`)); 
+                            };
                             
                             wrapper.insertBefore(thumb, wrapper.firstChild);
                             if (!cardObj.firstImgElement) cardObj.firstImgElement = thumb;

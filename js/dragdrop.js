@@ -1,5 +1,4 @@
 import { app } from "/scripts/app.js";
-import { State } from "./state.js";
 
 async function uploadDroppedImageToInput(imageObj) {
     const src = `/view?filename=${encodeURIComponent(imageObj.filename)}&type=${imageObj.type || 'output'}&subfolder=${encodeURIComponent(imageObj.subfolder || '')}`;
@@ -22,72 +21,83 @@ async function uploadDroppedImageToInput(imageObj) {
 
 export function setupDragAndDrop() {
     document.addEventListener("dragover", (e) => {
-        if (State.currentDraggedImgData) {
-            e.preventDefault(); 
-            e.dataTransfer.dropEffect = "copy";
-        }
+        e.preventDefault(); 
+        e.dataTransfer.dropEffect = "copy";
     });
 
     document.addEventListener("drop", async (e) => {
-        if (!State.currentDraggedImgData) return;
-        
         const canvas = app.canvas;
-        if (canvas && canvas.graph) {
-            let targetNode = null;
-            if (canvas.convertEventToCanvasOffset) {
-                const pos = canvas.convertEventToCanvasOffset(e);
-                targetNode = canvas.graph.getNodeOnPos(pos[0], pos[1]);
-            } else {
-                const rect = canvas.canvas.getBoundingClientRect();
-                targetNode = canvas.graph.getNodeOnPos((e.clientX - rect.left - canvas.ds.offset[0]) / canvas.ds.scale, (e.clientY - rect.top - canvas.ds.offset[1]) / canvas.ds.scale);
-            }
+        if (!canvas || !canvas.graph) return;
 
-            let droppedOnImageNode = false;
-
-            if (targetNode && (targetNode.type.includes("LoadImage") || targetNode.widgets?.some(w => w.name === "image"))) {
-                if (State.currentDraggedImgData.filename) {
+        // 1. Check for standard workflow JSON data drop
+        const jsonStr = e.dataTransfer.getData("application/json") || e.dataTransfer.getData("text/plain");
+        if (jsonStr) {
+            try {
+                const workflow = JSON.parse(jsonStr);
+                if (workflow && workflow.nodes) {
                     e.preventDefault();
                     e.stopPropagation();
-                    droppedOnImageNode = true;
-                    const widget = targetNode.widgets.find(w => w.name === "image");
-                    if (widget) {
-                        const newFilename = await uploadDroppedImageToInput(State.currentDraggedImgData);
-                        if (newFilename) {
-                            widget.value = newFilename;
-                            if (widget.callback) widget.callback(widget.value);
-                            targetNode.imgs = null;
-                            app.graph.setDirtyCanvas(true, true);
+                    if (app.loadGraphData) {
+                        app.loadGraphData(workflow);
+                    } else if (app.handleFile) {
+                        const file = new File([jsonStr], "workflow.json", { type: "application/json" });
+                        await app.handleFile(file);
+                    }
+                    return;
+                }
+            } catch (err) {}
+        }
+
+        // 2. Check for native image URL drop
+        const url = e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain");
+        if (url) {
+            try {
+                const urlObj = new URL(url, window.location.origin);
+                if (urlObj.pathname === "/view") {
+                    const filename = urlObj.searchParams.get("filename");
+                    const type = urlObj.searchParams.get("type") || "output";
+                    const subfolder = urlObj.searchParams.get("subfolder") || "";
+
+                    if (filename) {
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        let targetNode = null;
+                        if (canvas.convertEventToCanvasOffset) {
+                            const pos = canvas.convertEventToCanvasOffset(e);
+                            targetNode = canvas.graph.getNodeOnPos(pos[0], pos[1]);
+                        } else {
+                            const rect = canvas.canvas.getBoundingClientRect();
+                            targetNode = canvas.graph.getNodeOnPos((e.clientX - rect.left - canvas.ds.offset[0]) / canvas.ds.scale, (e.clientY - rect.top - canvas.ds.offset[1]) / canvas.ds.scale);
+                        }
+
+                        if (targetNode && (targetNode.type.includes("LoadImage") || targetNode.widgets?.some(w => w.name === "image"))) {
+                            // Dropped on a node with image input: Copy/Upload image to inputs
+                            const widget = targetNode.widgets.find(w => w.name === "image");
+                            if (widget) {
+                                const newFilename = await uploadDroppedImageToInput({ filename, type, subfolder });
+                                if (newFilename) {
+                                    widget.value = newFilename;
+                                    if (widget.callback) widget.callback(widget.value);
+                                    targetNode.imgs = null;
+                                    app.graph.setDirtyCanvas(true, true);
+                                }
+                            }
+                        } else {
+                            // Dropped on empty canvas: Load workflow natively
+                            const src = `/view?filename=${encodeURIComponent(filename)}&type=${type}&subfolder=${encodeURIComponent(subfolder)}`;
+                            const res = await fetch(src);
+                            const blob = await res.blob();
+                            const file = new File([blob], filename || "workflow.png", { type: blob.type });
+
+                            if (app.handleFile) await app.handleFile(file);
+                            else if (app.canvas?.handleDropItem) app.canvas.handleDropItem({ getAsFile: () => file });
                         }
                     }
                 }
-            }
-
-            if (!droppedOnImageNode) {
-                e.preventDefault();
-                e.stopPropagation();
-                try {
-                    if (State.currentDraggedImgData.workflow) {
-                        if (app.loadGraphData) {
-                            app.loadGraphData(State.currentDraggedImgData.workflow);
-                        } else if (app.handleFile) {
-                            const jsonStr = JSON.stringify(State.currentDraggedImgData.workflow);
-                            const file = new File([jsonStr], "workflow.json", { type: "application/json" });
-                            await app.handleFile(file);
-                        }
-                    } else if (State.currentDraggedImgData.filename) {
-                        const src = State.currentDraggedImgData.url || `/view?filename=${encodeURIComponent(State.currentDraggedImgData.filename)}&type=${State.currentDraggedImgData.type || 'output'}&subfolder=${encodeURIComponent(State.currentDraggedImgData.subfolder || '')}`;
-                        const res = await fetch(src);
-                        const blob = await res.blob();
-                        const file = new File([blob], State.currentDraggedImgData.filename || "workflow.png", { type: blob.type });
-
-                        if (app.handleFile) await app.handleFile(file);
-                        else if (app.canvas?.handleDropItem) app.canvas.handleDropItem({ getAsFile: () => file });
-                    }
-                } catch (err) {
-                    console.error("Comfy Sidebar: Failed to synthesize workflow file drop:", err);
-                }
+            } catch (err) {
+                console.error("Comfy Sidebar: Failed to handle dropped native URL:", err);
             }
         }
-        State.currentDraggedImgData = null;
     }, true);
 }

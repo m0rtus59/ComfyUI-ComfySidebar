@@ -3,7 +3,6 @@ export const cardElements = new Map();
 
 // Global shared variables
 export const State = {
-    currentDraggedImgData: null,
     currentSearchQuery: "",
     globalOrderCounter: 0,
     sidebarContainer: null,

@@ -17,20 +17,6 @@ app.registerExtension({
         app.ui.settings.addSetting({ id: "Comfy Sidebar.Show Working Node Name", name: "Shows the name of the node which is currently in the process", type: "boolean", defaultValue: true });
         app.ui.settings.addSetting({ id: "Comfy Sidebar.Auto Clear Interrupted", name: "Auto-clear cancelled & failed jobs on new generation", type: "boolean", defaultValue: false });
 
-        // --- THE "MOON PROOF" MONKEYPATCH ---
-        // Intercepts ui.js reading the old settings group so we don't get flashing buttons
-        const originalGetSetting = app.ui.settings.getSettingValue;
-        if (originalGetSetting && !originalGetSetting.__patchedBySilver) {
-            const patchedGetter = function(id) {
-                if (id === "Comfy Sidebar.Hide Sidebar Tabs.Override Stock Job History Tab") {
-                    return originalGetSetting.call(app.ui.settings, "Comfy Sidebar.Hide Junk.Override Stock Job History Tab");
-                }
-                return originalGetSetting.call(app.ui.settings, id);
-            };
-            patchedGetter.__patchedBySilver = true;
-            app.ui.settings.getSettingValue = patchedGetter;
-        }
-
         // Add settings to hide individual sidebar tabs under the "Hide Junk" sub-category
         // We use setTimeout to let Comfy finish writing the setting value before reading it
         const sidebarTabs = ["Assets", "Nodes", "Models", "Workflows", "Apps", "NodesMap", "Templates"];
