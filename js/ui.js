@@ -253,198 +253,196 @@ function renderCardImages(cardObj, state, keepAspect) {
     if (!img) {
         cardObj.grid.innerHTML = "";
         cardObj.firstImgElement = null;
+        if (cardObj.dimEl) cardObj.dimEl.style.display = "none";
         return;
     }
 
     const src = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}`;
     const isVideo = isVideoFormat(src);
 
-    const currentMediaEl = cardObj.grid.querySelector("img, video");
-    const matchesTagType = currentMediaEl && (isVideo === (currentMediaEl.tagName.toLowerCase() === "video"));
-
-    if (matchesTagType) {
-        // --- IN-PLACE REUSE PATH ---
-        const mediaEl = currentMediaEl;
-
-        // 1. Update interactive event listeners on reuse to bind correct closure variables
-        mediaEl.onclick = (ev) => { 
-            ev.stopPropagation(); 
-            showFullscreenPreview([src]); 
-        };
-
-        if (!isVideo) {
-            // Re-bind native drag handlers with updated state values
-            const newDragStart = (e) => {
-                State.currentDraggedImgData = { ...img, workflow: state.workflow };
-                try {
-                    e.dataTransfer.setData("text/uri-list", src);
-                    e.dataTransfer.setData("text/plain", src);
-                } catch (err) {}
-                e.dataTransfer.effectAllowed = "copy";
-                e.stopPropagation();
-            };
-            mediaEl.removeEventListener("dragstart", mediaEl._currentDragStart);
-            mediaEl.addEventListener("dragstart", newDragStart);
-            mediaEl._currentDragStart = newDragStart;
-        }
-
-        // 2. Perform smooth in-memory source swapping for blob live previews
-        const currentSrc = mediaEl.getAttribute("src") || mediaEl.src;
-        if (currentSrc !== src && currentSrc !== (currentSrc + "#t=0.001")) {
-            if (src.startsWith("blob:") && !isVideo) {
-                // Smooth preload trick: hold current preview until the new one is fully loaded
-                const tempImg = new Image();
-                tempImg.onload = () => {
-                    const oldBlob = mediaEl._lastBlob;
-                    mediaEl.src = src;
-                    mediaEl._lastBlob = src;
-                    
-                    if (keepAspect && tempImg.naturalWidth && tempImg.naturalHeight) {
-                        mediaEl.style.aspectRatio = `${tempImg.naturalWidth} / ${tempImg.naturalHeight}`;
-                    }
-                    if (cardObj.dimEl && tempImg.naturalWidth && tempImg.naturalHeight) {
-                        cardObj.dimEl.textContent = `${tempImg.naturalWidth}x${tempImg.naturalHeight}`;
-                        cardObj.dimEl.style.display = "block";
-                    }
-
-                    if (oldBlob && oldBlob !== src) {
-                        try { URL.revokeObjectURL(oldBlob); } catch(e){}
-                    }
-                };
-                tempImg.src = src;
-            } else {
-                // Direct fast swap for standard server files
-                mediaEl.src = isVideo ? src + "#t=0.001" : src;
-            }
-        }
-
-        // 3. Update the pagination label if it exists
-        const label = cardObj.grid.querySelector(".comfy-sidebar-batch-label");
-        if (label) {
-            label.textContent = `${idx + 1}/${state.images.length}`;
-        }
-        return;
+    // Find or create the native wrapper
+    let wrapper = cardObj.grid.querySelector(".comfy-sidebar-media-wrapper");
+    if (!wrapper) {
+        cardObj.grid.innerHTML = "";
+        wrapper = document.createElement("div");
+        wrapper.className = "comfy-sidebar-media-wrapper";
+        Object.assign(wrapper.style, { position: "relative", width: "100%", display: "block" });
+        cardObj.grid.appendChild(wrapper);
     }
 
-    // --- REBUILD PATH (ONLY RUNS ON TYPE CHANGE OR FIRST RENDER) ---
-    cardObj.grid.innerHTML = "";
-    cardObj.firstImgElement = null;
+    // Find or create the media tag in-place
+    let mediaEl = wrapper.querySelector("img, video");
+    const needsRebuild = !mediaEl || (isVideo !== (mediaEl.tagName.toLowerCase() === "video"));
 
-    const wrapper = document.createElement("div");
-    Object.assign(wrapper.style, { position: "relative", width: "100%", display: "block" });
+    if (needsRebuild) {
+        if (mediaEl) mediaEl.remove();
+        mediaEl = isVideo ? document.createElement("video") : document.createElement("img");
+        Object.assign(mediaEl.style, { 
+            width: "100%", 
+            borderRadius: "2px", 
+            display: "block", 
+            cursor: "zoom-in",
+            webkitUserDrag: "element",
+            zIndex: "1"
+        });
+        wrapper.insertBefore(mediaEl, wrapper.firstChild);
+    }
 
-    const thumb = isVideo ? document.createElement("video") : document.createElement("img");
-    
-    // Explicit low stacking index combined with standard native webkit dragging force rules
-    Object.assign(thumb.style, { 
-        width: "100%", 
-        borderRadius: "2px", 
-        display: "block", 
-        cursor: "zoom-in",
-        webkitUserDrag: "element",
-        zIndex: "1"
-    });
+    cardObj.firstImgElement = mediaEl;
+
+    // Binds interactive event listeners
+    mediaEl.onclick = (ev) => { 
+        ev.stopPropagation(); 
+        showFullscreenPreview(state.images.map(i => i.url ? i.url : window.location.origin + `/view?filename=${encodeURIComponent(i.filename)}&type=${encodeURIComponent(i.type || 'output')}&subfolder=${encodeURIComponent(i.subfolder || '')}`)); 
+    };
+
+    // Shared dimensions layout compiler
+    const applyDimensions = (width, height) => {
+        if (keepAspect && width && height) {
+            mediaEl.style.aspectRatio = `${width} / ${height}`;
+        }
+        if (cardObj.dimEl && width && height) {
+            cardObj.dimEl.textContent = `${width}x${height}`;
+            cardObj.dimEl.style.display = "block";
+        }
+    };
 
     if (isVideo) { 
-        thumb.muted = true; 
-        thumb.playsInline = true; 
-        thumb.preload = "metadata";
-        thumb.loop = true;
+        mediaEl.muted = true; 
+        mediaEl.playsInline = true; 
+        mediaEl.preload = "metadata";
+        mediaEl.loop = true;
+        mediaEl.setAttribute("draggable", "false");
+
+        mediaEl.onloadedmetadata = () => {
+            applyDimensions(mediaEl.videoWidth, mediaEl.videoHeight);
+        };
         
-        const playIcon = document.createElement("div");
-        Object.assign(playIcon.style, {
-            position: "absolute", top: "0", left: "0", width: "100%", height: "100%",
-            pointerEvents: "none", zIndex: "2", transition: "opacity 0.2s ease"
-        });
-        
-        playIcon.innerHTML = `
-            <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" style="width: 100%; height: 100%; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));">
-                <circle cx="50" cy="50" r="16.65" fill="rgba(0, 0, 0, 0.55)" />
-                <polygon points="45.7,42.5 45.7,57.5 58.7,50" fill="rgba(255, 255, 255, 0.9)" />
-            </svg>
-        `;
-        wrapper.appendChild(playIcon);
+        let playIcon = wrapper.querySelector(".comfy-sidebar-play-icon");
+        if (!playIcon) {
+            playIcon = document.createElement("div");
+            playIcon.className = "comfy-sidebar-play-icon";
+            Object.assign(playIcon.style, {
+                position: "absolute", top: "0", left: "0", width: "100%", height: "100%",
+                pointerEvents: "none", zIndex: "2", transition: "opacity 0.2s ease"
+            });
+            playIcon.innerHTML = `
+                <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" style="width: 100%; height: 100%; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));">
+                    <circle cx="50" cy="50" r="16.65" fill="rgba(0, 0, 0, 0.55)" />
+                    <polygon points="45.7,42.5 45.7,57.5 58.7,50" fill="rgba(255, 255, 255, 0.9)" />
+                </svg>
+            `;
+            wrapper.appendChild(playIcon);
+        }
 
-        thumb.onmouseenter = () => { playIcon.style.opacity = "0"; thumb.play().catch(()=>{}); };
-        thumb.onmouseleave = () => { playIcon.style.opacity = "1"; thumb.pause(); };
-    }
-    
-    if (!keepAspect) { thumb.style.aspectRatio = "1 / 1"; thumb.style.objectFit = "cover"; }
-    
-    // Keep native image tags naturally draggable
-    if (!isVideo) {
-        thumb.setAttribute("draggable", "true");
+        mediaEl.onmouseenter = () => { playIcon.style.opacity = "0"; mediaEl.play().catch(()=>{}); };
+        mediaEl.onmouseleave = () => { playIcon.style.opacity = "1"; mediaEl.pause(); };
     } else {
-        thumb.setAttribute("draggable", "false");
-    }
-    
-    if (!isVideo) {
-        thumb.onload = () => { if (keepAspect && thumb.naturalWidth && thumb.naturalHeight) thumb.style.aspectRatio = `${thumb.naturalWidth} / ${thumb.naturalHeight}`; };
-        if (src.startsWith("blob:")) { const tempImg = new Image(); tempImg.onload = () => { thumb.src = src; thumb._lastBlob = src; }; tempImg.src = src; } else thumb.src = src;
-    } else {
-        thumb.onloadedmetadata = () => { if (keepAspect && thumb.videoWidth && thumb.videoHeight) thumb.style.aspectRatio = `${thumb.videoWidth} / ${thumb.videoHeight}`; }; 
-        thumb.src = src + "#t=0.001";
-    }
-
-    thumb.onclick = (ev) => { 
-        ev.stopPropagation(); 
-        showFullscreenPreview([src]); 
-    };
-    
-    wrapper.insertBefore(thumb, wrapper.firstChild);
-    cardObj.firstImgElement = thumb;
-
-    // Overlay slick pagination controller bar if batch has multiple output images
-    if (state.images.length > 1) {
-        const navBar = document.createElement("div");
-        Object.assign(navBar.style, {
-            position: "absolute", bottom: "6px", left: "50%", transform: "translateX(-50%)",
-            display: "flex", alignItems: "center", gap: "8px", background: "rgba(0,0,0,0.75)",
-            padding: "4px 10px", borderRadius: "12px", zIndex: "15", fontSize: "10px",
-            fontFamily: "monospace", color: "#eee", userSelect: "none", pointerEvents: "auto",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.4)", transform: "translate3d(-50%, 0, 0)" // Forces a GPU compositor stacking context to prevent video clipping
-        });
-
-        const prevBtn = document.createElement("span");
-        prevBtn.className = "pi pi-chevron-left";
-        prevBtn.style.cursor = "pointer";
-        prevBtn.onclick = (ev) => {
-            ev.stopPropagation();
-            cardObj.currentImageIndex = (cardObj.currentImageIndex - 1 + state.images.length) % state.images.length;
-            renderCardImages(cardObj, state, keepAspect);
+        mediaEl.setAttribute("draggable", "true");
+        mediaEl.onload = () => { 
+            applyDimensions(mediaEl.naturalWidth, mediaEl.naturalHeight);
         };
 
-        const label = document.createElement("span");
-        label.className = "comfy-sidebar-batch-label";
-        label.textContent = `${idx + 1}/${state.images.length}`;
-        label.style.cursor = "pointer";
-        label.title = "View all images in this batch";
-        
-        // Open the dynamic batch explorer explorer view when the middle counter label is clicked
-        label.onclick = (ev) => {
-            ev.stopPropagation();
-            State.activeSubmenuBatchImages = {
-                pid: state.pid || cardObj.element.id.replace("card-", ""),
-                images: state.images,
-                workflow: state.workflow
+        const playIcon = wrapper.querySelector(".comfy-sidebar-play-icon");
+        if (playIcon) playIcon.remove();
+
+        const dragStartHandler = (e) => {
+            State.currentDraggedImgData = { ...img, workflow: state.workflow };
+            try {
+                e.dataTransfer.setData("text/uri-list", src);
+                e.dataTransfer.setData("text/plain", src);
+            } catch (err) {}
+            e.dataTransfer.effectAllowed = "copy";
+            e.stopPropagation();
+        };
+        mediaEl.removeEventListener("dragstart", mediaEl._currentDragStart);
+        mediaEl.addEventListener("dragstart", dragStartHandler);
+        mediaEl._currentDragStart = dragStartHandler;
+    }
+
+    // Smooth in-memory source swapping for blob live previews
+    const currentSrc = mediaEl.getAttribute("src") || mediaEl.src;
+    if (currentSrc !== src && currentSrc !== (src + "#t=0.001")) {
+        if (src.startsWith("blob:") && !isVideo) {
+            const tempImg = new Image();
+            tempImg.onload = () => {
+                const oldBlob = mediaEl._lastBlob;
+                mediaEl.src = src;
+                mediaEl._lastBlob = src;
+                applyDimensions(tempImg.naturalWidth, tempImg.naturalHeight);
+                if (oldBlob && oldBlob !== src) {
+                    try { URL.revokeObjectURL(oldBlob); } catch(e){}
+                }
             };
-            renderDOM();
-        };
-
-        const nextBtn = document.createElement("span");
-        nextBtn.className = "pi pi-chevron-right";
-        nextBtn.style.cursor = "pointer";
-        nextBtn.onclick = (ev) => {
-            ev.stopPropagation();
-            cardObj.currentImageIndex = (cardObj.currentImageIndex + 1) % state.images.length;
-            renderCardImages(cardObj, state, keepAspect);
-        };
-
-        navBar.append(prevBtn, label, nextBtn);
-        wrapper.appendChild(navBar);
+            tempImg.src = src;
+        } else {
+            mediaEl.src = isVideo ? src + "#t=0.001" : src;
+        }
+    } else {
+        // If the source is already correct, make sure we still force dimensions calculations
+        if (isVideo) {
+            if (mediaEl.videoWidth) applyDimensions(mediaEl.videoWidth, mediaEl.videoHeight);
+        } else {
+            if (mediaEl.naturalWidth) applyDimensions(mediaEl.naturalWidth, mediaEl.naturalHeight);
+        }
     }
 
-    cardObj.grid.appendChild(wrapper);
+    // Sync batch pagination controller overlay
+    let navBar = wrapper.querySelector(".comfy-sidebar-batch-navbar");
+    if (state.images.length > 1) {
+        if (!navBar) {
+            navBar = document.createElement("div");
+            navBar.className = "comfy-sidebar-batch-navbar";
+            Object.assign(navBar.style, {
+                position: "absolute", bottom: "6px", left: "50%",
+                display: "flex", alignItems: "center", gap: "8px", background: "rgba(0,0,0,0.75)",
+                padding: "4px 10px", borderRadius: "12px", zIndex: "15", fontSize: "10px",
+                fontFamily: "monospace", color: "#eee", userSelect: "none", pointerEvents: "auto",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.4)", transform: "translate3d(-50%, 0, 0)"
+            });
+
+            const prevBtn = document.createElement("span");
+            prevBtn.className = "pi pi-chevron-left";
+            prevBtn.style.cursor = "pointer";
+            prevBtn.onclick = (ev) => {
+                ev.stopPropagation();
+                cardObj.currentImageIndex = (cardObj.currentImageIndex - 1 + state.images.length) % state.images.length;
+                renderCardImages(cardObj, state, keepAspect);
+            };
+
+            const label = document.createElement("span");
+            label.className = "comfy-sidebar-batch-label";
+            label.style.cursor = "pointer";
+            label.title = "View all images in this batch";
+            
+            label.onclick = (ev) => {
+                ev.stopPropagation();
+                State.activeSubmenuBatchImages = {
+                    pid: state.pid || cardObj.element.id.replace("card-", ""),
+                    images: state.images,
+                    workflow: state.workflow
+                };
+                renderDOM();
+            };
+
+            const nextBtn = document.createElement("span");
+            nextBtn.className = "pi pi-chevron-right";
+            nextBtn.style.cursor = "pointer";
+            nextBtn.onclick = (ev) => {
+                ev.stopPropagation();
+                cardObj.currentImageIndex = (cardObj.currentImageIndex + 1) % state.images.length;
+                renderCardImages(cardObj, state, keepAspect);
+            };
+
+            navBar.append(prevBtn, label, nextBtn);
+            wrapper.appendChild(navBar);
+        }
+
+        const label = navBar.querySelector(".comfy-sidebar-batch-label");
+        if (label) label.textContent = `${idx + 1}/${state.images.length}`;
+    } else {
+        if (navBar) navBar.remove();
+    }
 }
 
 let globalClickRegistered = false;
@@ -832,6 +830,7 @@ export function renderDOM() {
                         e.dataTransfer.effectAllowed = "copy";
                     }
                 });
+                cardObj.element.id = `card-${state.pid}`; // set ID helper
                 cardElements.set(state.pid, cardObj);
             }
 
