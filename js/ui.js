@@ -8,6 +8,34 @@ import { showFullscreenPreview } from "./comparison.js";
 export let syncQueueFn = async () => {};
 export function setSyncQueue(fn) { syncQueueFn = fn; }
 
+// Resets any stale hover states when transitioning between submenus and the main queue
+function resetAllCardHoverStates() {
+    for (const cardObj of cardElements.values()) {
+        if (cardObj.hoverPanel) cardObj.hoverPanel.style.display = "none";
+        if (cardObj.leftHoverPanel) cardObj.leftHoverPanel.style.display = "none";
+    }
+}
+
+// Traverses node execution metadata to resolve the exact node ID that generated a specific image
+function findNodeIdForImage(state, img) {
+    if (!state || !state.nodeOutputs || !img) return null;
+    for (const nodeId in state.nodeOutputs) {
+        const out = state.nodeOutputs[nodeId];
+        // Safely check both gifs, images, or videos under this specific node
+        for (const key in out) {
+            const val = out[key];
+            if (Array.isArray(val)) {
+                if (val.some(i => i && typeof i === 'object' && i.filename === img.filename)) {
+                    return nodeId;
+                }
+            } else if (val && typeof val === 'object' && val.filename === img.filename) {
+                return nodeId;
+            }
+        }
+    }
+    return null;
+}
+
 export const updateSidebarBadge = (count) => {
     const icons = document.querySelectorAll('.pi-images');
     icons.forEach(icon => {
@@ -216,6 +244,7 @@ export function setupSidebarUI() {
             if (e.target.closest('img, video, .comfy-sidebar-card-timer, .pi-times, .comfy-sidebar-left-hover-btn, .comfy-sidebar-queue-cancel-btn, button, span')) return;
             State.activeSubmenuPromptId = null;
             State.activeSubmenuBatchImages = null;
+            resetAllCardHoverStates(); // Instantly wipe stale hover indicators on exit click
             renderDOM();
             document.removeEventListener("click", handleGlobalClick, true);
             globalClickRegistered = false;
@@ -293,7 +322,7 @@ function renderCardImages(cardObj, state, keepAspect) {
     // Binds interactive event listeners
     mediaEl.onclick = (ev) => { 
         ev.stopPropagation(); 
-        showFullscreenPreview(state.images.map(i => i.url ? i.url : window.location.origin + `/view?filename=${encodeURIComponent(i.filename)}&type=${encodeURIComponent(i.type || 'output')}&subfolder=${encodeURIComponent(i.subfolder || '')}`)); 
+        showFullscreenPreview([src]); 
     };
 
     // Shared dimensions layout compiler
@@ -362,7 +391,7 @@ function renderCardImages(cardObj, state, keepAspect) {
 
     // Smooth in-memory source swapping for blob live previews
     const currentSrc = mediaEl.getAttribute("src") || mediaEl.src;
-    if (currentSrc !== src && currentSrc !== (src + "#t=0.001")) {
+    if (currentSrc !== src && currentSrc !== (currentSrc + "#t=0.001")) {
         if (src.startsWith("blob:") && !isVideo) {
             const tempImg = new Image();
             tempImg.onload = () => {
@@ -412,9 +441,11 @@ function renderCardImages(cardObj, state, keepAspect) {
 
             const label = document.createElement("span");
             label.className = "comfy-sidebar-batch-label";
+            label.textContent = `${idx + 1}/${state.images.length}`;
             label.style.cursor = "pointer";
             label.title = "View all images in this batch";
             
+            // Open the dynamic batch explorer explorer view when the middle counter label is clicked
             label.onclick = (ev) => {
                 ev.stopPropagation();
                 State.activeSubmenuBatchImages = {
@@ -422,6 +453,7 @@ function renderCardImages(cardObj, state, keepAspect) {
                     images: state.images,
                     workflow: state.workflow
                 };
+                resetAllCardHoverStates(); // Prevent ghost hover handles
                 renderDOM();
             };
 
@@ -461,6 +493,7 @@ const handleGlobalClick = (e) => {
     if (!clickedInsideSidebar && !clickedFullscreenOverlay) {
         State.activeSubmenuPromptId = null;
         State.activeSubmenuBatchImages = null;
+        resetAllCardHoverStates(); // Reset stale overlays when clicking away
         renderDOM();
         document.removeEventListener("click", handleGlobalClick, true);
         globalClickRegistered = false;
@@ -479,7 +512,8 @@ export function renderDOM() {
         const headerSearchIcon = State.sidebarContainer.querySelector(".pi-search");
         const headerActions = State.sidebarContainer.querySelector(".pi-eraser")?.parentNode;
 
-        const styleRightBtn = (btn) => {
+        // Shared action buttons styling helper
+        const styleActionBtn = (btn) => {
             Object.assign(btn.style, {
                 display: "inline-flex",
                 alignItems: "center", justifyContent: "center",
@@ -506,7 +540,7 @@ export function renderDOM() {
                 headerTitle.textContent = `Batch of #${batchInfo.pid}`;
                 headerTitle.style.cursor = "pointer";
                 headerTitle.title = "Go Back to Queue";
-                headerTitle.onclick = () => { State.activeSubmenuBatchImages = null; renderDOM(); };
+                headerTitle.onclick = () => { State.activeSubmenuBatchImages = null; resetAllCardHoverStates(); renderDOM(); };
             }
             if (headerSearchIcon) headerSearchIcon.style.display = "none";
             if (headerActions) headerActions.style.display = "none";
@@ -559,18 +593,33 @@ export function renderDOM() {
                     const btnImg = document.createElement("span");
                     btnImg.className = "pi pi-image";
                     btnImg.title = "Download Object";
-                    styleRightBtn(btnImg);
+                    styleActionBtn(btnImg);
                     hoverPanel.appendChild(btnImg);
 
-                    card.append(timerEl, dimEl, grid, p, hoverPanel);
-                    cardObj = { element: card, timerEl, dimEl, grid, placeholder: p, hoverPanel, btnImg, firstImgElement: null };
+                    // Symmetrical left hover panel containing ONLY btnFocus
+                    const leftHoverPanel = document.createElement("div");
+                    Object.assign(leftHoverPanel.style, {
+                        position: "absolute", bottom: "4px", left: "4px", display: "none",
+                        flexDirection: "column", gap: "4px", zIndex: "20"
+                    });
+
+                    const btnFocus = document.createElement("span");
+                    btnFocus.className = "pi pi-eye";
+                    btnFocus.title = "Focus Node";
+                    styleActionBtn(btnFocus);
+                    leftHoverPanel.appendChild(btnFocus);
+
+                    card.append(timerEl, dimEl, grid, p, hoverPanel, leftHoverPanel);
+                    cardObj = { element: card, timerEl, dimEl, grid, placeholder: p, hoverPanel, leftHoverPanel, btnFocus, btnImg, firstImgElement: null };
                     cardElements.set(cardId, cardObj);
 
                     card.addEventListener("mouseenter", () => {
                         cardObj.hoverPanel.style.display = "flex";
+                        cardObj.leftHoverPanel.style.display = "flex";
                     });
                     card.addEventListener("mouseleave", () => {
                         cardObj.hoverPanel.style.display = "none";
+                        cardObj.leftHoverPanel.style.display = "none";
                     });
                 }
 
@@ -584,6 +633,22 @@ export function renderDOM() {
                     a.download = img.filename || "output";
                     a.click();
                 };
+
+                // Focus/center target node inside Batch Explorer Submenu
+                const nodeId = findNodeIdForImage(batchInfo, img);
+                if (nodeId) {
+                    cardObj.btnFocus.style.display = "inline-flex";
+                    cardObj.btnFocus.onclick = (ev) => {
+                        ev.stopPropagation();
+                        const node = app.graph.getNodeById(Number(nodeId));
+                        if (node) {
+                            app.canvas.centerOnNode(node);
+                            app.canvas.selectNode(node);
+                        }
+                    };
+                } else {
+                    cardObj.btnFocus.style.display = "none";
+                }
 
                 renderCardImages(cardObj, { pid: batchInfo.pid, images: [img], workflow: batchInfo.workflow }, keepAspect);
 
@@ -609,7 +674,7 @@ export function renderDOM() {
                 headerTitle.textContent = `Outputs of #${State.activeSubmenuPromptId}`;
                 headerTitle.style.cursor = "pointer";
                 headerTitle.title = "Go Back to Queue";
-                headerTitle.onclick = () => { State.activeSubmenuPromptId = null; renderDOM(); };
+                headerTitle.onclick = () => { State.activeSubmenuPromptId = null; resetAllCardHoverStates(); renderDOM(); };
             }
             if (headerSearchIcon) headerSearchIcon.style.display = "none";
             if (headerActions) headerActions.style.display = "none";
@@ -664,18 +729,33 @@ export function renderDOM() {
                     const btnImg = document.createElement("span");
                     btnImg.className = "pi pi-image";
                     btnImg.title = "Download Object";
-                    styleRightBtn(btnImg);
+                    styleActionBtn(btnImg);
                     hoverPanel.appendChild(btnImg);
+
+                    // Symmetrical left hover panel containing ONLY btnFocus
+                    const leftHoverPanel = document.createElement("div");
+                    Object.assign(leftHoverPanel.style, {
+                        position: "absolute", bottom: "4px", left: "4px", display: "none",
+                        flexDirection: "column", gap: "4px", zIndex: "20"
+                    });
+
+                    const btnFocus = document.createElement("span");
+                    btnFocus.className = "pi pi-eye";
+                    btnFocus.title = "Focus Node";
+                    styleActionBtn(btnFocus);
+                    leftHoverPanel.appendChild(btnFocus);
                     
-                    card.append(timerEl, dimEl, grid, p, hoverPanel);
-                    cardObj = { element: card, timerEl, dimEl, grid, placeholder: p, hoverPanel, btnImg, firstImgElement: null };
+                    card.append(timerEl, dimEl, grid, p, hoverPanel, leftHoverPanel);
+                    cardObj = { element: card, timerEl, dimEl, grid, placeholder: p, hoverPanel, leftHoverPanel, btnFocus, btnImg, firstImgElement: null };
                     cardElements.set(cardId, cardObj);
 
                     card.addEventListener("mouseenter", () => {
                         cardObj.hoverPanel.style.display = "flex";
+                        cardObj.leftHoverPanel.style.display = "flex";
                     });
                     card.addEventListener("mouseleave", () => {
                         cardObj.hoverPanel.style.display = "none";
+                        cardObj.leftHoverPanel.style.display = "none";
                     });
                 }
 
@@ -691,6 +771,16 @@ export function renderDOM() {
                             a.download = img.filename || "output";
                             a.click();
                         });
+                    };
+
+                    // Focus/center target node inside Workflow outputs Submenu
+                    cardObj.btnFocus.onclick = (ev) => {
+                        ev.stopPropagation();
+                        const node = app.graph.getNodeById(Number(out.nodeId));
+                        if (node) {
+                            app.canvas.centerOnNode(node);
+                            app.canvas.selectNode(node);
+                        }
                     };
 
                     renderCardImages(cardObj, { pid: st.pid, images: out.images, workflow: st.workflow }, keepAspect);
@@ -763,45 +853,63 @@ export function renderDOM() {
                     flexDirection: "column", gap: "4px", zIndex: "20" 
                 });
 
-                const btnImg = document.createElement("span"); btnImg.className = "pi pi-image"; btnImg.title = "Download Object"; styleRightBtn(btnImg);
-                const btnJson = document.createElement("span"); btnJson.className = "pi pi-file"; btnJson.title = "Download JSON"; styleRightBtn(btnJson);
-                const btnDel = document.createElement("span"); btnDel.className = "pi pi-trash"; btnDel.title = "Delete Card"; styleRightBtn(btnDel);
+                const btnImg = document.createElement("span"); btnImg.className = "pi pi-image"; btnImg.title = "Download Object"; styleActionBtn(btnImg);
+                const btnJson = document.createElement("span"); btnJson.className = "pi pi-file"; btnJson.title = "Download JSON"; styleActionBtn(btnJson);
+                const btnDel = document.createElement("span"); btnDel.className = "pi pi-trash"; btnDel.title = "Delete Card"; styleActionBtn(btnDel);
 
-                // Bottom left Explorer Submenu Button
-                const leftHoverBtn = document.createElement("span");
-                leftHoverBtn.className = "pi pi-images comfy-sidebar-left-hover-btn";
-                leftHoverBtn.title = "View all intermediate outputs";
-                Object.assign(leftHoverBtn.style, {
-                    position: "absolute", bottom: "4px", left: "4px", display: "none",
-                    alignItems: "center", justifyContent: "center",
-                    width: "32px", height: "32px",
-                    backgroundColor: "rgba(0, 0, 0, 0.75)",
-                    color: "#e2e8f0",
-                    fontSize: "14px",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                    transition: "all 0.15s ease",
-                    boxShadow: "0 1px 2px rgba(0, 0, 0, 0.3)",
-                    zIndex: "20",
-                    transform: "translateZ(0)"
+                // Absolute Vertical Left Actions Panel containing btnFocus and leftHoverBtn
+                const leftHoverPanel = document.createElement("div"); 
+                Object.assign(leftHoverPanel.style, { 
+                    position: "absolute", bottom: "4px", left: "4px", display: "none", 
+                    flexDirection: "column", gap: "4px", zIndex: "20" 
                 });
-                leftHoverBtn.onmouseenter = () => { leftHoverBtn.style.backgroundColor = "rgba(0, 0, 0, 0.95)"; leftHoverBtn.style.color = "#fff"; };
-                leftHoverBtn.onmouseleave = () => { leftHoverBtn.style.backgroundColor = "rgba(0, 0, 0, 0.75)"; leftHoverBtn.style.color = "#e2e8f0"; };
+
+                const btnFocus = document.createElement("span");
+                btnFocus.className = "pi pi-eye";
+                btnFocus.title = "Focus Node";
+                styleActionBtn(btnFocus);
+
+                const leftHoverBtn = document.createElement("span");
+                leftHoverBtn.className = "pi pi-images";
+                leftHoverBtn.title = "View all intermediate outputs";
+                styleActionBtn(leftHoverBtn);
                 
                 leftHoverBtn.onclick = (ev) => {
                     ev.stopPropagation();
                     State.activeSubmenuPromptId = state.pid;
+                    resetAllCardHoverStates(); // Reset standard sidebar hover states before opening submenu
                     renderDOM();
                 };
 
                 hoverPanel.append(btnImg, btnJson, btnDel);
-                card.append(timerEl, cancelX, sBadge, grid, p, pt, statusText, hoverPanel, leftHoverBtn);
+                leftHoverPanel.append(btnFocus, leftHoverBtn);
+
+                card.append(timerEl, cancelX, sBadge, grid, p, pt, statusText, hoverPanel, leftHoverPanel);
                 
-                cardObj = { element: card, timerEl, statusBadge: sBadge, grid, placeholder: p, progressContainer: pt, progressBar: pb, cancelBtn: cancelX, hoverPanel, leftHoverBtn, btnImg, btnJson, btnDel, statusText, firstImgElement: null, lastImagesSignature: "" };
+                cardObj = { element: card, timerEl, statusBadge: sBadge, grid, placeholder: p, progressContainer: pt, progressBar: pb, cancelBtn: cancelX, hoverPanel, leftHoverPanel, btnFocus, leftHoverBtn, btnImg, btnJson, btnDel, statusText, firstImgElement: null, lastImagesSignature: "" };
                 
                 card.addEventListener("mouseenter", () => { 
                     if (state.status !== "active" && state.status !== "pending") {
                         cardObj.hoverPanel.style.display = "flex";
+                        cardObj.leftHoverPanel.style.display = "flex";
+
+                        // Focus/Center the exact node that generated the currently active displayed image
+                        const currentImg = state.images[cardObj.currentImageIndex || 0];
+                        const nodeId = findNodeIdForImage(state, currentImg);
+                        if (nodeId) {
+                            cardObj.btnFocus.style.display = "inline-flex";
+                            cardObj.btnFocus.onclick = (ev) => {
+                                ev.stopPropagation();
+                                const node = app.graph.getNodeById(Number(nodeId));
+                                if (node) {
+                                    app.canvas.centerOnNode(node);
+                                    app.canvas.selectNode(node);
+                                }
+                            };
+                        } else {
+                            cardObj.btnFocus.style.display = "none";
+                        }
+
                         // Show explorer view button if this run yielded multiple node outputs
                         const outputs = getRunOutputs(state.nodeOutputs);
                         if (outputs.length > 1) {
@@ -813,7 +921,7 @@ export function renderDOM() {
                 });
                 card.addEventListener("mouseleave", () => {
                     cardObj.hoverPanel.style.display = "none";
-                    cardObj.leftHoverBtn.style.display = "none";
+                    cardObj.leftHoverPanel.style.display = "none";
                 });
                 
                 card.addEventListener("dragstart", (e) => {
