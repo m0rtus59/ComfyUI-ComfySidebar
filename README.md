@@ -11,8 +11,9 @@ A lightweight, high-performance ComfyUI extension that replaces the cluttered st
 * **Quick Save Buttons**: Dedicated interactive shortcuts appear on hover, allowing you to instantly download generation outputs or export exact workflow JSON files with a single click.
 * **Compact Adaptive Design**: A clean, smart layout that automatically balances single or multi-column grids based on your sidebar width. It maximizes viewable content and respects your active screen area without wasting precious space.
 * **Live Queue Tracking**: Stay informed on your server state. Includes a visual progress bar that tracks generations dynamically and displays the exact node title currently being executed.
-* **[NEW]** A compact topbar layout displaying both workflow tabs and the control panel on a single unified top bar. See the 'Comfy Layout' toggle in the settings.
-* **[NEW]** Added toggles to hide buttons you don't need from the side panel.
+* A compact topbar layout displaying both workflow tabs and the control panel on a single unified top bar. See the 'Comfy Layout' toggle in the settings.
+* Toggles to hide buttons you don't need from the side panel.
+* **[NEW]** Preview compare slider - just click the result image preview in the sidebar, and then click another to load it alongside the first one for pixel by pixel comparison. 
 
 <img width="385" height="336" alt="image" src="https://github.com/user-attachments/assets/743fbf85-9281-4561-9dd0-cd9af4d8c0e4" />
 
