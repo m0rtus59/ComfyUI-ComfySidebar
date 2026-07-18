@@ -1,40 +1,77 @@
-// sidebar.js
+// sidebar.js - Fully Fixed Real-Time UI Sync (With setTimeout deferred updates)
 import { app } from "/scripts/app.js";
 import { injectStyles } from "./styles.js";
 import { setupDragAndDrop } from "./dragdrop.js";
 import { setupSidebarUI, applySidebarOverride, findOurSidebarButton, setSyncQueue, updateSidebarBadge, renderDOM } from "./ui.js";
 import { setupApiListeners, initSessionAndHistory, syncQueue, setUIDependencies } from "./queue.js";
-import { applyClassicLayout, setupPropertiesPanelToggleFix } from "./layout.js"; // Import properties panel fix
+import { applyClassicLayout, setupPropertiesPanelToggleFix, syncClassicLayout } from "./layout.js";
 
 app.registerExtension({
     name: "ComfySidebar.ClassicRestore",
     
     init() {
+        // Standard Comfy Queue Settings
         app.ui.settings.addSetting({ id: "Comfy Sidebar.Grid Columns Threshold", name: "Width Threshold for Queue Columns (px)", type: "number", defaultValue: 350 });
         app.ui.settings.addSetting({ id: "Comfy Sidebar.Keep Object Aspect Ratio", name: "If disabled, cards in the queue will be cropped to the same size.", type: "boolean", defaultValue: true });
         app.ui.settings.addSetting({ id: "Comfy Sidebar.Show Pending Count Only", name: "If disabled, each queued job will have a separate individual card", type: "boolean", defaultValue: true });
         app.ui.settings.addSetting({ id: "Comfy Sidebar.Show Working Node Name", name: "Shows the name of the node which is currently in the process", type: "boolean", defaultValue: true });
-        
-        // Settings toggle for Auto-clear Interrupted runs
         app.ui.settings.addSetting({ id: "Comfy Sidebar.Auto Clear Interrupted", name: "Auto-clear cancelled & failed jobs on new generation", type: "boolean", defaultValue: false });
 
-        // Add settings to hide individual sidebar tabs under a shared sub-category group
+        // --- THE "MOON PROOF" MONKEYPATCH ---
+        // Intercepts ui.js reading the old settings group so we don't get flashing buttons
+        const originalGetSetting = app.ui.settings.getSettingValue;
+        if (originalGetSetting && !originalGetSetting.__patchedBySilver) {
+            const patchedGetter = function(id) {
+                if (id === "Comfy Sidebar.Hide Sidebar Tabs.Override Stock Job History Tab") {
+                    return originalGetSetting.call(app.ui.settings, "Comfy Sidebar.Hide Junk.Override Stock Job History Tab");
+                }
+                return originalGetSetting.call(app.ui.settings, id);
+            };
+            patchedGetter.__patchedBySilver = true;
+            app.ui.settings.getSettingValue = patchedGetter;
+        }
+
+        // Add settings to hide individual sidebar tabs under the "Hide Junk" sub-category
+        // We use setTimeout to let Comfy finish writing the setting value before reading it
         const sidebarTabs = ["Assets", "Nodes", "Models", "Workflows", "Apps", "NodesMap", "Templates"];
         sidebarTabs.forEach(tab => {
             app.ui.settings.addSetting({
-                id: `Comfy Sidebar.Hide Sidebar Tabs.${tab}`,
+                id: `Comfy Sidebar.Hide Junk.${tab}`,
                 name: `Hide Tab: ${tab}`,
                 type: "boolean",
-                defaultValue: false
+                defaultValue: false,
+                onChange: () => {
+                    setTimeout(() => {
+                        if (typeof syncClassicLayout === "function") syncClassicLayout();
+                    }, 0);
+                }
             });
         });
 
-        // Group the Stock History Tab override into the same sub-category group
+        // Group the Stock History Tab override into "Hide Junk"
         app.ui.settings.addSetting({ 
-            id: "Comfy Sidebar.Hide Sidebar Tabs.Override Stock Job History Tab", 
+            id: "Comfy Sidebar.Hide Junk.Override Stock Job History Tab", 
             name: "Replaces the stock Job History sidebar with Comfy Queue", 
             type: "boolean", 
-            defaultValue: false 
+            defaultValue: false,
+            onChange: () => {
+                setTimeout(() => {
+                    if (typeof syncClassicLayout === "function") syncClassicLayout();
+                }, 0);
+            }
+        });
+
+        // Add the toggle setting for Graph Button under "Hide Junk"
+        app.ui.settings.addSetting({ 
+            id: "Comfy Sidebar.Hide Junk.Graph Button", 
+            name: "Hide floating 'Graph' (Workflow/Node Map) button", 
+            type: "boolean", 
+            defaultValue: false,
+            onChange: () => {
+                setTimeout(() => {
+                    if (typeof syncClassicLayout === "function") syncClassicLayout();
+                }, 0);
+            }
         });
 
         // Add the toggle setting for Classic / Comfy Layout
