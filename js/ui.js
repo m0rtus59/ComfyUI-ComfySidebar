@@ -1,7 +1,7 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 import { State, promptStates, cardElements, saveStatesToLocalStorage } from "./state.js";
-import { isVideoFormat, matchesFilter } from "./utils.js";
+import { isVideoFormat, matchesFilter, getRunOutputs } from "./utils.js";
 
 // DI Hook for cyclic imports
 export let syncQueueFn = async () => {};
@@ -238,6 +238,19 @@ export function setupSidebarUI() {
     Object.assign(State.cardStack.style, { flex: "1", overflowY: "auto", scrollbarWidth: "thin", display: "block" });
     State.sidebarContainer.appendChild(State.cardStack);
 
+    // Global background click handler: return to main queue if clicking empty space of the entire container
+    State.sidebarContainer.onclick = (e) => {
+        if (State.activeSubmenuPromptId || State.activeSubmenuBatchImages) {
+            // Stop closure if we clicked on standard interactive elements (images, buttons, spans, cancels)
+            if (e.target.closest('img, video, .comfy-sidebar-card-timer, .pi-times, .comfy-sidebar-left-hover-btn, .comfy-sidebar-queue-cancel-btn, button, span')) return;
+            State.activeSubmenuPromptId = null;
+            State.activeSubmenuBatchImages = null;
+            renderDOM();
+            document.removeEventListener("click", handleGlobalClick, true);
+            globalClickRegistered = false;
+        }
+    };
+
     new ResizeObserver((entries) => {
         const threshold = app.ui.settings.getSettingValue("Comfy Sidebar.Grid Columns Threshold") ?? 350;
         const cols = Math.max(1, Math.floor(entries[0].contentRect.width / (threshold / 2)));
@@ -257,6 +270,254 @@ export function setupSidebarUI() {
     return State.sidebarContainer;
 }
 
+// Unified image batch pagination renderer (supports standard queue cards & both explorer submenus)
+function renderCardImages(cardObj, state, keepAspect) {
+    cardObj.currentImageIndex = cardObj.currentImageIndex || 0;
+    if (cardObj.currentImageIndex >= state.images.length) {
+        cardObj.currentImageIndex = 0;
+    }
+
+    const idx = cardObj.currentImageIndex;
+    const img = state.images[idx];
+    if (!img) {
+        cardObj.grid.innerHTML = "";
+        cardObj.firstImgElement = null;
+        return;
+    }
+
+    const src = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}`;
+    const isVideo = isVideoFormat(src);
+
+    const currentMediaEl = cardObj.grid.querySelector("img, video");
+    const matchesTagType = currentMediaEl && (isVideo === (currentMediaEl.tagName.toLowerCase() === "video"));
+
+    if (matchesTagType) {
+        // --- IN-PLACE REUSE PATH (ELIMINATES BLINKING & SHAPE-SHIFTS) ---
+        const mediaEl = currentMediaEl;
+
+        // 1. Update interactive event listeners on reuse to bind correct closure variables
+        mediaEl.onclick = (ev) => { 
+            ev.stopPropagation(); 
+            showFullscreenPreview(state.images.map(i => i.url ? i.url : window.location.origin + `/view?filename=${encodeURIComponent(i.filename)}&type=${encodeURIComponent(i.type || 'output')}&subfolder=${encodeURIComponent(i.subfolder || '')}`)); 
+        };
+
+        if (!isVideo) {
+            // Re-bind native drag handlers with updated state values
+            const newDragStart = (e) => {
+                State.currentDraggedImgData = { ...img, workflow: state.workflow };
+                try {
+                    e.dataTransfer.setData("text/uri-list", src);
+                    e.dataTransfer.setData("text/plain", src);
+                } catch (err) {}
+                e.dataTransfer.effectAllowed = "copy";
+                e.stopPropagation();
+            };
+            mediaEl.removeEventListener("dragstart", mediaEl._currentDragStart);
+            mediaEl.addEventListener("dragstart", newDragStart);
+            mediaEl._currentDragStart = newDragStart;
+        }
+
+        // 2. Perform smooth in-memory source swapping for blob live previews
+        const currentSrc = mediaEl.getAttribute("src") || mediaEl.src;
+        if (currentSrc !== src && currentSrc !== (currentSrc + "#t=0.001")) {
+            if (src.startsWith("blob:") && !isVideo) {
+                // Smooth preload trick: hold current preview until the new one is fully loaded
+                const tempImg = new Image();
+                tempImg.onload = () => {
+                    const oldBlob = mediaEl._lastBlob;
+                    mediaEl.src = src;
+                    mediaEl._lastBlob = src;
+                    
+                    if (keepAspect && tempImg.naturalWidth && tempImg.naturalHeight) {
+                        mediaEl.style.aspectRatio = `${tempImg.naturalWidth} / ${tempImg.naturalHeight}`;
+                    }
+                    if (cardObj.dimEl && tempImg.naturalWidth && tempImg.naturalHeight) {
+                        cardObj.dimEl.textContent = `${tempImg.naturalWidth}x${tempImg.naturalHeight}`;
+                        cardObj.dimEl.style.display = "block";
+                    }
+
+                    if (oldBlob && oldBlob !== src) {
+                        try { URL.revokeObjectURL(oldBlob); } catch(e){}
+                    }
+                };
+                tempImg.src = src;
+            } else {
+                // Direct fast swap for standard server files
+                mediaEl.src = isVideo ? src + "#t=0.001" : src;
+            }
+        }
+
+        // 3. Update the pagination label if it exists
+        const label = cardObj.grid.querySelector(".comfy-sidebar-batch-label");
+        if (label) {
+            label.textContent = `${idx + 1}/${state.images.length}`;
+        }
+        return;
+    }
+
+    // --- REBUILD PATH (ONLY RUNS ON TYPE CHANGE OR FIRST RENDER) ---
+    cardObj.grid.innerHTML = "";
+    cardObj.firstImgElement = null;
+
+    const wrapper = document.createElement("div");
+    Object.assign(wrapper.style, { position: "relative", width: "100%", display: "block" });
+
+    const thumb = isVideo ? document.createElement("video") : document.createElement("img");
+    Object.assign(thumb.style, { 
+        width: "100%", 
+        borderRadius: "2px", 
+        display: "block", 
+        cursor: "zoom-in",
+        webkitUserDrag: "element"
+    });
+
+    if (isVideo) { 
+        thumb.muted = true; 
+        thumb.playsInline = true; 
+        thumb.preload = "metadata";
+        thumb.loop = true;
+        
+        const playIcon = document.createElement("div");
+        Object.assign(playIcon.style, {
+            position: "absolute", top: "0", left: "0", width: "100%", height: "100%",
+            pointerEvents: "none", zIndex: "5", transition: "opacity 0.2s ease"
+        });
+        
+        playIcon.innerHTML = `
+            <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" style="width: 100%; height: 100%; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));">
+                <circle cx="50" cy="50" r="16.65" fill="rgba(0, 0, 0, 0.55)" />
+                <polygon points="45.7,42.5 45.7,57.5 58.7,50" fill="rgba(255, 255, 255, 0.9)" />
+            </svg>
+        `;
+        wrapper.appendChild(playIcon);
+
+        thumb.onmouseenter = () => { playIcon.style.opacity = "0"; thumb.play().catch(()=>{}); };
+        thumb.onmouseleave = () => { playIcon.style.opacity = "1"; thumb.pause(); };
+    }
+    
+    if (!keepAspect) { thumb.style.aspectRatio = "1 / 1"; thumb.style.objectFit = "cover"; }
+    
+    if (!isVideo) {
+        thumb.setAttribute("draggable", "true");
+        thumb.onload = () => { 
+            if (keepAspect && thumb.naturalWidth && thumb.naturalHeight) {
+                thumb.style.aspectRatio = `${thumb.naturalWidth} / ${thumb.naturalHeight}`;
+            }
+            if (cardObj.dimEl) {
+                cardObj.dimEl.textContent = `${thumb.naturalWidth}x${thumb.naturalHeight}`;
+                cardObj.dimEl.style.display = "block";
+            }
+        };
+        thumb.src = src;
+
+        const dragStartHandler = (e) => {
+            State.currentDraggedImgData = { ...img, workflow: state.workflow };
+            try {
+                e.dataTransfer.setData("text/uri-list", src);
+                e.dataTransfer.setData("text/plain", src);
+            } catch (err) {}
+            e.dataTransfer.effectAllowed = "copy";
+            e.stopPropagation();
+        };
+        thumb.addEventListener("dragstart", dragStartHandler);
+        thumb._currentDragStart = dragStartHandler;
+    } else {
+        thumb.setAttribute("draggable", "false");
+        thumb.onloadedmetadata = () => {
+            if (keepAspect && thumb.videoWidth && thumb.videoHeight) {
+                thumb.style.aspectRatio = `${thumb.videoWidth} / ${thumb.videoHeight}`;
+            }
+            if (cardObj.dimEl) {
+                cardObj.dimEl.textContent = `${thumb.videoWidth}x${thumb.videoHeight}`;
+                cardObj.dimEl.style.display = "block";
+            }
+        };
+        thumb.src = src + "#t=0.001";
+    }
+
+    thumb.onclick = (ev) => { 
+        ev.stopPropagation(); 
+        showFullscreenPreview(state.images.map(i => i.url ? i.url : window.location.origin + `/view?filename=${encodeURIComponent(i.filename)}&type=${encodeURIComponent(i.type || 'output')}&subfolder=${encodeURIComponent(i.subfolder || '')}`)); 
+    };
+    
+    wrapper.insertBefore(thumb, wrapper.firstChild);
+    cardObj.firstImgElement = thumb;
+
+    // Overlay slick pagination controller bar if batch has multiple output images
+    if (state.images.length > 1) {
+        const navBar = document.createElement("div");
+        Object.assign(navBar.style, {
+            position: "absolute", bottom: "6px", left: "50%", transform: "translateX(-50%)",
+            display: "flex", alignItems: "center", gap: "8px", background: "rgba(0,0,0,0.75)",
+            padding: "4px 10px", borderRadius: "12px", zIndex: "15", fontSize: "10px",
+            fontFamily: "monospace", color: "#eee", userSelect: "none", pointerEvents: "auto",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.4)"
+        });
+
+        const prevBtn = document.createElement("span");
+        prevBtn.className = "pi pi-chevron-left";
+        prevBtn.style.cursor = "pointer";
+        prevBtn.onclick = (ev) => {
+            ev.stopPropagation();
+            cardObj.currentImageIndex = (cardObj.currentImageIndex - 1 + state.images.length) % state.images.length;
+            renderCardImages(cardObj, state, keepAspect);
+        };
+
+        const label = document.createElement("span");
+        label.className = "comfy-sidebar-batch-label";
+        label.textContent = `${idx + 1}/${state.images.length}`;
+        label.style.cursor = "pointer";
+        label.title = "View all images in this batch";
+        
+        // Open the dynamic batch explorer explorer view when the middle counter label is clicked
+        label.onclick = (ev) => {
+            ev.stopPropagation();
+            State.activeSubmenuBatchImages = {
+                pid: state.pid || cardObj.element.id.replace("card-", ""),
+                images: state.images,
+                workflow: state.workflow
+            };
+            renderDOM();
+        };
+
+        const nextBtn = document.createElement("span");
+        nextBtn.className = "pi pi-chevron-right";
+        nextBtn.style.cursor = "pointer";
+        nextBtn.onclick = (ev) => {
+            ev.stopPropagation();
+            cardObj.currentImageIndex = (cardObj.currentImageIndex + 1) % state.images.length;
+            renderCardImages(cardObj, state, keepAspect);
+        };
+
+        navBar.append(prevBtn, label, nextBtn);
+        wrapper.appendChild(navBar);
+    }
+
+    cardObj.grid.appendChild(wrapper);
+}
+
+let globalClickRegistered = false;
+
+// Global document mousedown-capturer to reliably trigger click-aways outside the sidebar
+const handleGlobalClick = (e) => {
+    if (!State.activeSubmenuPromptId && !State.activeSubmenuBatchImages) {
+        document.removeEventListener("click", handleGlobalClick, true);
+        globalClickRegistered = false;
+        return;
+    }
+    const sidebar = State.sidebarContainer;
+    const clickedInsideSidebar = sidebar && sidebar.contains(e.target);
+    const clickedFullscreenOverlay = e.target.closest('div[style*="zIndex: 10000"]');
+    
+    if (!clickedInsideSidebar && !clickedFullscreenOverlay) {
+        State.activeSubmenuPromptId = null;
+        State.activeSubmenuBatchImages = null;
+        renderDOM();
+        document.removeEventListener("click", handleGlobalClick, true);
+        globalClickRegistered = false;
+    }
+};
+
 let renderTimeout = null;
 export function renderDOM() {
     if (renderTimeout) cancelAnimationFrame(renderTimeout);
@@ -264,6 +525,244 @@ export function renderDOM() {
         const showPendingSummary = app.ui.settings.getSettingValue("Comfy Sidebar.Show Pending Count Only") ?? true;
         const keepAspect = app.ui.settings.getSettingValue("Comfy Sidebar.Keep Object Aspect Ratio") ?? true;
         const showWorkingNode = app.ui.settings.getSettingValue("Comfy Sidebar.Show Working Node Name") ?? true;
+
+        const headerTitle = State.sidebarContainer.querySelector("h3");
+        const headerSearchIcon = State.sidebarContainer.querySelector(".pi-search");
+        const headerActions = State.sidebarContainer.querySelector(".pi-eraser")?.parentNode;
+
+        const styleRightBtn = (btn) => {
+            Object.assign(btn.style, {
+                display: "inline-flex",
+                alignItems: "center", justifyContent: "center",
+                width: "32px", height: "32px",
+                backgroundColor: "rgba(0, 0, 0, 0.75)",
+                color: "#e2e8f0",
+                fontSize: "14px",
+                borderRadius: "6px",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+                boxShadow: "0 1px 2px rgba(0, 0, 0, 0.3)"
+            });
+            btn.onmouseenter = () => { btn.style.backgroundColor = "rgba(0, 0, 0, 0.95)"; btn.style.color = "#fff"; };
+            btn.onmouseleave = () => { btn.style.backgroundColor = "rgba(0, 0, 0, 0.75)"; btn.style.color = "#e2e8f0"; };
+        };
+
+        // --- SUBMENU 2: BATCH IMAGES EXPLORER ---
+        if (State.activeSubmenuBatchImages) {
+            const batchInfo = State.activeSubmenuBatchImages;
+
+            if (headerTitle) {
+                headerTitle.textContent = `Batch of #${batchInfo.pid}`;
+                headerTitle.style.cursor = "pointer";
+                headerTitle.title = "Go Back to Queue";
+                headerTitle.onclick = () => { State.activeSubmenuBatchImages = null; renderDOM(); };
+            }
+            if (headerSearchIcon) headerSearchIcon.style.display = "none";
+            if (headerActions) headerActions.style.display = "none";
+
+            if (!globalClickRegistered) {
+                document.addEventListener("click", handleGlobalClick, true);
+                globalClickRegistered = true;
+            }
+
+            const targetElements = [];
+
+            batchInfo.images.forEach((img, index) => {
+                const cardId = `batch-${batchInfo.pid}-${index}`;
+                let cardObj = cardElements.get(cardId);
+
+                if (!cardObj) {
+                    const card = document.createElement("div");
+                    card.className = "comfy-sidebar-card completed";
+                    card.style.position = "relative";
+
+                    const timerEl = document.createElement("div");
+                    timerEl.className = "comfy-sidebar-card-timer";
+                    timerEl.textContent = `Image ${index + 1}/${batchInfo.images.length}`;
+                    timerEl.style.display = "block";
+
+                    const dimEl = document.createElement("div");
+                    Object.assign(dimEl.style, {
+                        position: "absolute", top: "6px", right: "8px", fontSize: "10px",
+                        fontFamily: "monospace", opacity: "0.7", background: "rgba(0, 0, 0, 0.6)",
+                        padding: "2px 4px", borderRadius: "3px", pointerEvents: "none", zIndex: "5", color: "#fff",
+                        display: "none"
+                    });
+
+                    const grid = document.createElement("div");
+                    grid.style.display = "flex"; grid.style.flexDirection = "column"; grid.style.gap = "6px";
+
+                    const p = document.createElement("div");
+                    Object.assign(p.style, {
+                        fontSize: "11px", opacity: "0.5", textAlign: "center", padding: "12px", marginTop: "12px", userSelect: "none"
+                    });
+
+                    // Symmetrical hover panel on the right with ONLY the Download Object button
+                    const hoverPanel = document.createElement("div");
+                    Object.assign(hoverPanel.style, {
+                        position: "absolute", bottom: "4px", right: "4px", display: "none",
+                        flexDirection: "column", gap: "4px", zIndex: "20"
+                    });
+
+                    const btnImg = document.createElement("span");
+                    btnImg.className = "pi pi-image";
+                    btnImg.title = "Download Object";
+                    styleRightBtn(btnImg);
+                    hoverPanel.appendChild(btnImg);
+
+                    card.append(timerEl, dimEl, grid, p, hoverPanel);
+                    cardObj = { element: card, timerEl, dimEl, grid, placeholder: p, hoverPanel, btnImg, firstImgElement: null };
+                    cardElements.set(cardId, cardObj);
+
+                    card.addEventListener("mouseenter", () => {
+                        cardObj.hoverPanel.style.display = "flex";
+                    });
+                    card.addEventListener("mouseleave", () => {
+                        cardObj.hoverPanel.style.display = "none";
+                    });
+                }
+
+                cardObj.placeholder.style.display = "none";
+
+                cardObj.btnImg.style.display = "inline-flex";
+                cardObj.btnImg.onclick = (ev) => {
+                    ev.stopPropagation();
+                    const a = document.createElement("a");
+                    a.href = img.url ? img.url : `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder)}`;
+                    a.download = img.filename || "output";
+                    a.click();
+                };
+
+                renderCardImages(cardObj, { pid: batchInfo.pid, images: [img], workflow: batchInfo.workflow }, keepAspect);
+
+                targetElements.push(cardObj.element);
+            });
+
+            targetElements.forEach((el, index) => { if (State.cardStack.children[index] !== el) State.cardStack.insertBefore(el, State.cardStack.children[index] || null); });
+            while (State.cardStack.children.length > targetElements.length) State.cardStack.removeChild(State.cardStack.lastChild);
+            return;
+        }
+
+        // --- SUBMENU 1: WORKFLOW OUTPUTS EXPLORER ---
+        if (State.activeSubmenuPromptId) {
+            const st = promptStates.get(State.activeSubmenuPromptId);
+            if (!st) {
+                State.activeSubmenuPromptId = null;
+                renderDOM();
+                return;
+            }
+
+            // Sync Header UI State for the explorer view
+            if (headerTitle) {
+                headerTitle.textContent = `Outputs of #${State.activeSubmenuPromptId}`;
+                headerTitle.style.cursor = "pointer";
+                headerTitle.title = "Go Back to Queue";
+                headerTitle.onclick = () => { State.activeSubmenuPromptId = null; renderDOM(); };
+            }
+            if (headerSearchIcon) headerSearchIcon.style.display = "none";
+            if (headerActions) headerActions.style.display = "none";
+
+            if (!globalClickRegistered) {
+                document.addEventListener("click", handleGlobalClick, true);
+                globalClickRegistered = true;
+            }
+
+            const outputs = getRunOutputs(st.nodeOutputs);
+            const targetElements = [];
+
+            outputs.forEach((out) => {
+                const cardId = `submenu-${st.pid}-${out.nodeId}`;
+                let cardObj = cardElements.get(cardId);
+                
+                if (!cardObj) {
+                    const card = document.createElement("div");
+                    card.className = "comfy-sidebar-card completed";
+                    card.style.position = "relative";
+                    
+                    const timerEl = document.createElement("div"); 
+                    timerEl.className = "comfy-sidebar-card-timer";
+                    const node = st.workflow?.nodes?.find(n => String(n.id) === String(out.nodeId));
+                    timerEl.textContent = node ? (node.title || node.type) : `Node #${out.nodeId}`;
+                    timerEl.style.display = "block";
+
+                    const dimEl = document.createElement("div");
+                    Object.assign(dimEl.style, {
+                        position: "absolute", top: "6px", right: "8px", fontSize: "10px",
+                        fontFamily: "monospace", opacity: "0.7", background: "rgba(0, 0, 0, 0.6)",
+                        padding: "2px 4px", borderRadius: "3px", pointerEvents: "none", zIndex: "5", color: "#fff",
+                        display: "none"
+                    });
+
+                    const grid = document.createElement("div"); 
+                    grid.style.display = "flex"; grid.style.flexDirection = "column"; grid.style.gap = "6px";
+                    
+                    const p = document.createElement("div"); 
+                    Object.assign(p.style, { 
+                        fontSize: "11px", opacity: "0.5", textAlign: "center", padding: "12px", marginTop: "12px", userSelect: "none"
+                    });
+
+                    // Action overlay on hover containing only Download Object
+                    const hoverPanel = document.createElement("div");
+                    Object.assign(hoverPanel.style, {
+                        position: "absolute", bottom: "4px", right: "4px", display: "none",
+                        flexDirection: "column", gap: "4px", zIndex: "20"
+                    });
+
+                    const btnImg = document.createElement("span");
+                    btnImg.className = "pi pi-image";
+                    btnImg.title = "Download Object";
+                    styleRightBtn(btnImg);
+                    hoverPanel.appendChild(btnImg);
+                    
+                    card.append(timerEl, dimEl, grid, p, hoverPanel);
+                    cardObj = { element: card, timerEl, dimEl, grid, placeholder: p, hoverPanel, btnImg, firstImgElement: null };
+                    cardElements.set(cardId, cardObj);
+
+                    card.addEventListener("mouseenter", () => {
+                        cardObj.hoverPanel.style.display = "flex";
+                    });
+                    card.addEventListener("mouseleave", () => {
+                        cardObj.hoverPanel.style.display = "none";
+                    });
+                }
+
+                if (out.images && out.images.length > 0) {
+                    cardObj.placeholder.style.display = "none";
+                    
+                    cardObj.btnImg.style.display = "inline-flex";
+                    cardObj.btnImg.onclick = (ev) => {
+                        ev.stopPropagation();
+                        out.images.forEach(img => {
+                            const a = document.createElement("a");
+                            a.href = img.url ? img.url : `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder)}`;
+                            a.download = img.filename || "output";
+                            a.click();
+                        });
+                    };
+
+                    renderCardImages(cardObj, { pid: st.pid, images: out.images, workflow: st.workflow }, keepAspect);
+                } else {
+                    cardObj.btnImg.style.display = "none";
+                    cardObj.placeholder.style.display = "block";
+                    cardObj.placeholder.textContent = "No Outputs";
+                }
+
+                targetElements.push(cardObj.element);
+            });
+
+            targetElements.forEach((el, index) => { if (State.cardStack.children[index] !== el) State.cardStack.insertBefore(el, State.cardStack.children[index] || null); });
+            while (State.cardStack.children.length > targetElements.length) State.cardStack.removeChild(State.cardStack.lastChild);
+            return;
+        }
+
+        // --- STANDARD QUEUE RENDER LOGIC ---
+        if (headerTitle) {
+            headerTitle.textContent = "Queue";
+            headerTitle.style.cursor = "default";
+            headerTitle.onclick = null;
+        }
+        if (headerSearchIcon) headerSearchIcon.style.display = "inline";
+        if (headerActions) headerActions.style.display = "flex";
 
         let tasksArray = Array.from(promptStates.values());
         if (showPendingSummary) tasksArray = tasksArray.filter(t => t.status !== "pending");
@@ -303,27 +802,65 @@ export function renderDOM() {
                 const pb = document.createElement("div"); Object.assign(pb.style, { width: `0%`, height: "100%", background: "#3b82f6", transition: "width 0.1s linear" });
                 pt.appendChild(pb);
                 const statusText = document.createElement("div"); Object.assign(statusText.style, { fontSize: "11px", opacity: "0.9", color: "#3b82f6", textAlign: "center", marginTop: "6px", display: "none", fontWeight: "bold" });
-                const hoverPanel = document.createElement("div"); Object.assign(hoverPanel.style, { position: "absolute", bottom: "4px", right: "4px", display: "none", gap: "12px", background: "rgba(0,0,0,0.85)", padding: "8px 12px", borderRadius: "4px", zIndex: "20" });
                 
-                const btnImg = document.createElement("span"); btnImg.className = "pi pi-image"; Object.assign(btnImg.style, { cursor: "pointer", fontSize: "20px", color: "#aaa" });
-                const btnJson = document.createElement("span"); btnJson.className = "pi pi-file"; Object.assign(btnJson.style, { cursor: "pointer", fontSize: "20px", color: "#aaa" });
-                const btnDel = document.createElement("span"); 
-                btnDel.className = "pi pi-trash"; 
-                Object.assign(btnDel.style, { 
-                    cursor: "pointer", 
-                    fontSize: "20px", 
-                    color: "#dc3545", 
-                    transition: "all 0.1s ease-in-out",
-                    padding: "2px",
-                    transform: "scale(1)"
+                // Absolute Vertical Actions Panel on the right of the card
+                const hoverPanel = document.createElement("div"); 
+                Object.assign(hoverPanel.style, { 
+                    position: "absolute", bottom: "4px", right: "4px", display: "none", 
+                    flexDirection: "column", gap: "4px", zIndex: "20" 
                 });
+
+                const btnImg = document.createElement("span"); btnImg.className = "pi pi-image"; btnImg.title = "Download Object"; styleRightBtn(btnImg);
+                const btnJson = document.createElement("span"); btnJson.className = "pi pi-file"; btnJson.title = "Download JSON"; styleRightBtn(btnJson);
+                const btnDel = document.createElement("span"); btnDel.className = "pi pi-trash"; btnDel.title = "Delete Card"; styleRightBtn(btnDel);
+
+                // Bottom left Explorer Submenu Button
+                const leftHoverBtn = document.createElement("span");
+                leftHoverBtn.className = "pi pi-images comfy-sidebar-left-hover-btn";
+                leftHoverBtn.title = "View all intermediate outputs";
+                Object.assign(leftHoverBtn.style, {
+                    position: "absolute", bottom: "4px", left: "4px", display: "none",
+                    alignItems: "center", justifyContent: "center",
+                    width: "32px", height: "32px",
+                    backgroundColor: "rgba(0, 0, 0, 0.75)",
+                    color: "#e2e8f0",
+                    fontSize: "14px",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                    boxShadow: "0 1px 2px rgba(0, 0, 0, 0.3)",
+                    zIndex: "20"
+                });
+                leftHoverBtn.onmouseenter = () => { leftHoverBtn.style.backgroundColor = "rgba(0, 0, 0, 0.95)"; leftHoverBtn.style.color = "#fff"; };
+                leftHoverBtn.onmouseleave = () => { leftHoverBtn.style.backgroundColor = "rgba(0, 0, 0, 0.75)"; leftHoverBtn.style.color = "#e2e8f0"; };
+                
+                leftHoverBtn.onclick = (ev) => {
+                    ev.stopPropagation();
+                    State.activeSubmenuPromptId = state.pid;
+                    renderDOM();
+                };
+
                 hoverPanel.append(btnImg, btnJson, btnDel);
-                card.append(timerEl, cancelX, sBadge, grid, p, pt, statusText, hoverPanel);
+                card.append(timerEl, cancelX, sBadge, grid, p, pt, statusText, hoverPanel, leftHoverBtn);
                 
-                cardObj = { element: card, timerEl, statusBadge: sBadge, grid, placeholder: p, progressContainer: pt, progressBar: pb, cancelBtn: cancelX, hoverPanel, btnImg, btnJson, btnDel, statusText, firstImgElement: null, lastImagesSignature: "" };
+                cardObj = { element: card, timerEl, statusBadge: sBadge, grid, placeholder: p, progressContainer: pt, progressBar: pb, cancelBtn: cancelX, hoverPanel, leftHoverBtn, btnImg, btnJson, btnDel, statusText, firstImgElement: null, lastImagesSignature: "" };
                 
-                card.addEventListener("mouseenter", () => { if (state.status !== "active" && state.status !== "pending") cardObj.hoverPanel.style.display = "flex"; });
-                card.addEventListener("mouseleave", () => cardObj.hoverPanel.style.display = "none");
+                card.addEventListener("mouseenter", () => { 
+                    if (state.status !== "active" && state.status !== "pending") {
+                        cardObj.hoverPanel.style.display = "flex";
+                        // Show explorer view button if this run yielded multiple node outputs
+                        const outputs = getRunOutputs(state.nodeOutputs);
+                        if (outputs.length > 1) {
+                            cardObj.leftHoverBtn.style.display = "inline-flex";
+                        } else {
+                            cardObj.leftHoverBtn.style.display = "none";
+                        }
+                    } 
+                });
+                card.addEventListener("mouseleave", () => {
+                    cardObj.hoverPanel.style.display = "none";
+                    cardObj.leftHoverBtn.style.display = "none";
+                });
                 
                 card.addEventListener("dragstart", (e) => {
                     // Custom dragstart is only used for JSON-only workflows to supply a local DownloadURL.
@@ -384,12 +921,12 @@ export function renderDOM() {
             }
 
             if (state.images && state.images.length > 0) {
-                cardObj.btnImg.style.display = "inline";
+                cardObj.btnImg.style.display = "inline-flex";
                 cardObj.btnImg.onclick = (ev) => { ev.stopPropagation(); state.images.forEach(img => { const a = document.createElement("a"); a.href = img.url ? img.url : `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder)}`; a.download = img.filename || "output"; a.click(); }); };
             } else cardObj.btnImg.style.display = "none";
 
             if (state.workflow) {
-                cardObj.btnJson.style.display = "inline";
+                cardObj.btnJson.style.display = "inline-flex";
                 cardObj.btnJson.onclick = (ev) => { ev.stopPropagation(); const blob = new Blob([JSON.stringify(state.workflow, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `workflow_${state.pid}.json`; a.click(); URL.revokeObjectURL(url); };
             } else cardObj.btnJson.style.display = "none";
 
@@ -397,12 +934,10 @@ export function renderDOM() {
             const resetDeleteBtn = () => { 
                 isDeletePending = false; 
                 Object.assign(cardObj.btnDel.style, { 
-                    color: "#dc3545", 
-                    background: "none", 
-                    padding: "2px", 
-                    transform: "scale(1)" 
+                    color: "#e2e8f0", 
+                    backgroundColor: "rgba(0, 0, 0, 0.75)"
                 }); 
-                cardObj.btnDel.title = "Delete Element from History"; 
+                cardObj.btnDel.title = "Delete Card"; 
                 if (deleteTimeout) { clearTimeout(deleteTimeout); deleteTimeout = null; } 
             };
             
@@ -412,10 +947,7 @@ export function renderDOM() {
                     isDeletePending = true; 
                     Object.assign(cardObj.btnDel.style, { 
                         color: "#fff", 
-                        background: "#dc3545", 
-                        borderRadius: "4px", 
-                        padding: "2px", 
-                        transform: "scale(1.2)" 
+                        backgroundColor: "#dc3545" // Changes to solid red on warning confirmation
                     }); 
                     cardObj.btnDel.title = "Click again to confirm deletion";
                     deleteTimeout = setTimeout(resetDeleteBtn, 1000);
@@ -433,116 +965,7 @@ export function renderDOM() {
                     cardObj.grid.innerHTML = ""; cardObj.firstImgElement = null; cardObj.placeholder.style.display = "block";
                 } else {
                     cardObj.placeholder.style.display = "none";
-                    // Check if we can reuse elements (count matches AND tag types match)
-                    let canReuse = cardObj.grid.children.length === state.images.length;
-                    if (canReuse) {
-                        state.images.forEach((img, idx) => {
-                            const src = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder)}`;
-                            const wrapper = cardObj.grid.children[idx];
-                            // Fallback in case the DOM still has old unwrapped elements
-                            const mediaEl = (wrapper.tagName === "IMG" || wrapper.tagName === "VIDEO") ? wrapper : wrapper.querySelector("img, video");
-                            if (!mediaEl || isVideoFormat(src) !== (mediaEl.tagName.toLowerCase() === "video")) canReuse = false;
-                        });
-                    }
-
-                    if (canReuse) {
-                        state.images.forEach((img, idx) => {
-                            let src = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder)}`;
-                            const isVideo = isVideoFormat(src);
-                            if (isVideo) src = src + "#t=0.001"; // Keep the first-frame trick on update
-
-                            const wrapper = cardObj.grid.children[idx];
-                            const mediaEl = (wrapper.tagName === "IMG" || wrapper.tagName === "VIDEO") ? wrapper : wrapper.querySelector("img, video");
-                            
-                            if (mediaEl.getAttribute("src") !== src && mediaEl.src !== src) {
-                                if (src.startsWith("blob:") && !isVideo) { 
-                                    const tempImg = new Image(); 
-                                    tempImg.onload = () => { 
-                                        const oldBlob = mediaEl._lastBlob; 
-                                        mediaEl.src = src; 
-                                        mediaEl._lastBlob = src; 
-                                        if (oldBlob && oldBlob !== src) try { URL.revokeObjectURL(oldBlob); } catch(e){} 
-                                    }; 
-                                    tempImg.src = src; 
-                                }
-                                else mediaEl.src = src;
-                            }
-                        });
-                    } else {
-                        cardObj.grid.innerHTML = ""; cardObj.firstImgElement = null;
-                        state.images.forEach(img => {
-                            const src = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder)}`;
-                            const isVideo = isVideoFormat(src);
-                            
-                            // Container to hold both the media and the play icon
-                            const wrapper = document.createElement("div");
-                            Object.assign(wrapper.style, { position: "relative", width: "100%", display: "block" });
-
-                            const thumb = isVideo ? document.createElement("video") : document.createElement("img");
-                            
-                            // Fully-qualified absolute same-origin HTTP URLs mapped alongside webkitUserDrag force flags
-                            Object.assign(thumb.style, { 
-                                width: "100%", 
-                                borderRadius: "2px", 
-                                display: "block", 
-                                cursor: "zoom-in",
-                                webkitUserDrag: "element"
-                            });
-                            
-                            if (isVideo) { 
-                                thumb.muted = true; 
-                                thumb.playsInline = true; 
-                                thumb.preload = "metadata";
-                                thumb.loop = true;
-                                
-                                // Create the Play Icon overlay with perfectly centered scalable SVG
-                                const playIcon = document.createElement("div");
-                                Object.assign(playIcon.style, {
-                                    position: "absolute", top: "0", left: "0", width: "100%", height: "100%",
-                                    pointerEvents: "none", zIndex: "5", transition: "opacity 0.2s ease"
-                                });
-                                
-                                // The radius 16.65 ensures the circle is exactly 1/3 of the shorter edge.
-                                // The polygon coordinates are an optically centered equilateral triangle.
-                                playIcon.innerHTML = `
-                                    <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" style="width: 100%; height: 100%; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));">
-                                        <circle cx="50" cy="50" r="16.65" fill="rgba(0, 0, 0, 0.55)" />
-                                        <polygon points="45.7,42.5 45.7,57.5 58.7,50" fill="rgba(255, 255, 255, 0.9)" />
-                                    </svg>
-                                `;
-                                wrapper.appendChild(playIcon);
-
-                                // Play on Hover, Pause on Leave, and fade out the play button
-                                thumb.onmouseenter = () => { playIcon.style.opacity = "0"; thumb.play().catch(()=>{}); };
-                                thumb.onmouseleave = () => { playIcon.style.opacity = "1"; thumb.pause(); };
-                            }
-                            
-                            if (!keepAspect) { thumb.style.aspectRatio = "1 / 1"; thumb.style.objectFit = "cover"; }
-                            
-                            // Keep native image tags naturally draggable
-                            if (!isVideo) {
-                                thumb.setAttribute("draggable", "true");
-                            } else {
-                                thumb.setAttribute("draggable", "false");
-                            }
-                            
-                            if (!isVideo) {
-                                thumb.onload = () => { if (keepAspect && thumb.naturalWidth && thumb.naturalHeight) thumb.style.aspectRatio = `${thumb.naturalWidth} / ${thumb.naturalHeight}`; };
-                                if (src.startsWith("blob:")) { const tempImg = new Image(); tempImg.onload = () => { thumb.src = src; thumb._lastBlob = src; }; tempImg.src = src; } else thumb.src = src;
-                            } else {
-                                thumb.onloadedmetadata = () => { if (keepAspect && thumb.videoWidth && thumb.videoHeight) thumb.style.aspectRatio = `${thumb.videoWidth} / ${thumb.videoHeight}`; }; 
-                                thumb.src = src + "#t=0.001";
-                            }
-                            thumb.onclick = (ev) => { 
-                                ev.stopPropagation(); 
-                                showFullscreenPreview(state.images.map(i => i.url ? i.url : window.location.origin + `/view?filename=${encodeURIComponent(i.filename)}&type=${encodeURIComponent(i.type || 'output')}&subfolder=${encodeURIComponent(i.subfolder || '')}`)); 
-                            };
-                            
-                            wrapper.insertBefore(thumb, wrapper.firstChild);
-                            if (!cardObj.firstImgElement) cardObj.firstImgElement = thumb;
-                            cardObj.grid.appendChild(wrapper);
-                        });
-                    }
+                    renderCardImages(cardObj, state, keepAspect);
                 }
                 cardObj.lastImagesSignature = currentImagesSignature;
             }

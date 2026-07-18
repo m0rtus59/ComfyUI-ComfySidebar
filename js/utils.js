@@ -45,6 +45,19 @@ export function findTextsInOutputs(outputs) {
     return list;
 }
 
+// Organizes raw outputs dictionaries into lists of individual node-level output blocks (ignoring text-only outputs)
+export function getRunOutputs(nodeOutputs) {
+    const list = [];
+    if (!nodeOutputs) return list;
+    for (const nodeId in nodeOutputs) {
+        const imgs = findImagesInOutputs({ [nodeId]: nodeOutputs[nodeId] });
+        if (imgs.length > 0) {
+            list.push({ nodeId, images: imgs });
+        }
+    }
+    return list;
+}
+
 export function matchesFilter(state, query) {
     if (!query) return true;
     const q = query.toLowerCase();

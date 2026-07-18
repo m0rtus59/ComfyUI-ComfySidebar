@@ -80,6 +80,7 @@ const concludeRun = async (pid, statusStr) => {
         const hItem = await res.json();
         if (hItem && hItem[pid]) {
             if (!st.workflow) st.workflow = hItem[pid].extra_data?.extra_pnginfo?.workflow || null;
+            st.nodeOutputs = hItem[pid].outputs; // Store full outputs dictionary!
             if (st.images.length === 0) st.images = findImagesInOutputs(hItem[pid].outputs);
             st.texts = findTextsInOutputs(hItem[pid].outputs);
         }
@@ -174,6 +175,11 @@ export function setupApiListeners() {
                 // Overwrite with latest texts to avoid clearing previously set text outputs
                 st.texts = finalTexts;
             }
+
+            // Dynamically capture each executed node's individual outputs
+            if (!st.nodeOutputs) st.nodeOutputs = {};
+            st.nodeOutputs[e.detail.node] = e.detail.output;
+
             renderDOMFn();
         }
     });
@@ -215,6 +221,7 @@ export async function initSessionAndHistory() {
         State.globalOrderCounter++;
         promptStates.set(id, {
             pid: id, status: "completed", images, texts,
+            nodeOutputs: historyData[id].outputs, // Store full outputs dictionary!
             workflow: historyData[id].extra_data?.extra_pnginfo?.workflow || null,
             progressText: "", timestamp: State.globalOrderCounter, rendered: true
         });

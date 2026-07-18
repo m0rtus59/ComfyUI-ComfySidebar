@@ -7,7 +7,9 @@ export const State = {
     globalOrderCounter: 0,
     sidebarContainer: null,
     cardStack: null,
-    currentlyActivePromptId: null
+    currentlyActivePromptId: null,
+    activeSubmenuPromptId: null,      // Active run/outputs explorer pointer
+    activeSubmenuBatchImages: null    // Active batch images explorer pointer
 };
 
 export function pruneHistory(app) {
@@ -38,6 +40,7 @@ export function saveStatesToLocalStorage() {
 
             serializable.push({
                 pid: state.pid, status: state.status, images: cleanedImages, texts: state.texts || [],
+                nodeOutputs: state.nodeOutputs, // Persist node level outputs
                 workflow: state.workflow, progress: state.progress || 0, queueNumber: state.queueNumber,
                 progressText: state.progressText || "", timestamp: state.timestamp,
                 activeNodeName: state.activeNodeName || "", rendered: state.rendered || false,
