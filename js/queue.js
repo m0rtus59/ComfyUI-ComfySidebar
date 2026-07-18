@@ -122,6 +122,7 @@ export function setupApiListeners() {
                 workflow: activeWorkspaceWorkflow, startTime: Date.now(), duration: null
             });
         }
+        renderDOMFn(); // Render immediately to prevent pop-in delay!
         syncQueue();
     });
 
@@ -162,9 +163,17 @@ export function setupApiListeners() {
 
     api.addEventListener("executed", (e) => {
         if (promptStates.has(e.detail.prompt_id)) {
+            const st = promptStates.get(e.detail.prompt_id);
             const finalImgs = findImagesInOutputs({ output: e.detail.output });
-            if (finalImgs.length > 0) promptStates.get(e.detail.prompt_id).images = finalImgs;
-            promptStates.get(e.detail.prompt_id).texts = findTextsInOutputs({ output: e.detail.output });
+            if (finalImgs.length > 0) {
+                // Overwrite with latest images to avoid accumulation across sequential nodes
+                st.images = finalImgs;
+            }
+            const finalTexts = findTextsInOutputs({ output: e.detail.output });
+            if (finalTexts.length > 0) {
+                // Overwrite with latest texts to avoid clearing previously set text outputs
+                st.texts = finalTexts;
+            }
             renderDOMFn();
         }
     });

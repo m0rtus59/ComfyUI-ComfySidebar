@@ -426,7 +426,7 @@ export function renderDOM() {
                     cardObj.grid.innerHTML = ""; cardObj.firstImgElement = null; cardObj.placeholder.style.display = "block";
                 } else {
                     cardObj.placeholder.style.display = "none";
-// Check if we can reuse elements (count matches AND tag types match)
+                    // Check if we can reuse elements (count matches AND tag types match)
                     let canReuse = cardObj.grid.children.length === state.images.length;
                     if (canReuse) {
                         state.images.forEach((img, idx) => {
@@ -524,6 +524,7 @@ export function renderDOM() {
             }
 
             if (state.images.length === 0) {
+                // Correctly display accumulated texts (like workflow prompts) while running as requested
                 if (state.texts && state.texts.length > 0) {
                     cardObj.placeholder.textContent = state.texts.join("\n"); Object.assign(cardObj.placeholder.style, { whiteSpace: "pre-wrap", textAlign: "left" });
                 } else {

@@ -88,6 +88,7 @@ export function applyClassicLayout(enable) {
 
 let savedButtonData = null;
 let domObserver = null;
+let syncScheduled = false;
 
 function findOriginalButton() {
     const icon = document.querySelector('[class*="lucide--panel-right"], [class*="lucide--panel-left"]');
@@ -309,8 +310,6 @@ export function syncClassicLayout() {
         });
 
         container.appendChild(customBtn);
-    } else if (customBtn && container && container.lastChild !== customBtn) {
-        container.appendChild(customBtn);
     }
 
     if (customBtn) {
@@ -345,6 +344,7 @@ export function setupPropertiesPanelToggleFix() {
                 display: none !important;
             }
             .comfy-sidebar-custom-properties-toggle {
+                order: 99999 !important;
                 margin-left: -8px !important;
                 margin-right: 0px !important;
                 display: inline-flex !important;
@@ -353,6 +353,7 @@ export function setupPropertiesPanelToggleFix() {
                 padding: 0 !important;
             }
             .comfy-sidebar-custom-properties-toggle.comfy-panel-open {
+                order: 99999 !important;
                 margin-left: 0px !important;
                 margin-right: 0px !important;
                 display: inline-flex !important;
@@ -374,12 +375,29 @@ export function setupPropertiesPanelToggleFix() {
         let shouldSync = false;
         for (const mutation of mutations) {
             if (mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0) {
+                // Ensure mutation is on an actual Element node (nodeType 1) and not just text node updates
+                const hasElementMutation = Array.from(mutation.addedNodes).some(node => node.nodeType === 1) ||
+                                           Array.from(mutation.removedNodes).some(node => node.nodeType === 1);
+                
+                if (!hasElementMutation) continue;
+
+                // Ignore mutations on our own components to avoid feedback loops
+                const isOurNode = Array.from(mutation.addedNodes).some(node => 
+                    node.classList?.contains?.("comfy-sidebar-custom-properties-toggle") ||
+                    node.id === "comfy-sidebar-layout-fix-styles"
+                );
+                if (isOurNode) continue;
+
                 shouldSync = true;
                 break;
             }
         }
-        if (shouldSync) {
-            syncClassicLayout();
+        if (shouldSync && !syncScheduled) {
+            syncScheduled = true;
+            requestAnimationFrame(() => {
+                syncClassicLayout();
+                syncScheduled = false;
+            });
         }
     });
 
