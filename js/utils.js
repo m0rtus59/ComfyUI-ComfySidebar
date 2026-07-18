@@ -3,6 +3,7 @@ export const isVideoFormat = (url) => {
     return s.includes(".mp4") || s.includes(".webm");
 };
 
+// Robust media output scanner supporting both arrays and single objects (gifs, mp4s, etc.)
 export function findImagesInOutputs(outputs) {
     const list = [];
     if (!outputs) return list;
@@ -13,6 +14,8 @@ export function findImagesInOutputs(outputs) {
                 val.forEach(item => {
                     if (item && typeof item === 'object' && item.filename) list.push(item);
                 });
+            } else if (val && typeof val === 'object' && val.filename) {
+                list.push(val);
             }
         }
     }

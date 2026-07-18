@@ -2,40 +2,11 @@ import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 import { State, promptStates, cardElements, saveStatesToLocalStorage } from "./state.js";
 import { isVideoFormat, matchesFilter, getRunOutputs } from "./utils.js";
+import { showFullscreenPreview } from "./comparison.js";
 
 // DI Hook for cyclic imports
 export let syncQueueFn = async () => {};
 export function setSyncQueue(fn) { syncQueueFn = fn; }
-
-export function showFullscreenPreview(imgSrcs) {
-    if (!imgSrcs || imgSrcs.length === 0) return;
-    const overlay = document.createElement("div");
-    Object.assign(overlay.style, {
-        position: "fixed", top: "0", left: "0", width: "100vw", height: "100vh",
-        background: "rgba(0,0,0,0.9)", zIndex: "10000", display: "flex",
-        flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "zoom-out"
-    });
-    
-    const content = document.createElement("div");
-    Object.assign(content.style, { maxWidth: "90%", maxHeight: "85%", display: "flex", justifyContent: "center" });
-
-    imgSrcs.forEach(src => {
-        if (isVideoFormat(src)) {
-            const video = document.createElement("video");
-            video.src = src; video.autoplay = true; video.controls = true; video.loop = true;
-            video.style.maxWidth = "100%"; video.style.maxHeight = "100%";
-            content.appendChild(video);
-        } else {
-            const img = document.createElement("img");
-            img.src = src; img.style.maxWidth = "100%"; img.style.maxHeight = "100%"; img.style.objectFit = "contain";
-            content.appendChild(img);
-        }
-    });
-
-    overlay.appendChild(content);
-    overlay.onclick = () => overlay.remove();
-    document.body.appendChild(overlay);
-}
 
 export const updateSidebarBadge = (count) => {
     const icons = document.querySelectorAll('.pi-images');
@@ -292,13 +263,13 @@ function renderCardImages(cardObj, state, keepAspect) {
     const matchesTagType = currentMediaEl && (isVideo === (currentMediaEl.tagName.toLowerCase() === "video"));
 
     if (matchesTagType) {
-        // --- IN-PLACE REUSE PATH (ELIMINATES BLINKING & SHAPE-SHIFTS) ---
+        // --- IN-PLACE REUSE PATH ---
         const mediaEl = currentMediaEl;
 
         // 1. Update interactive event listeners on reuse to bind correct closure variables
         mediaEl.onclick = (ev) => { 
             ev.stopPropagation(); 
-            showFullscreenPreview(state.images.map(i => i.url ? i.url : window.location.origin + `/view?filename=${encodeURIComponent(i.filename)}&type=${encodeURIComponent(i.type || 'output')}&subfolder=${encodeURIComponent(i.subfolder || '')}`)); 
+            showFullscreenPreview([src]); 
         };
 
         if (!isVideo) {
@@ -363,12 +334,15 @@ function renderCardImages(cardObj, state, keepAspect) {
     Object.assign(wrapper.style, { position: "relative", width: "100%", display: "block" });
 
     const thumb = isVideo ? document.createElement("video") : document.createElement("img");
+    
+    // Explicit low stacking index combined with standard native webkit dragging force rules
     Object.assign(thumb.style, { 
         width: "100%", 
         borderRadius: "2px", 
         display: "block", 
         cursor: "zoom-in",
-        webkitUserDrag: "element"
+        webkitUserDrag: "element",
+        zIndex: "1"
     });
 
     if (isVideo) { 
@@ -380,7 +354,7 @@ function renderCardImages(cardObj, state, keepAspect) {
         const playIcon = document.createElement("div");
         Object.assign(playIcon.style, {
             position: "absolute", top: "0", left: "0", width: "100%", height: "100%",
-            pointerEvents: "none", zIndex: "5", transition: "opacity 0.2s ease"
+            pointerEvents: "none", zIndex: "2", transition: "opacity 0.2s ease"
         });
         
         playIcon.innerHTML = `
@@ -397,47 +371,24 @@ function renderCardImages(cardObj, state, keepAspect) {
     
     if (!keepAspect) { thumb.style.aspectRatio = "1 / 1"; thumb.style.objectFit = "cover"; }
     
+    // Keep native image tags naturally draggable
     if (!isVideo) {
         thumb.setAttribute("draggable", "true");
-        thumb.onload = () => { 
-            if (keepAspect && thumb.naturalWidth && thumb.naturalHeight) {
-                thumb.style.aspectRatio = `${thumb.naturalWidth} / ${thumb.naturalHeight}`;
-            }
-            if (cardObj.dimEl) {
-                cardObj.dimEl.textContent = `${thumb.naturalWidth}x${thumb.naturalHeight}`;
-                cardObj.dimEl.style.display = "block";
-            }
-        };
-        thumb.src = src;
-
-        const dragStartHandler = (e) => {
-            State.currentDraggedImgData = { ...img, workflow: state.workflow };
-            try {
-                e.dataTransfer.setData("text/uri-list", src);
-                e.dataTransfer.setData("text/plain", src);
-            } catch (err) {}
-            e.dataTransfer.effectAllowed = "copy";
-            e.stopPropagation();
-        };
-        thumb.addEventListener("dragstart", dragStartHandler);
-        thumb._currentDragStart = dragStartHandler;
     } else {
         thumb.setAttribute("draggable", "false");
-        thumb.onloadedmetadata = () => {
-            if (keepAspect && thumb.videoWidth && thumb.videoHeight) {
-                thumb.style.aspectRatio = `${thumb.videoWidth} / ${thumb.videoHeight}`;
-            }
-            if (cardObj.dimEl) {
-                cardObj.dimEl.textContent = `${thumb.videoWidth}x${thumb.videoHeight}`;
-                cardObj.dimEl.style.display = "block";
-            }
-        };
+    }
+    
+    if (!isVideo) {
+        thumb.onload = () => { if (keepAspect && thumb.naturalWidth && thumb.naturalHeight) thumb.style.aspectRatio = `${thumb.naturalWidth} / ${thumb.naturalHeight}`; };
+        if (src.startsWith("blob:")) { const tempImg = new Image(); tempImg.onload = () => { thumb.src = src; thumb._lastBlob = src; }; tempImg.src = src; } else thumb.src = src;
+    } else {
+        thumb.onloadedmetadata = () => { if (keepAspect && thumb.videoWidth && thumb.videoHeight) thumb.style.aspectRatio = `${thumb.videoWidth} / ${thumb.videoHeight}`; }; 
         thumb.src = src + "#t=0.001";
     }
 
     thumb.onclick = (ev) => { 
         ev.stopPropagation(); 
-        showFullscreenPreview(state.images.map(i => i.url ? i.url : window.location.origin + `/view?filename=${encodeURIComponent(i.filename)}&type=${encodeURIComponent(i.type || 'output')}&subfolder=${encodeURIComponent(i.subfolder || '')}`)); 
+        showFullscreenPreview([src]); 
     };
     
     wrapper.insertBefore(thumb, wrapper.firstChild);
@@ -451,7 +402,7 @@ function renderCardImages(cardObj, state, keepAspect) {
             display: "flex", alignItems: "center", gap: "8px", background: "rgba(0,0,0,0.75)",
             padding: "4px 10px", borderRadius: "12px", zIndex: "15", fontSize: "10px",
             fontFamily: "monospace", color: "#eee", userSelect: "none", pointerEvents: "auto",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.4)"
+            boxShadow: "0 1px 3px rgba(0,0,0,0.4)", transform: "translate3d(-50%, 0, 0)" // Forces a GPU compositor stacking context to prevent video clipping
         });
 
         const prevBtn = document.createElement("span");
@@ -507,7 +458,7 @@ const handleGlobalClick = (e) => {
     }
     const sidebar = State.sidebarContainer;
     const clickedInsideSidebar = sidebar && sidebar.contains(e.target);
-    const clickedFullscreenOverlay = e.target.closest('div[style*="zIndex: 10000"]');
+    const clickedFullscreenOverlay = e.target.closest('div[style*="zIndex: 999"]');
     
     if (!clickedInsideSidebar && !clickedFullscreenOverlay) {
         State.activeSubmenuPromptId = null;
@@ -541,7 +492,9 @@ export function renderDOM() {
                 borderRadius: "6px",
                 cursor: "pointer",
                 transition: "all 0.15s ease",
-                boxShadow: "0 1px 2px rgba(0, 0, 0, 0.3)"
+                boxShadow: "0 1px 2px rgba(0, 0, 0, 0.3)",
+                zIndex: "20",
+                transform: "translateZ(0)" // Forces a GPU compositor stacking context to prevent video clipping
             });
             btn.onmouseenter = () => { btn.style.backgroundColor = "rgba(0, 0, 0, 0.95)"; btn.style.color = "#fff"; };
             btn.onmouseleave = () => { btn.style.backgroundColor = "rgba(0, 0, 0, 0.75)"; btn.style.color = "#e2e8f0"; };
@@ -580,13 +533,14 @@ export function renderDOM() {
                     timerEl.className = "comfy-sidebar-card-timer";
                     timerEl.textContent = `Image ${index + 1}/${batchInfo.images.length}`;
                     timerEl.style.display = "block";
+                    timerEl.style.transform = "translateZ(0)";
 
                     const dimEl = document.createElement("div");
                     Object.assign(dimEl.style, {
                         position: "absolute", top: "6px", right: "8px", fontSize: "10px",
                         fontFamily: "monospace", opacity: "0.7", background: "rgba(0, 0, 0, 0.6)",
                         padding: "2px 4px", borderRadius: "3px", pointerEvents: "none", zIndex: "5", color: "#fff",
-                        display: "none"
+                        display: "none", transform: "translateZ(0)"
                     });
 
                     const grid = document.createElement("div");
@@ -684,13 +638,14 @@ export function renderDOM() {
                     const node = st.workflow?.nodes?.find(n => String(n.id) === String(out.nodeId));
                     timerEl.textContent = node ? (node.title || node.type) : `Node #${out.nodeId}`;
                     timerEl.style.display = "block";
+                    timerEl.style.transform = "translateZ(0)";
 
                     const dimEl = document.createElement("div");
                     Object.assign(dimEl.style, {
                         position: "absolute", top: "6px", right: "8px", fontSize: "10px",
                         fontFamily: "monospace", opacity: "0.7", background: "rgba(0, 0, 0, 0.6)",
                         padding: "2px 4px", borderRadius: "3px", pointerEvents: "none", zIndex: "5", color: "#fff",
-                        display: "none"
+                        display: "none", transform: "translateZ(0)"
                     });
 
                     const grid = document.createElement("div"); 
@@ -829,7 +784,8 @@ export function renderDOM() {
                     cursor: "pointer",
                     transition: "all 0.15s ease",
                     boxShadow: "0 1px 2px rgba(0, 0, 0, 0.3)",
-                    zIndex: "20"
+                    zIndex: "20",
+                    transform: "translateZ(0)"
                 });
                 leftHoverBtn.onmouseenter = () => { leftHoverBtn.style.backgroundColor = "rgba(0, 0, 0, 0.95)"; leftHoverBtn.style.color = "#fff"; };
                 leftHoverBtn.onmouseleave = () => { leftHoverBtn.style.backgroundColor = "rgba(0, 0, 0, 0.75)"; leftHoverBtn.style.color = "#e2e8f0"; };
