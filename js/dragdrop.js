@@ -1,4 +1,5 @@
 import { app } from "/scripts/app.js";
+import { State } from "./state.js";
 
 async function uploadDroppedImageToInput(imageObj) {
     const src = `/view?filename=${encodeURIComponent(imageObj.filename)}&type=${imageObj.type || 'output'}&subfolder=${encodeURIComponent(imageObj.subfolder || '')}`;
@@ -26,6 +27,13 @@ export function setupDragAndDrop() {
     });
 
     document.addEventListener("drop", async (e) => {
+        // Cancel loading entirely if dropping inside the sidebar area
+        const isSidebarDrop = e.target.closest('.comfyui-sidebar, .comfy-sidebar, [class*="sidebar"]') || 
+                              (State.sidebarContainer && State.sidebarContainer.contains(e.target));
+        if (isSidebarDrop) {
+            return;
+        }
+
         const canvas = app.canvas;
         if (!canvas || !canvas.graph) return;
 

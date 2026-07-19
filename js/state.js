@@ -67,3 +67,6 @@ export function loadStatesFromLocalStorage() {
         console.error("Comfy Sidebar: Failed to load state from localStorage", e);
     }
 }
+
+// Load instantly and synchronously on script import to prevent race conditions during early renders!
+loadStatesFromLocalStorage();

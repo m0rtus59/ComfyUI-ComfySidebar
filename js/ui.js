@@ -367,26 +367,32 @@ function renderCardImages(cardObj, state, keepAspect) {
         mediaEl.onmouseenter = () => { playIcon.style.opacity = "0"; mediaEl.play().catch(()=>{}); };
         mediaEl.onmouseleave = () => { playIcon.style.opacity = "1"; mediaEl.pause(); };
     } else {
-        mediaEl.setAttribute("draggable", "true");
-        mediaEl.onload = () => { 
-            applyDimensions(mediaEl.naturalWidth, mediaEl.naturalHeight);
-        };
+        const isUnfinished = state.status && state.status !== "completed";
+        if (isUnfinished) {
+            mediaEl.setAttribute("draggable", "false");
+            mediaEl.style.cursor = "grab";
+            mediaEl.removeEventListener("dragstart", mediaEl._currentDragStart);
+            delete mediaEl._currentDragStart;
+        } else {
+            mediaEl.setAttribute("draggable", "true");
+            mediaEl.style.cursor = "zoom-in";
+            
+            const dragStartHandler = (e) => {
+                State.currentDraggedImgData = { ...img, workflow: state.workflow };
+                try {
+                    e.dataTransfer.setData("text/uri-list", src);
+                    e.dataTransfer.setData("text/plain", src);
+                } catch (err) {}
+                e.dataTransfer.effectAllowed = "copy";
+                e.stopPropagation();
+            };
+            mediaEl.removeEventListener("dragstart", mediaEl._currentDragStart);
+            mediaEl.addEventListener("dragstart", dragStartHandler);
+            mediaEl._currentDragStart = dragStartHandler;
+        }
 
         const playIcon = wrapper.querySelector(".comfy-sidebar-play-icon");
         if (playIcon) playIcon.remove();
-
-        const dragStartHandler = (e) => {
-            State.currentDraggedImgData = { ...img, workflow: state.workflow };
-            try {
-                e.dataTransfer.setData("text/uri-list", src);
-                e.dataTransfer.setData("text/plain", src);
-            } catch (err) {}
-            e.dataTransfer.effectAllowed = "copy";
-            e.stopPropagation();
-        };
-        mediaEl.removeEventListener("dragstart", mediaEl._currentDragStart);
-        mediaEl.addEventListener("dragstart", dragStartHandler);
-        mediaEl._currentDragStart = dragStartHandler;
     }
 
     // Smooth in-memory source swapping for blob live previews
@@ -924,9 +930,10 @@ export function renderDOM() {
                 });
                 
                 card.addEventListener("dragstart", (e) => {
-                    // Custom dragstart is only used for JSON-only workflows to supply a local DownloadURL.
-                    // For image cards, dragging is handled natively by the browser on the child <img> tag.
-                    if (state.workflow && (!state.images || state.images.length === 0)) {
+                    // Custom dragstart is used for JSON-only or unfinished workflows to supply a local DownloadURL.
+                    // For completed image cards, dragging is handled natively by the browser on the child <img> tag.
+                    const isUnfinished = state.status && state.status !== "completed";
+                    if (state.workflow && (!state.images || state.images.length === 0 || isUnfinished)) {
                         if (cardObj.firstImgElement) e.dataTransfer.setDragImage(cardObj.firstImgElement, 15, 15);
                         const jsonStr = JSON.stringify(state.workflow, null, 2);
                         try { 
@@ -943,9 +950,10 @@ export function renderDOM() {
 
             cardObj.element.className = `comfy-sidebar-card ${state.status}`;
             
-            // Native drag isolation: completely remove draggable flags on image containers.
+            // Native drag isolation: completely remove draggable flags on image containers for finished cards.
             // This exposes the child <img> tag directly to Chrome's native filesystem drag APIs.
-            if (state.images && state.images.length > 0) {
+            const isUnfinished = state.status && state.status !== "completed";
+            if (state.images && state.images.length > 0 && !isUnfinished) {
                 cardObj.element.removeAttribute("draggable");
             } else {
                 cardObj.element.setAttribute("draggable", "true");

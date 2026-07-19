@@ -1,6 +1,6 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
-import { State, promptStates, pruneHistory, loadStatesFromLocalStorage } from "./state.js";
+import { State, promptStates, pruneHistory, loadStatesFromLocalStorage, cardElements } from "./state.js";
 import { findImagesInOutputs, findTextsInOutputs } from "./utils.js";
 
 export let renderDOMFn = () => {};
@@ -203,11 +203,14 @@ export async function initSessionAndHistory() {
     }
 
     const storedSessionId = localStorage.getItem("comfy_sidebar_backend_session_id");
-    if (backendSessionId && backendSessionId === storedSessionId) {
-        loadStatesFromLocalStorage();
-    } else {
+    if (backendSessionId && backendSessionId !== storedSessionId) {
+        // Session changed (server restarted)! Clear cached memory.
+        promptStates.clear();
+        cardElements.clear();
         localStorage.removeItem("comfy_sidebar_prompt_states");
         if (backendSessionId) localStorage.setItem("comfy_sidebar_backend_session_id", backendSessionId);
+    } else if (!storedSessionId && backendSessionId) {
+        localStorage.setItem("comfy_sidebar_backend_session_id", backendSessionId);
     }
 
     const historyData = await api.getHistory();

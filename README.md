@@ -14,7 +14,7 @@ A lightweight, high-performance ComfyUI extension that replaces the cluttered st
 * A compact topbar layout displaying both workflow tabs and the control panel on a single unified top bar. See the 'Comfy Layout' toggle in the settings.
 * Toggles to hide buttons you don't need from the side panel.
 * **[NEW]** Preview compare slider - just click the result image preview in the sidebar, and then `Shift+Click` another to load it alongside the first one for pixel by pixel comparison. 
-* **[NEW]** Prevent certain nodes from showing the output in the queue bar and intermediate results. `Ctrl+Q` to toggle. 
+* **[NEW]** Prevent selected nodes from showing the output in the queue bar and intermediate results. `Ctrl+Q` to toggle. 
 
 <img width="385" height="336" alt="image" src="https://github.com/user-attachments/assets/743fbf85-9281-4561-9dd0-cd9af4d8c0e4" />
 
@@ -33,8 +33,10 @@ Restart your ComfyUI server and refresh the browser tab.
 
 ## ⚙️ Configuration
 
-Additional tweaks are seamlessly integrated into the standard ComfyUI Settings panel. From there, you can adjust thresholds or fully replace the stock V2 panel by enabling options like **"Override Stock Job History Tab"**.
+See additional tweaks in ComfyUI settings menu > Comfy Sidebar. From there, you can adjust the layout or fully replace the stock V2 panel by enabling options like **"Comfy Layout"** and **"Replace the stock Job History sidebar with Comfy Queue"**.
 
 ## ⌨️ Shortcuts
 
 * **`Q`**: Instantly toggles the sidebar panel open or closed. Safely ignores inputs if you are currently typing inside a text field, input area, or combo box.
+* **`Ctrl+Q on a selected node`**: Sets the node to be ignored in the sidebar panel results.
+* **`Click`**  on a card to enter preview. **`Shift+Click`** on another card in preview to enter compare mode.
