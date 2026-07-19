@@ -604,7 +604,7 @@ export function renderDOM() {
 
                     const btnFocus = document.createElement("span");
                     btnFocus.className = "pi pi-eye";
-                    btnFocus.title = "Show Node"; // Renamed
+                    btnFocus.title = "Show Node";
                     styleActionBtn(btnFocus);
                     leftHoverPanel.appendChild(btnFocus);
 
@@ -683,7 +683,7 @@ export function renderDOM() {
                 globalClickRegistered = true;
             }
 
-            const outputs = getRunOutputs(st.nodeOutputs);
+            const outputs = getRunOutputs(st.nodeOutputs, st.workflow);
             const targetElements = [];
 
             outputs.forEach((out) => {
@@ -740,7 +740,7 @@ export function renderDOM() {
 
                     const btnFocus = document.createElement("span");
                     btnFocus.className = "pi pi-eye";
-                    btnFocus.title = "Show Node"; // Renamed
+                    btnFocus.title = "Show Node";
                     styleActionBtn(btnFocus);
                     leftHoverPanel.appendChild(btnFocus);
                     
@@ -865,7 +865,7 @@ export function renderDOM() {
 
                 const btnFocus = document.createElement("span");
                 btnFocus.className = "pi pi-eye";
-                btnFocus.title = "Show Node"; // Renamed
+                btnFocus.title = "Show Node";
                 styleActionBtn(btnFocus);
 
                 const leftHoverBtn = document.createElement("span");
@@ -910,7 +910,7 @@ export function renderDOM() {
                         }
 
                         // Show explorer view button if this run yielded multiple node outputs
-                        const outputs = getRunOutputs(state.nodeOutputs);
+                        const outputs = getRunOutputs(state.nodeOutputs, state.workflow);
                         if (outputs.length > 1) {
                             cardObj.leftHoverBtn.style.display = "inline-flex";
                         } else {

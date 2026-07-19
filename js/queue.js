@@ -81,8 +81,8 @@ const concludeRun = async (pid, statusStr) => {
         if (hItem && hItem[pid]) {
             if (!st.workflow) st.workflow = hItem[pid].extra_data?.extra_pnginfo?.workflow || null;
             st.nodeOutputs = hItem[pid].outputs; // Store full outputs dictionary!
-            if (st.images.length === 0) st.images = findImagesInOutputs(hItem[pid].outputs);
-            st.texts = findTextsInOutputs(hItem[pid].outputs);
+            if (st.images.length === 0) st.images = findImagesInOutputs(hItem[pid].outputs, st.workflow);
+            st.texts = findTextsInOutputs(hItem[pid].outputs, st.workflow);
         }
     } catch (err) {}
     pruneHistory(app);
@@ -165,12 +165,12 @@ export function setupApiListeners() {
     api.addEventListener("executed", (e) => {
         if (promptStates.has(e.detail.prompt_id)) {
             const st = promptStates.get(e.detail.prompt_id);
-            const finalImgs = findImagesInOutputs({ output: e.detail.output });
+            const finalImgs = findImagesInOutputs({ [e.detail.node]: e.detail.output }, st.workflow);
             if (finalImgs.length > 0) {
                 // Overwrite with latest images to avoid accumulation across sequential nodes
                 st.images = finalImgs;
             }
-            const finalTexts = findTextsInOutputs({ output: e.detail.output });
+            const finalTexts = findTextsInOutputs({ [e.detail.node]: e.detail.output }, st.workflow);
             if (finalTexts.length > 0) {
                 // Overwrite with latest texts to avoid clearing previously set text outputs
                 st.texts = finalTexts;
@@ -214,15 +214,16 @@ export async function initSessionAndHistory() {
     const ids = Object.keys(historyData).sort((a,b) => Number(a)-Number(b));
     ids.forEach(id => {
         if (promptStates.has(id)) return;
-        const images = findImagesInOutputs(historyData[id].outputs);
-        const texts = findTextsInOutputs(historyData[id].outputs);
+        const workflow = historyData[id].extra_data?.extra_pnginfo?.workflow || null;
+        const images = findImagesInOutputs(historyData[id].outputs, workflow);
+        const texts = findTextsInOutputs(historyData[id].outputs, workflow);
         if (images.length === 0 && texts.length === 0) return;
 
         State.globalOrderCounter++;
         promptStates.set(id, {
             pid: id, status: "completed", images, texts,
             nodeOutputs: historyData[id].outputs, // Store full outputs dictionary!
-            workflow: historyData[id].extra_data?.extra_pnginfo?.workflow || null,
+            workflow: workflow,
             progressText: "", timestamp: State.globalOrderCounter, rendered: true
         });
     });

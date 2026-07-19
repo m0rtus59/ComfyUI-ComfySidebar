@@ -1,13 +1,29 @@
+import { app } from "/scripts/app.js";
+
 export const isVideoFormat = (url) => {
     const s = url.toLowerCase();
     return s.includes(".mp4") || s.includes(".webm");
 };
 
+function isNodeIgnored(nodeId, workflow) {
+    if (!workflow || !workflow.nodes) {
+        // Fallback to active graph if workflow is missing (e.g. during live execution)
+        const liveNode = app.graph?.getNodeById(Number(nodeId));
+        if (liveNode) {
+            return !!(liveNode.properties && liveNode.properties.ignoreInQueue);
+        }
+        return false;
+    }
+    const node = workflow.nodes.find(n => String(n.id) === String(nodeId));
+    return !!(node && node.properties && node.properties.ignoreInQueue);
+}
+
 // Robust media output scanner supporting both arrays and single objects (gifs, mp4s, etc.)
-export function findImagesInOutputs(outputs) {
+export function findImagesInOutputs(outputs, workflow) {
     const list = [];
     if (!outputs) return list;
     for (const nodeId in outputs) {
+        if (isNodeIgnored(nodeId, workflow)) continue;
         for (const key in outputs[nodeId]) {
             const val = outputs[nodeId][key];
             if (Array.isArray(val)) {
@@ -22,10 +38,11 @@ export function findImagesInOutputs(outputs) {
     return list;
 }
 
-export function findTextsInOutputs(outputs) {
+export function findTextsInOutputs(outputs, workflow) {
     const list = [];
     if (!outputs) return list;
     for (const nodeId in outputs) {
+        if (isNodeIgnored(nodeId, workflow)) continue;
         for (const key in outputs[nodeId]) {
             const val = outputs[nodeId][key];
             if (Array.isArray(val)) {
@@ -49,11 +66,11 @@ export function findTextsInOutputs(outputs) {
 }
 
 // Organizes raw outputs dictionaries into lists of individual node-level output blocks (ignoring text-only outputs)
-export function getRunOutputs(nodeOutputs) {
+export function getRunOutputs(nodeOutputs, workflow) {
     const list = [];
     if (!nodeOutputs) return list;
     for (const nodeId in nodeOutputs) {
-        const imgs = findImagesInOutputs({ [nodeId]: nodeOutputs[nodeId] });
+        const imgs = findImagesInOutputs({ [nodeId]: nodeOutputs[nodeId] }, workflow);
         if (imgs.length > 0) {
             list.push({ nodeId, images: imgs });
         }

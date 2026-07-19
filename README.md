@@ -13,7 +13,8 @@ A lightweight, high-performance ComfyUI extension that replaces the cluttered st
 * **Live Queue Tracking**: Stay informed on your server state. Includes a visual progress bar that tracks generations dynamically and displays the exact node title currently being executed.
 * A compact topbar layout displaying both workflow tabs and the control panel on a single unified top bar. See the 'Comfy Layout' toggle in the settings.
 * Toggles to hide buttons you don't need from the side panel.
-* **[NEW]** Preview compare slider - just click the result image preview in the sidebar, and then shift+click another to load it alongside the first one for pixel by pixel comparison. 
+* **[NEW]** Preview compare slider - just click the result image preview in the sidebar, and then `Shift+Click` another to load it alongside the first one for pixel by pixel comparison. 
+* **[NEW]** Prevent certain nodes from showing the output in the queue bar and intermediate results. `Ctrl+Q` to toggle. 
 
 <img width="385" height="336" alt="image" src="https://github.com/user-attachments/assets/743fbf85-9281-4561-9dd0-cd9af4d8c0e4" />
 
