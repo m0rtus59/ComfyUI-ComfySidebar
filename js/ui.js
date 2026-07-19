@@ -202,7 +202,7 @@ export function setupSidebarUI() {
                 promptStates.delete(pid);
             }
         }
-        try { await api.fetchApi("/history", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clear: true }) }); } catch (err) {}
+        try { await api.fetchApi("/history", { method: "POST", body: JSON.stringify({ clear: true }) }); } catch (err) {}
         renderDOM();
     });
 
@@ -336,6 +336,7 @@ function renderCardImages(cardObj, state, keepAspect) {
         }
     };
 
+    // Bind dimensions hooks and event listeners EVERY run (for recycled elements & fast cache hits!)
     if (isVideo) { 
         mediaEl.muted = true; 
         mediaEl.playsInline = true; 
@@ -346,6 +347,9 @@ function renderCardImages(cardObj, state, keepAspect) {
         mediaEl.onloadedmetadata = () => {
             applyDimensions(mediaEl.videoWidth, mediaEl.videoHeight);
         };
+        if (mediaEl.readyState >= 1) {
+            applyDimensions(mediaEl.videoWidth, mediaEl.videoHeight);
+        }
         
         let playIcon = wrapper.querySelector(".comfy-sidebar-play-icon");
         if (!playIcon) {
@@ -389,6 +393,13 @@ function renderCardImages(cardObj, state, keepAspect) {
             mediaEl.removeEventListener("dragstart", mediaEl._currentDragStart);
             mediaEl.addEventListener("dragstart", dragStartHandler);
             mediaEl._currentDragStart = dragStartHandler;
+        }
+
+        mediaEl.onload = () => { 
+            applyDimensions(mediaEl.naturalWidth, mediaEl.naturalHeight);
+        };
+        if (mediaEl.complete && mediaEl.naturalWidth) {
+            applyDimensions(mediaEl.naturalWidth, mediaEl.naturalHeight);
         }
 
         const playIcon = wrapper.querySelector(".comfy-sidebar-play-icon");
