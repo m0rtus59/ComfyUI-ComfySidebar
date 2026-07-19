@@ -164,7 +164,7 @@ function createComparisonViewer(baseSrc) {
     const infoText = document.createElement("span");
     infoText.textContent = isBaseVideo 
         ? "Video playback. Press Esc to close." 
-        : "Reference loaded. Click another card image in the sidebar to compare.";
+        : "Reference loaded. Click to replace | Shift+Click another card image to compare.";
     header.appendChild(infoText);
     container.appendChild(header);
 
@@ -185,6 +185,19 @@ function createComparisonViewer(baseSrc) {
         maxWidth: "85%", maxHeight: "85%"
     });
     container.appendChild(wrapper);
+
+    // Muted bottom tooltip helper
+    const hintPrompt = document.createElement("div");
+    Object.assign(hintPrompt.style, {
+        position: "absolute", bottom: "16px", zIndex: "30",
+        color: "#555", fontSize: "10px", fontFamily: "sans-serif",
+        pointerEvents: "none"
+    });
+    hintPrompt.innerHTML = 'Tip: Hold <span style="color:#777;font-weight:bold;">Shift</span> while clicking sidebar cards to compare outputs side-by-side.';
+    if (isBaseVideo) {
+        hintPrompt.style.display = "none";
+    }
+    container.appendChild(hintPrompt);
 
     container.onclick = (e) => {
         if (e.target === container) {
@@ -285,7 +298,6 @@ function createComparisonViewer(baseSrc) {
         }
     };
     
-    // Assign to our module-scoped tracker and register
     globalKeydownHandler = handleKeys;
     document.addEventListener("keydown", globalKeydownHandler);
 
@@ -296,12 +308,12 @@ function createComparisonViewer(baseSrc) {
     }
 
     return {
-        loadTarget(targetSrc) {
+        loadTarget(targetSrc, isShiftClick) {
             const isTargetVideo = isVideoFormat(targetSrc);
 
             if (isBaseVideo) {
                 destroy();
-                showFullscreenPreview([targetSrc]);
+                showFullscreenPreview([targetSrc], isShiftClick);
                 return;
             }
 
@@ -309,24 +321,36 @@ function createComparisonViewer(baseSrc) {
                 return;
             }
 
-            if (mediaB) mediaB.remove();
+            if (isShiftClick) {
+                // Shift+Click: Sideload target image B for comparison split
+                if (mediaB) mediaB.remove();
 
-            mediaB = createMediaElement(targetSrc, false);
-            mediaB.style.pointerEvents = "none";
-            wrapper.appendChild(mediaB);
+                mediaB = createMediaElement(targetSrc, false);
+                mediaB.style.pointerEvents = "none";
+                wrapper.appendChild(mediaB);
 
-            slider.style.display = "block";
-            infoText.textContent = "Drag the slider to compare. Click other card images to update target | Esc to close.";
-            updateSliderPosition(50);
+                slider.style.display = "block";
+                infoText.textContent = "Drag the slider to compare. Shift+Click other card images to update target | Esc to close.";
+                updateSliderPosition(50);
+            } else {
+                // Standard Click: Replace the main base reference image entirely
+                if (mediaB) {
+                    mediaB.remove();
+                    mediaB = null;
+                }
+                slider.style.display = "none";
+                mediaA.src = targetSrc;
+                infoText.textContent = "Reference loaded. Click to replace | Shift+Click another card image to compare.";
+            }
         }
     };
 }
 
-export function showFullscreenPreview(imgSrcs) {
+export function showFullscreenPreview(imgSrcs, isShiftClick = false) {
     if (!imgSrcs || imgSrcs.length === 0) return;
     
     if (activeComparisonViewer) {
-        activeComparisonViewer.loadTarget(imgSrcs[0]);
+        activeComparisonViewer.loadTarget(imgSrcs[0], isShiftClick);
         return;
     }
 

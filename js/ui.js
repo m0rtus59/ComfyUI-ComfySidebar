@@ -319,10 +319,10 @@ function renderCardImages(cardObj, state, keepAspect) {
 
     cardObj.firstImgElement = mediaEl;
 
-    // Binds interactive event listeners
+    // Binds interactive event listeners. Passes shiftKey context natively to support split side-loading
     mediaEl.onclick = (ev) => { 
         ev.stopPropagation(); 
-        showFullscreenPreview([src]); 
+        showFullscreenPreview([src], ev.shiftKey); 
     };
 
     // Shared dimensions layout compiler
@@ -512,7 +512,6 @@ export function renderDOM() {
         const headerSearchIcon = State.sidebarContainer.querySelector(".pi-search");
         const headerActions = State.sidebarContainer.querySelector(".pi-eraser")?.parentNode;
 
-        // Shared action buttons styling helper
         const styleActionBtn = (btn) => {
             Object.assign(btn.style, {
                 display: "inline-flex",
@@ -605,7 +604,7 @@ export function renderDOM() {
 
                     const btnFocus = document.createElement("span");
                     btnFocus.className = "pi pi-eye";
-                    btnFocus.title = "Show Node";
+                    btnFocus.title = "Show Node"; // Renamed
                     styleActionBtn(btnFocus);
                     leftHoverPanel.appendChild(btnFocus);
 
@@ -741,7 +740,7 @@ export function renderDOM() {
 
                     const btnFocus = document.createElement("span");
                     btnFocus.className = "pi pi-eye";
-                    btnFocus.title = "Focus Node";
+                    btnFocus.title = "Show Node"; // Renamed
                     styleActionBtn(btnFocus);
                     leftHoverPanel.appendChild(btnFocus);
                     
@@ -866,7 +865,7 @@ export function renderDOM() {
 
                 const btnFocus = document.createElement("span");
                 btnFocus.className = "pi pi-eye";
-                btnFocus.title = "Focus Node";
+                btnFocus.title = "Show Node"; // Renamed
                 styleActionBtn(btnFocus);
 
                 const leftHoverBtn = document.createElement("span");
