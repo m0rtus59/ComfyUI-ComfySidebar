@@ -27,10 +27,12 @@ export function setupDragAndDrop() {
     });
 
     document.addEventListener("drop", async (e) => {
-        // Cancel loading entirely if dropping inside the sidebar area
+        // Cancel loading entirely and prevent bubbling if dropping inside the sidebar area
         const isSidebarDrop = e.target.closest('.comfyui-sidebar, .comfy-sidebar, [class*="sidebar"]') || 
                               (State.sidebarContainer && State.sidebarContainer.contains(e.target));
         if (isSidebarDrop) {
+            e.preventDefault();
+            e.stopPropagation();
             return;
         }
 

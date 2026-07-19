@@ -915,9 +915,10 @@ export function renderDOM() {
                             cardObj.btnFocus.style.display = "none";
                         }
 
-                        // Show explorer view button if this run yielded multiple node outputs
+                        // Show explorer view button if this run yielded multiple node outputs, or if it was interrupted/failed but has some outputs
                         const outputs = getRunOutputs(state.nodeOutputs, state.workflow);
-                        if (outputs.length > 1) {
+                        const isInterrupted = state.status === "cancelled" || state.status === "error";
+                        if (outputs.length > 1 || (outputs.length > 0 && isInterrupted)) {
                             cardObj.leftHoverBtn.style.display = "inline-flex";
                         } else {
                             cardObj.leftHoverBtn.style.display = "none";
