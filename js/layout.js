@@ -25,6 +25,46 @@ const CLASSIC_LAYOUT_CSS_MEDIA = `
     align-items: center !important;
 }
 
+/* Style overrides for the new native Extensions button container when embedded in top actionbar */
+.comfy-sidebar-extensions-override {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 8px 0 0 !important;
+    height: auto !important;
+    position: static !important;
+    order: -10 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+}
+
+/* Scale down performance indicators (Crystools) uniformly without breaking their native styling */
+#crysmonitor-monitors-root,
+#crystools-monitors-root,
+.crysmonitor-monitors-container {
+    zoom: 0.8 !important; /* Restored to original 0.8 scale for perfect topbar alignment */
+    display: inline-flex !important;
+    align-items: center !important;
+}
+
+/* Hide only the user account profile button and its PrimeVue components (initials/icons) */
+img[alt*="User Avatar"],
+img[alt*="user avatar"],
+button:has(img[alt*="User Avatar"]),
+[role="button"]:has(img[alt*="User Avatar"]),
+button:has(img[alt*="user avatar"]),
+[role="button"]:has(img[alt*="user avatar"]),
+/* PrimeVue Avatar component class and attribute selectors */
+.p-avatar,
+[data-pc-name="avatar"],
+button:has(.p-avatar),
+[role="button"]:has(.p-avatar),
+button:has([data-pc-name="avatar"]),
+[role="button"]:has([data-pc-name="avatar"]) {
+    display: none !important;
+}
+
 /* Base rules: Large/Wide desktop screens (>= 1600px width) */
 .p-tabview-nav-content,
 [class*="tabview"] {
@@ -60,11 +100,11 @@ const CLASSIC_LAYOUT_CSS_MEDIA = `
 }
 `;
 
-export function applyClassicLayout(enable) {
+export function applyClassicLayout(enable, updateSetting = false) {
     let styleEl = document.getElementById(STYLE_ID);
     
     if (enable) {
-        if (app.ui && app.ui.settings) {
+        if (updateSetting && app.ui && app.ui.settings) {
             app.ui.settings.setSettingValue("Comfy.Workflow.WorkflowTabsPosition", "Topbar");
         }
 
@@ -78,7 +118,7 @@ export function applyClassicLayout(enable) {
     } else {
         if (styleEl) styleEl.remove();
         
-        if (app.ui && app.ui.settings) {
+        if (updateSetting && app.ui && app.ui.settings) {
             app.ui.settings.setSettingValue("Comfy.Workflow.WorkflowTabsPosition", "Sidebar");
         }
     }
@@ -102,7 +142,7 @@ function findOriginalButton() {
 }
 
 function findTopbarContainer() {
-    const container = document.querySelector('[class*="actionbar-buttons"], .actionbar-buttons, [class*="actionbar"]');
+    const container = document.querySelector('[data-testid="action-bar-buttons"], [class*="actionbar-buttons"], .actionbar-buttons, [class*="actionbar"]');
     if (container) return container;
     
     const orig = findOriginalButton();
@@ -121,7 +161,9 @@ function findTopbarContainer() {
 
 function isPropertiesPanelOpen() {
     const icon = document.querySelector('[class*="lucide--panel-right"], [class*="lucide--panel-left"]');
-    return !!(icon && icon.className.includes("lucide--panel-left"));
+    if (!icon) return false;
+    const classStr = icon.getAttribute("class") || "";
+    return classStr.includes("lucide--panel-left");
 }
 
 function findActiveQueueIndicator() {
@@ -138,6 +180,12 @@ function findActiveQueueIndicator() {
         }
     }
     return null;
+}
+
+function findNativeExtensionsPanel() {
+    // Exclude the main actionbar-container itself to prevent infinite loop appending bugs
+    return Array.from(document.querySelectorAll('.shadow-interface:not(.actionbar-container)'))
+        .find(el => el.textContent.toLowerCase().includes('extensions') || el.querySelector('button')?.textContent.toLowerCase().includes('extensions'));
 }
 
 function updateSidebarTabsVisibility() {
@@ -218,121 +266,160 @@ function findGraphButton() {
 }
 
 export function syncClassicLayout() {
-    const isClassicLayoutEnabled = app.ui?.settings?.getSettingValue("Comfy Sidebar.Comfy Layout") ?? false;
+    // Temporarily disconnect observer to cleanly avoid infinite layout feedback loops during DOM rearrangement
+    if (domObserver) domObserver.disconnect();
 
-    // 1. Handle "Hide Graph Button" Toggle under the renamed "Hide Junk" path
-    const hideGraphBtn = app.ui?.settings?.getSettingValue("Comfy Sidebar.Hide Junk.Graph Button") ?? false;
-    const graphBtn = findGraphButton();
-    if (graphBtn) {
-        if (hideGraphBtn) {
-            if (graphBtn.style.display !== "none") {
-                graphBtn.style.setProperty("display", "none", "important");
-            }
-        } else {
-            if (graphBtn.style.display === "none") {
-                graphBtn.style.removeProperty("display");
+    try {
+        const isClassicLayoutEnabled = app.ui?.settings?.getSettingValue("Comfy Sidebar.Comfy Layout") ?? false;
+
+        // 1. Handle "Hide Graph Button" Toggle under the renamed "Hide Junk" path
+        const hideGraphBtn = app.ui?.settings?.getSettingValue("Comfy Sidebar.Hide Junk.Graph Button") ?? false;
+        const graphBtn = findGraphButton();
+        if (graphBtn) {
+            if (hideGraphBtn) {
+                if (graphBtn.style.display !== "none") {
+                    graphBtn.style.setProperty("display", "none", "important");
+                }
+            } else {
+                if (graphBtn.style.display === "none") {
+                    graphBtn.style.removeProperty("display");
+                }
             }
         }
-    }
 
-    // 2. Exit early and clean up overrides if Classic Topbar layout is off
-    if (!isClassicLayoutEnabled) {
+        // 2. Handle Native Extensions Button alignment in Classic Layout
+        const extensionsPanel = findNativeExtensionsPanel();
+        if (extensionsPanel) {
+            if (isClassicLayoutEnabled) {
+                const container = findTopbarContainer();
+                if (container && extensionsPanel.parentNode !== container) {
+                    // Save original parent so we can restore it if the layout toggle is turned off
+                    if (!extensionsPanel._originalParent) {
+                        extensionsPanel._originalParent = extensionsPanel.parentNode;
+                        extensionsPanel._originalNextSibling = extensionsPanel.nextSibling;
+                    }
+                    container.appendChild(extensionsPanel);
+                    extensionsPanel.classList.add("comfy-sidebar-extensions-override");
+                }
+            } else {
+                // Restore original placement when classic layout is disabled
+                if (extensionsPanel._originalParent && extensionsPanel.parentNode !== extensionsPanel._originalParent) {
+                    extensionsPanel._originalParent.insertBefore(extensionsPanel, extensionsPanel._originalNextSibling || null);
+                    extensionsPanel.classList.remove("comfy-sidebar-extensions-override");
+                }
+            }
+        }
+
+        // 3. Exit early and clean up overrides if Classic Topbar layout is off
+        if (!isClassicLayoutEnabled) {
+            const originalBtn = findOriginalButton();
+            if (originalBtn && originalBtn.classList.contains("comfy-sidebar-hide-original-properties-btn")) {
+                originalBtn.classList.remove("comfy-sidebar-hide-original-properties-btn");
+            }
+
+            const customBtn = document.querySelector(".comfy-sidebar-custom-properties-toggle");
+            if (customBtn) {
+                customBtn.remove();
+            }
+
+            const indicator = findActiveQueueIndicator();
+            if (indicator && indicator.style.display === "none") {
+                indicator.style.removeProperty("display");
+            }
+
+            updateSidebarTabsVisibility();
+            return;
+        }
+
+        // 4. Handle Active Layout elements synchronization
         const originalBtn = findOriginalButton();
-        if (originalBtn && originalBtn.classList.contains("comfy-sidebar-hide-original-properties-btn")) {
-            originalBtn.classList.remove("comfy-sidebar-hide-original-properties-btn");
+        const container = findTopbarContainer();
+        const openState = isPropertiesPanelOpen();
+
+        if (originalBtn) {
+            if (!originalBtn.classList.contains("comfy-sidebar-hide-original-properties-btn")) {
+                originalBtn.classList.add("comfy-sidebar-hide-original-properties-btn");
+            }
+
+            savedButtonData = {
+                className: originalBtn.className.replace("comfy-sidebar-hide-original-properties-btn", "").trim(),
+                innerHTML: originalBtn.innerHTML,
+                tagName: originalBtn.tagName,
+                attributes: Array.from(originalBtn.attributes).map(attr => ({
+                    name: attr.name,
+                    value: attr.value
+                }))
+            };
         }
 
-        const customBtn = document.querySelector(".comfy-sidebar-custom-properties-toggle");
+        let customBtn = document.querySelector(".comfy-sidebar-custom-properties-toggle");
+
+        if (!customBtn && savedButtonData && container) {
+            customBtn = document.createElement(savedButtonData.tagName);
+            
+            customBtn.className = savedButtonData.className + " comfy-sidebar-custom-properties-toggle";
+            customBtn.innerHTML = savedButtonData.innerHTML;
+
+            for (const attr of savedButtonData.attributes) {
+                if (attr.name !== "class" && attr.name !== "id" && attr.name !== "style") {
+                    customBtn.setAttribute(attr.name, attr.value);
+                }
+            }
+
+            Object.assign(customBtn.style, {
+                position: "relative",
+                zIndex: "1000", 
+                margin: "0",
+                boxSizing: "border-box",
+                opacity: "1",
+                pointerEvents: "auto",
+                display: "inline-flex"
+            });
+
+            customBtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const nativeBtn = findOriginalButton();
+                if (nativeBtn) nativeBtn.click();
+            });
+
+            container.appendChild(customBtn);
+        }
+
         if (customBtn) {
-            customBtn.remove();
+            customBtn.classList.toggle("comfy-panel-open", openState);
+            customBtn.style.display = "inline-flex";
         }
 
+        // 5. Handle "0 active" indicator visibility based on history tab settings
+        const hideQueueIndicator = app.ui?.settings?.getSettingValue("Comfy Sidebar.Hide Junk.Override Stock Job History Tab") ?? false;
         const indicator = findActiveQueueIndicator();
-        if (indicator && indicator.style.display === "none") {
-            indicator.style.removeProperty("display");
+        if (indicator) {
+            if (hideQueueIndicator) {
+                if (indicator.style.display !== "none") {
+                    indicator.style.setProperty("display", "none", "important");
+                }
+            } else {
+                if (indicator.style.display === "none") {
+                    indicator.style.removeProperty("display");
+                }
+            }
         }
 
         updateSidebarTabsVisibility();
-        return;
-    }
 
-    // 3. Handle Active Layout elements synchronization
-    const originalBtn = findOriginalButton();
-    const container = findTopbarContainer();
-    const openState = isPropertiesPanelOpen();
-
-    if (originalBtn) {
-        if (!originalBtn.classList.contains("comfy-sidebar-hide-original-properties-btn")) {
-            originalBtn.classList.add("comfy-sidebar-hide-original-properties-btn");
-        }
-
-        savedButtonData = {
-            className: originalBtn.className.replace("comfy-sidebar-hide-original-properties-btn", "").trim(),
-            innerHTML: originalBtn.innerHTML,
-            tagName: originalBtn.tagName,
-            attributes: Array.from(originalBtn.attributes).map(attr => ({
-                name: attr.name,
-                value: attr.value
-            }))
-        };
-    }
-
-    let customBtn = document.querySelector(".comfy-sidebar-custom-properties-toggle");
-
-    if (!customBtn && savedButtonData && container) {
-        customBtn = document.createElement(savedButtonData.tagName);
-        
-        customBtn.className = savedButtonData.className + " comfy-sidebar-custom-properties-toggle";
-        customBtn.innerHTML = savedButtonData.innerHTML;
-
-        for (const attr of savedButtonData.attributes) {
-            if (attr.name !== "class" && attr.name !== "id" && attr.name !== "style") {
-                customBtn.setAttribute(attr.name, attr.value);
-            }
-        }
-
-        Object.assign(customBtn.style, {
-            position: "relative",
-            zIndex: "1000", 
-            margin: "0",
-            boxSizing: "border-box",
-            opacity: "1",
-            pointerEvents: "auto",
-            display: "inline-flex"
-        });
-
-        customBtn.addEventListener("click", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            const nativeBtn = findOriginalButton();
-            if (nativeBtn) nativeBtn.click();
-        });
-
-        container.appendChild(customBtn);
-    }
-
-    if (customBtn) {
-        customBtn.classList.toggle("comfy-panel-open", openState);
-        customBtn.style.display = "inline-flex";
-    }
-
-    // 4. Handle "0 active" indicator visibility based on history tab settings
-    const hideQueueIndicator = app.ui?.settings?.getSettingValue("Comfy Sidebar.Hide Junk.Override Stock Job History Tab") ?? false;
-    const indicator = findActiveQueueIndicator();
-    if (indicator) {
-        if (hideQueueIndicator) {
-            if (indicator.style.display !== "none") {
-                indicator.style.setProperty("display", "none", "important");
-            }
-        } else {
-            if (indicator.style.display === "none") {
-                indicator.style.removeProperty("display");
-            }
+    } catch (err) {
+        console.error("Comfy Sidebar: Error inside layout sync routine:", err);
+    } finally {
+        // Re-enable mutation monitoring once our changes have successfully updated in the DOM
+        if (domObserver) {
+            domObserver.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
         }
     }
-
-    updateSidebarTabsVisibility();
 }
 
 export function setupPropertiesPanelToggleFix() {
@@ -369,27 +456,17 @@ export function setupPropertiesPanelToggleFix() {
         domObserver.disconnect();
     }
 
-    syncClassicLayout();
-
     domObserver = new MutationObserver((mutations) => {
         let shouldSync = false;
         for (const mutation of mutations) {
             if (mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0) {
-                // Ensure mutation is on an actual Element node (nodeType 1) and not just text node updates
                 const hasElementMutation = Array.from(mutation.addedNodes).some(node => node.nodeType === 1) ||
                                            Array.from(mutation.removedNodes).some(node => node.nodeType === 1);
                 
-                if (!hasElementMutation) continue;
-
-                // Ignore mutations on our own components to avoid feedback loops
-                const isOurNode = Array.from(mutation.addedNodes).some(node => 
-                    node.classList?.contains?.("comfy-sidebar-custom-properties-toggle") ||
-                    node.id === "comfy-sidebar-layout-fix-styles"
-                );
-                if (isOurNode) continue;
-
-                shouldSync = true;
-                break;
+                if (hasElementMutation) {
+                    shouldSync = true;
+                    break;
+                }
             }
         }
         if (shouldSync && !syncScheduled) {
@@ -405,4 +482,7 @@ export function setupPropertiesPanelToggleFix() {
         childList: true,
         subtree: true
     });
+
+    // Run first layout sync now that structural observing is active
+    syncClassicLayout();
 }

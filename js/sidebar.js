@@ -6,6 +6,9 @@ import { setupSidebarUI, applySidebarOverride, findOurSidebarButton, setSyncQueu
 import { setupApiListeners, initSessionAndHistory, syncQueue, setUIDependencies } from "./queue.js";
 import { applyClassicLayout, setupPropertiesPanelToggleFix, syncClassicLayout } from "./layout.js";
 
+// Track initial loading phase to guard against early auto-fired settings triggers
+let isInitialized = false;
+
 function toggleIgnoreActiveNode() {
     const canvas = app.canvas;
     if (!canvas) return;
@@ -106,7 +109,10 @@ app.registerExtension({
             type: "boolean",
             defaultValue: false,
             onChange: (value) => {
-                applyClassicLayout(value);
+                // Only update the native layout configuration if setup() initialization has fully concluded
+                if (isInitialized) {
+                    applyClassicLayout(value, true);
+                }
             }
         });
     },
@@ -114,9 +120,12 @@ app.registerExtension({
     async setup() {
         if (!app.extensionManager || !app.extensionManager.registerSidebarTab) return;
 
-        // Apply saved layout configuration on startup
+        // Apply saved layout configuration on startup (never force overwrite on launch)
         const isClassicLayoutEnabled = app.ui.settings.getSettingValue("Comfy Sidebar.Comfy Layout") ?? false;
-        applyClassicLayout(isClassicLayoutEnabled);
+        applyClassicLayout(isClassicLayoutEnabled, false);
+        
+        // Finalize initialization to open write pathways for settings-panel adjustments
+        isInitialized = true;
 
         // Run properties panel toggle correction
         setupPropertiesPanelToggleFix();
