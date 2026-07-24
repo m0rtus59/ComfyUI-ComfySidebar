@@ -1,7 +1,7 @@
 [project]
 name = "comfy-sidebar"
 description = "A custom queue sidebar and image comparison extension that reintroduces and improves a sidebar queue menu and unified compact topbar layout for ComfyUI."
-version = "1.2.6"
+version = "1.2.7"
 license = { file = "LICENSE" }
 dependencies = []
 
