@@ -1,6 +1,7 @@
-// styles.js
 export function injectStyles() {
+    if (document.getElementById("comfy-sidebar-styles")) return;
     const style = document.createElement("style");
+    style.id = "comfy-sidebar-styles";
     style.textContent = `
         .comfy-sidebar-card {
             background: var(--comfy-input-bg, #181818);
@@ -35,24 +36,23 @@ export function injectStyles() {
             padding: 2px 4px; border-radius: 3px; pointer-events: none; z-index: 5; color: #fff;
         }
 
-        /* --- Custom Queue Cancel Button to Mimic ComfyUI Native Destructive Button --- */
         .comfy-sidebar-queue-cancel-btn {
             display: none;
             align-items: center !important;
             justify-content: center !important;
             width: 32px !important;
             height: 32px !important;
-            background-color: #7f1d1d !important; /* Native deep red */
-            color: #e2e8f0 !important; /* Native slate white icon */
-            font-size: 11px !important; /* Muted native cross size */
-            border-radius: 6px !important; /* Native corner rounding */
+            background-color: #7f1d1d !important;
+            color: #e2e8f0 !important;
+            font-size: 11px !important;
+            border-radius: 6px !important;
             cursor: pointer !important;
             transition: background-color 0.15s ease, color 0.15s ease !important;
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
         }
 
         .comfy-sidebar-queue-cancel-btn:hover {
-            background-color: #991b1b !important; /* Slightly brighter red on hover */
+            background-color: #991b1b !important;
             color: #ffffff !important;
         }
     `;

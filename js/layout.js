@@ -1,4 +1,3 @@
-// layout.js - Fully Fixed & Renamed to 'Hide Junk'
 import { app } from "/scripts/app.js";
 
 const STYLE_ID = "comfy-sidebar-classic-layout-override";
@@ -15,7 +14,6 @@ const CLASSIC_LAYOUT_CSS_MEDIA = `
     transform: none !important;
     z-index: 1010 !important;
 
-    /* Nuke the background rectangle, border, and shadows */
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
@@ -39,23 +37,22 @@ const CLASSIC_LAYOUT_CSS_MEDIA = `
     align-items: center !important;
 }
 
-/* Scale down performance indicators (Crystools) uniformly without breaking their native styling */
+/* Scale down performance indicators (Crystools) uniformly */
 #crysmonitor-monitors-root,
 #crystools-monitors-root,
 .crysmonitor-monitors-container {
-    zoom: 0.8 !important; /* Restored to original 0.8 scale for perfect topbar alignment */
+    zoom: 0.8 !important;
     display: inline-flex !important;
     align-items: center !important;
 }
 
-/* Hide only the user account profile button and its PrimeVue components (initials/icons) */
+/* Hide user account profile button and PrimeVue components */
 img[alt*="User Avatar"],
 img[alt*="user avatar"],
 button:has(img[alt*="User Avatar"]),
 [role="button"]:has(img[alt*="User Avatar"]),
 button:has(img[alt*="user avatar"]),
 [role="button"]:has(img[alt*="user avatar"]),
-/* PrimeVue Avatar component class and attribute selectors */
 .p-avatar,
 [data-pc-name="avatar"],
 button:has(.p-avatar),
@@ -106,7 +103,6 @@ export function syncStockHistoryAndProgressSettings(enable) {
     const dockedVal = !!enable;
     const progressVal = !enable;
 
-    // 1. Exact setting ID in ComfyUI for "Docked job history/queue panel"
     const QPOV2_ID = "Comfy.Queue.QPOV2";
 
     try {
@@ -114,7 +110,6 @@ export function syncStockHistoryAndProgressSettings(enable) {
         localStorage.setItem(QPOV2_ID, JSON.stringify(dockedVal));
     } catch (e) {}
 
-    // 2. Click native QPOV2 PrimeVue toggle switch if Settings Drawer is open
     try {
         const qpovContainer = document.querySelector('[data-setting-id="Comfy.Queue.QPOV2"]') || 
                               document.getElementById(QPOV2_ID)?.closest('.setting-item, tr, div');
@@ -131,24 +126,12 @@ export function syncStockHistoryAndProgressSettings(enable) {
         }
     } catch (e) {}
 
-    // 3. Update candidate progress bar setting keys directly in setting store & localStorage
-    const progressKeys = [
-        "Comfy.Queue.ShowRunProgressBar",
-        "Comfy.Queue.ShowProgressBar",
-        "Comfy.Queue.ProgressBar",
-        "Comfy.Queue.InlineProgress",
-        "Comfy.Queue.RunProgressBar",
-        "Comfy.Queue.ShowProgress"
-    ];
+    const progressKey = "Comfy.Queue.ShowRunProgressBar";
+    try {
+        app.ui.settings.setSettingValue(progressKey, progressVal);
+        localStorage.setItem(progressKey, JSON.stringify(progressVal));
+    } catch (e) {}
 
-    for (const key of progressKeys) {
-        try {
-            app.ui.settings.setSettingValue(key, progressVal);
-            localStorage.setItem(key, JSON.stringify(progressVal));
-        } catch (e) {}
-    }
-
-    // 4. Click the native "Show run progress bar" action button if it is rendered in the DOM
     try {
         const progressBarBtn = document.querySelector('[data-testid="show-run-progress-bar-action"]');
         if (progressBarBtn) {
@@ -187,8 +170,6 @@ export function applyClassicLayout(enable, updateSetting = false) {
         }
     }
 }
-
-/* --- Properties Panel Toggle Corrections --- */
 
 let savedButtonData = null;
 let domObserver = null;
@@ -247,7 +228,6 @@ function findActiveQueueIndicator() {
 }
 
 function findNativeExtensionsPanel() {
-    // Exclude the main actionbar-container itself to prevent infinite loop appending bugs
     return Array.from(document.querySelectorAll('.shadow-interface:not(.actionbar-container)'))
         .find(el => el.textContent.toLowerCase().includes('extensions') || el.querySelector('button')?.textContent.toLowerCase().includes('extensions'));
 }
@@ -256,14 +236,13 @@ function updateSidebarTabsVisibility() {
     const sidebar = document.querySelector('.comfyui-sidebar, .comfy-sidebar, .sidebar, [class*="sidebar-nav"], [class*="sidebar"]');
     if (!sidebar) return;
 
-    // Direct mapping from tab settings to their unique class-based HTML icon tags
+    // NodesMap removed from tabIconSelectors
     const tabIconSelectors = {
         "Assets": '[class*="comfy--image-ai-edit"]',
         "Nodes": '[class*="comfy--node"]',
         "Models": '[class*="comfy--ai-model"]',
         "Workflows": '[class*="comfy--workflow"]',
         "Apps": '[class*="lucide--panels-top-left"]',
-        "NodesMap": '[class*="pi-sitemap"]',
         "Templates": '[class*="comfy--template"]'
     };
 
@@ -286,7 +265,6 @@ function updateSidebarTabsVisibility() {
         }
     });
 
-    // Handle "Replace the stock Job History sidebar with Comfy Queue" using its setting path
     const hideStockHistory = app.ui?.settings?.getSettingValue("Comfy Sidebar.Hide Junk.Override Stock Job History Tab") ?? false;
     const historyIcon = sidebar.querySelector('[class*="lucide--history"]');
     if (historyIcon) {
@@ -331,7 +309,6 @@ export function syncClassicLayout() {
     try {
         const isClassicLayoutEnabled = app.ui?.settings?.getSettingValue("Comfy Sidebar.Comfy Layout") ?? false;
 
-        // 1. Handle "Hide Graph Button" Toggle under the renamed "Hide Junk" path
         const hideGraphBtn = app.ui?.settings?.getSettingValue("Comfy Sidebar.Hide Junk.Graph Button") ?? false;
         const graphBtn = findGraphButton();
         if (graphBtn) {
@@ -346,7 +323,6 @@ export function syncClassicLayout() {
             }
         }
 
-        // 2. Handle Native Extensions Button alignment in Classic Layout
         const extensionsPanel = findNativeExtensionsPanel();
         if (extensionsPanel) {
             if (isClassicLayoutEnabled) {
@@ -367,7 +343,6 @@ export function syncClassicLayout() {
             }
         }
 
-        // 3. Exit early and clean up overrides if Classic Topbar layout is off
         if (!isClassicLayoutEnabled) {
             const originalBtn = findOriginalButton();
             if (originalBtn && originalBtn.classList.contains("comfy-sidebar-hide-original-properties-btn")) {
@@ -388,7 +363,6 @@ export function syncClassicLayout() {
             return;
         }
 
-        // 4. Handle Active Layout elements synchronization
         const originalBtn = findOriginalButton();
         const container = findTopbarContainer();
         const openState = isPropertiesPanelOpen();
@@ -449,7 +423,6 @@ export function syncClassicLayout() {
             customBtn.style.display = "inline-flex";
         }
 
-        // 5. Handle "0 active" indicator visibility
         const hideQueueIndicator = app.ui?.settings?.getSettingValue("Comfy Sidebar.Hide Junk.Override Stock Job History Tab") ?? false;
         const indicator = findActiveQueueIndicator();
         if (indicator) {
@@ -539,6 +512,5 @@ export function setupPropertiesPanelToggleFix() {
         subtree: true
     });
 
-    // Run first layout sync now that structural observing is active
     syncClassicLayout();
 }

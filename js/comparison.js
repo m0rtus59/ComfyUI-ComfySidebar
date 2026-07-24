@@ -2,11 +2,14 @@ import { State } from "./state.js";
 import { isVideoFormat } from "./utils.js";
 
 let activeComparisonViewer = null;
-let videoSyncActive = false;
-let syncAnimationFrameId = null;
-
-// Track the global keydown reference across instances defensively
 let globalKeydownHandler = null;
+
+// Safe clientX resolver for mouse and touch events
+const getClientX = (e) => {
+    if (e.touches && e.touches.length > 0) return e.touches[0].clientX;
+    if (e.changedTouches && e.changedTouches.length > 0) return e.changedTouches[0].clientX;
+    return e.clientX || 0;
+};
 
 const createMediaElement = (src, muted = false) => {
     const isVideo = isVideoFormat(src);
@@ -27,7 +30,11 @@ const createMediaElement = (src, muted = false) => {
 };
 
 const setupVideoPlayback = (vid, container) => {
-    if (!vid) return;
+    if (!vid) return () => {};
+
+    // Localized animation loop states to prevent cross-instance contamination
+    let videoSyncActive = true;
+    let syncAnimationFrameId = null;
 
     const onMetaLoaded = () => {
         vid.play().catch(()=>{});
@@ -76,7 +83,7 @@ const setupVideoPlayback = (vid, container) => {
 
     const scrub = (e) => {
         const rect = scrubberContainer.getBoundingClientRect();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientX = getClientX(e);
         const percent = Math.max(0, Math.min(100, (clientX - rect.left) / rect.width));
         const duration = vid.duration || 0;
         if (duration > 0) {
@@ -99,7 +106,6 @@ const setupVideoPlayback = (vid, container) => {
     controlBar.append(playBtn, scrubberContainer, timeLabel);
     container.appendChild(controlBar);
 
-    videoSyncActive = true;
     const syncLoop = () => {
         if (!videoSyncActive) return;
 
@@ -121,6 +127,8 @@ const setupVideoPlayback = (vid, container) => {
     requestAnimationFrame(syncLoop);
 
     return () => {
+        videoSyncActive = false;
+        if (syncAnimationFrameId) cancelAnimationFrame(syncAnimationFrameId);
         window.removeEventListener("mousemove", handleWindowMove);
         window.removeEventListener("touchmove", handleWindowMove);
         window.removeEventListener("mouseup", handleWindowUp);
@@ -131,7 +139,6 @@ const setupVideoPlayback = (vid, container) => {
 };
 
 function createComparisonViewer(baseSrc) {
-    // DEFENSIVE CHECK: Force-remove any globally orphaned keydown handlers before binding a new one
     if (globalKeydownHandler) {
         document.removeEventListener("keydown", globalKeydownHandler);
         globalKeydownHandler = null;
@@ -186,21 +193,28 @@ function createComparisonViewer(baseSrc) {
     });
     container.appendChild(wrapper);
 
-    // Muted bottom tooltip helper
+    // Bottom tooltip helper (Font size increased to 12px for legibility)
     const hintPrompt = document.createElement("div");
     Object.assign(hintPrompt.style, {
         position: "absolute", bottom: "16px", zIndex: "30",
-        color: "#555", fontSize: "10px", fontFamily: "sans-serif",
+        color: "#888", fontSize: "12px", fontFamily: "sans-serif",
         pointerEvents: "none"
     });
-    hintPrompt.innerHTML = 'Tip: Hold <span style="color:#777;font-weight:bold;">Shift</span> while clicking sidebar cards to compare outputs side-by-side.';
+    hintPrompt.innerHTML = 'Tip: Hold <span style="color:#aaa;font-weight:bold;">Shift</span> while clicking sidebar cards to compare outputs side-by-side.';
     if (isBaseVideo) {
         hintPrompt.style.display = "none";
     }
     container.appendChild(hintPrompt);
 
+    // Track drag actions to prevent mouseup outside the slider from triggering modal exit
+    let wasDragging = false;
+
     container.onclick = (e) => {
         if (e.target === container) {
+            if (wasDragging) {
+                wasDragging = false; // Ignore synthetic click caused by releasing drag on backdrop
+                return;
+            }
             destroy();
         }
     };
@@ -246,20 +260,24 @@ function createComparisonViewer(baseSrc) {
         e.preventDefault(); 
         e.stopPropagation();
         isDragging = true; 
+        wasDragging = false;
         
         const rect = wrapper.getBoundingClientRect();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientX = getClientX(e);
         const percent = ((clientX - rect.left) / rect.width) * 100;
         updateSliderPosition(percent);
     };
     const doDrag = (e) => {
         if (!isDragging) return;
+        wasDragging = true;
         const rect = wrapper.getBoundingClientRect();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientX = getClientX(e);
         const percent = ((clientX - rect.left) / rect.width) * 100;
         updateSliderPosition(percent);
     };
-    const endDrag = () => { isDragging = false; };
+    const endDrag = () => { 
+        isDragging = false; 
+    };
 
     wrapper.addEventListener("mousedown", startDrag);
     wrapper.addEventListener("touchstart", startDrag);
@@ -268,6 +286,14 @@ function createComparisonViewer(baseSrc) {
     window.addEventListener("touchmove", doDrag);
     window.addEventListener("mouseup", endDrag);
     window.addEventListener("touchend", endDrag);
+
+    const cleanupMedia = (el) => {
+        if (el && el.tagName === "VIDEO") {
+            el.pause();
+            el.src = "";
+            el.load();
+        }
+    };
 
     const destroy = () => {
         window.removeEventListener("mousemove", doDrag);
@@ -280,9 +306,10 @@ function createComparisonViewer(baseSrc) {
             globalKeydownHandler = null;
         }
         
-        videoSyncActive = false;
-        if (syncAnimationFrameId) cancelAnimationFrame(syncAnimationFrameId);
         if (destroyVideoPlaybackFn) destroyVideoPlaybackFn();
+
+        cleanupMedia(mediaA);
+        cleanupMedia(mediaB);
 
         container.remove();
         activeComparisonViewer = null;
@@ -322,8 +349,10 @@ function createComparisonViewer(baseSrc) {
             }
 
             if (isShiftClick) {
-                // Shift+Click: Sideload target image B for comparison split
-                if (mediaB) mediaB.remove();
+                if (mediaB) {
+                    cleanupMedia(mediaB);
+                    mediaB.remove();
+                }
 
                 mediaB = createMediaElement(targetSrc, false);
                 mediaB.style.pointerEvents = "none";
@@ -333,8 +362,8 @@ function createComparisonViewer(baseSrc) {
                 infoText.textContent = "Drag the slider to compare. Shift+Click other card images to update target | Esc to close.";
                 updateSliderPosition(50);
             } else {
-                // Standard Click: Replace the main base reference image entirely
                 if (mediaB) {
+                    cleanupMedia(mediaB);
                     mediaB.remove();
                     mediaB = null;
                 }

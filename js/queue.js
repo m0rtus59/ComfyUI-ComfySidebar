@@ -69,6 +69,13 @@ const concludeRun = async (pid, statusStr) => {
     if (State.currentlyActivePromptId === pid) State.currentlyActivePromptId = null;
     
     const st = promptStates.get(pid);
+
+    // FIX: Revoke live preview blob URL to prevent browser memory leaks
+    if (st._previewBlobUrl) {
+        try { URL.revokeObjectURL(st._previewBlobUrl); } catch(e){}
+        delete st._previewBlobUrl;
+    }
+
     st.status = statusStr;
     st.progressText = "";
     st.rendered = false;
@@ -80,7 +87,7 @@ const concludeRun = async (pid, statusStr) => {
         const hItem = await res.json();
         if (hItem && hItem[pid]) {
             if (!st.workflow) st.workflow = hItem[pid].extra_data?.extra_pnginfo?.workflow || null;
-            st.nodeOutputs = hItem[pid].outputs; // Store full outputs dictionary!
+            st.nodeOutputs = hItem[pid].outputs;
             if (st.images.length === 0) st.images = findImagesInOutputs(hItem[pid].outputs, st.workflow);
             st.texts = findTextsInOutputs(hItem[pid].outputs, st.workflow);
         }
@@ -93,7 +100,6 @@ export function setupApiListeners() {
     api.addEventListener("status", syncQueue);
     
     api.addEventListener("execution_start", (e) => {
-        // Auto-sweep cancelled and errored jobs if setting is enabled
         if (app.ui.settings.getSettingValue("Comfy Sidebar.Auto Clear Interrupted") ?? false) {
             const toDelete = [];
             for (const [p, s] of promptStates.entries()) {
@@ -123,7 +129,7 @@ export function setupApiListeners() {
                 workflow: activeWorkspaceWorkflow, startTime: Date.now(), duration: null
             });
         }
-        renderDOMFn(); // Render immediately to prevent pop-in delay!
+        renderDOMFn();
         syncQueue();
     });
 
@@ -167,16 +173,13 @@ export function setupApiListeners() {
             const st = promptStates.get(e.detail.prompt_id);
             const finalImgs = findImagesInOutputs({ [e.detail.node]: e.detail.output }, st.workflow);
             if (finalImgs.length > 0) {
-                // Overwrite with latest images to avoid accumulation across sequential nodes
                 st.images = finalImgs;
             }
             const finalTexts = findTextsInOutputs({ [e.detail.node]: e.detail.output }, st.workflow);
             if (finalTexts.length > 0) {
-                // Overwrite with latest texts to avoid clearing previously set text outputs
                 st.texts = finalTexts;
             }
 
-            // Dynamically capture each executed node's individual outputs
             if (!st.nodeOutputs) st.nodeOutputs = {};
             st.nodeOutputs[e.detail.node] = e.detail.output;
 
@@ -204,7 +207,6 @@ export async function initSessionAndHistory() {
 
     const storedSessionId = localStorage.getItem("comfy_sidebar_backend_session_id");
     if (backendSessionId && backendSessionId !== storedSessionId) {
-        // Session changed (server restarted)! Clear cached memory.
         promptStates.clear();
         cardElements.clear();
         localStorage.removeItem("comfy_sidebar_prompt_states");
@@ -225,7 +227,7 @@ export async function initSessionAndHistory() {
         State.globalOrderCounter++;
         promptStates.set(id, {
             pid: id, status: "completed", images, texts,
-            nodeOutputs: historyData[id].outputs, // Store full outputs dictionary!
+            nodeOutputs: historyData[id].outputs,
             workflow: workflow,
             progressText: "", timestamp: State.globalOrderCounter, rendered: true
         });

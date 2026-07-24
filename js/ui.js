@@ -8,7 +8,6 @@ import { showFullscreenPreview } from "./comparison.js";
 export let syncQueueFn = async () => {};
 export function setSyncQueue(fn) { syncQueueFn = fn; }
 
-// Resets any stale hover states when transitioning between submenus and the main queue
 function resetAllCardHoverStates() {
     for (const cardObj of cardElements.values()) {
         if (cardObj.hoverPanel) cardObj.hoverPanel.style.display = "none";
@@ -16,12 +15,10 @@ function resetAllCardHoverStates() {
     }
 }
 
-// Traverses node execution metadata to resolve the exact node ID that generated a specific image
 function findNodeIdForImage(state, img) {
     if (!state || !state.nodeOutputs || !img) return null;
     for (const nodeId in state.nodeOutputs) {
         const out = state.nodeOutputs[nodeId];
-        // Safely check both gifs, images, or videos under this specific node
         for (const key in out) {
             const val = out[key];
             if (Array.isArray(val)) {
@@ -145,7 +142,6 @@ export function setupSidebarUI() {
     titleGroup.appendChild(title);
     standardHeader.appendChild(titleGroup);
 
-    // Dynamic Compact Actions Group
     const actionsGroup = document.createElement("div");
     Object.assign(actionsGroup.style, { display: "flex", gap: "6px", alignItems: "center" });
 
@@ -173,7 +169,7 @@ export function setupSidebarUI() {
             if (!isPending) {
                 isPending = true;
                 Object.assign(btn.style, { color: "#fff", background: hoverColor, borderColor: hoverColor, boxShadow: `0 0 8px ${hoverColor}80` });
-                timeout = setTimeout(reset, 1500); // 1.5s to confirm
+                timeout = setTimeout(reset, 1500);
             } else {
                 reset();
                 await onClickFn();
@@ -237,14 +233,12 @@ export function setupSidebarUI() {
     Object.assign(State.cardStack.style, { flex: "1", overflowY: "auto", scrollbarWidth: "thin", display: "block" });
     State.sidebarContainer.appendChild(State.cardStack);
 
-    // Global background click handler: return to main queue if clicking empty space of the entire container
     State.sidebarContainer.onclick = (e) => {
         if (State.activeSubmenuPromptId || State.activeSubmenuBatchImages) {
-            // Stop closure if we clicked on standard interactive elements (images, buttons, spans, cancels)
             if (e.target.closest('img, video, .comfy-sidebar-card-timer, .pi-times, .comfy-sidebar-left-hover-btn, .comfy-sidebar-queue-cancel-btn, button, span')) return;
             State.activeSubmenuPromptId = null;
             State.activeSubmenuBatchImages = null;
-            resetAllCardHoverStates(); // Instantly wipe stale hover indicators on exit click
+            resetAllCardHoverStates();
             renderDOM();
             document.removeEventListener("click", handleGlobalClick, true);
             globalClickRegistered = false;
@@ -258,7 +252,9 @@ export function setupSidebarUI() {
         State.cardStack.style.columnGap = cols > 1 ? "12px" : "0";
     }).observe(State.sidebarContainer);
 
+    // Optimized: Early-exit timer updates when no tasks are currently active
     setInterval(() => {
+        if (State.currentlyActivePromptId === null) return;
         for (const [pid, state] of promptStates.entries()) {
             if (state.status === "active" && state.startTime) {
                 const cardObj = cardElements.get(pid);
@@ -270,7 +266,6 @@ export function setupSidebarUI() {
     return State.sidebarContainer;
 }
 
-// Unified image batch pagination renderer (supports standard queue cards & both explorer submenus)
 function renderCardImages(cardObj, state, keepAspect) {
     cardObj.currentImageIndex = cardObj.currentImageIndex || 0;
     if (cardObj.currentImageIndex >= state.images.length) {
@@ -289,7 +284,6 @@ function renderCardImages(cardObj, state, keepAspect) {
     const src = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}`;
     const isVideo = isVideoFormat(src);
 
-    // Find or create the native wrapper
     let wrapper = cardObj.grid.querySelector(".comfy-sidebar-media-wrapper");
     if (!wrapper) {
         cardObj.grid.innerHTML = "";
@@ -299,7 +293,6 @@ function renderCardImages(cardObj, state, keepAspect) {
         cardObj.grid.appendChild(wrapper);
     }
 
-    // Find or create the media tag in-place
     let mediaEl = wrapper.querySelector("img, video");
     const needsRebuild = !mediaEl || (isVideo !== (mediaEl.tagName.toLowerCase() === "video"));
 
@@ -319,13 +312,11 @@ function renderCardImages(cardObj, state, keepAspect) {
 
     cardObj.firstImgElement = mediaEl;
 
-    // Binds interactive event listeners. Passes shiftKey context natively to support split side-loading
     mediaEl.onclick = (ev) => { 
         ev.stopPropagation(); 
         showFullscreenPreview([src], ev.shiftKey); 
     };
 
-    // Shared dimensions layout compiler
     const applyDimensions = (width, height) => {
         if (keepAspect && width && height) {
             mediaEl.style.aspectRatio = `${width} / ${height}`;
@@ -336,7 +327,6 @@ function renderCardImages(cardObj, state, keepAspect) {
         }
     };
 
-    // Bind dimensions hooks and event listeners EVERY run (for recycled elements & fast cache hits!)
     if (isVideo) { 
         mediaEl.muted = true; 
         mediaEl.playsInline = true; 
@@ -382,7 +372,6 @@ function renderCardImages(cardObj, state, keepAspect) {
             mediaEl.style.cursor = "zoom-in";
             
             const dragStartHandler = (e) => {
-                State.currentDraggedImgData = { ...img, workflow: state.workflow };
                 try {
                     e.dataTransfer.setData("text/uri-list", src);
                     e.dataTransfer.setData("text/plain", src);
@@ -406,7 +395,6 @@ function renderCardImages(cardObj, state, keepAspect) {
         if (playIcon) playIcon.remove();
     }
 
-    // Smooth in-memory source swapping for blob live previews
     const currentSrc = mediaEl.getAttribute("src") || mediaEl.src;
     if (currentSrc !== src && currentSrc !== (currentSrc + "#t=0.001")) {
         if (src.startsWith("blob:") && !isVideo) {
@@ -425,7 +413,6 @@ function renderCardImages(cardObj, state, keepAspect) {
             mediaEl.src = isVideo ? src + "#t=0.001" : src;
         }
     } else {
-        // If the source is already correct, make sure we still force dimensions calculations
         if (isVideo) {
             if (mediaEl.videoWidth) applyDimensions(mediaEl.videoWidth, mediaEl.videoHeight);
         } else {
@@ -433,7 +420,6 @@ function renderCardImages(cardObj, state, keepAspect) {
         }
     }
 
-    // Sync batch pagination controller overlay
     let navBar = wrapper.querySelector(".comfy-sidebar-batch-navbar");
     if (state.images.length > 1) {
         if (!navBar) {
@@ -462,15 +448,15 @@ function renderCardImages(cardObj, state, keepAspect) {
             label.style.cursor = "pointer";
             label.title = "View all images in this batch";
             
-            // Open the dynamic batch explorer explorer view when the middle counter label is clicked
             label.onclick = (ev) => {
                 ev.stopPropagation();
                 State.activeSubmenuBatchImages = {
                     pid: state.pid || cardObj.element.id.replace("card-", ""),
                     images: state.images,
-                    workflow: state.workflow
+                    workflow: state.workflow,
+                    nodeOutputs: state.nodeOutputs
                 };
-                resetAllCardHoverStates(); // Prevent ghost hover handles
+                resetAllCardHoverStates();
                 renderDOM();
             };
 
@@ -496,7 +482,6 @@ function renderCardImages(cardObj, state, keepAspect) {
 
 let globalClickRegistered = false;
 
-// Global document mousedown-capturer to reliably trigger click-aways outside the sidebar
 const handleGlobalClick = (e) => {
     if (!State.activeSubmenuPromptId && !State.activeSubmenuBatchImages) {
         document.removeEventListener("click", handleGlobalClick, true);
@@ -510,7 +495,7 @@ const handleGlobalClick = (e) => {
     if (!clickedInsideSidebar && !clickedFullscreenOverlay) {
         State.activeSubmenuPromptId = null;
         State.activeSubmenuBatchImages = null;
-        resetAllCardHoverStates(); // Reset stale overlays when clicking away
+        resetAllCardHoverStates();
         renderDOM();
         document.removeEventListener("click", handleGlobalClick, true);
         globalClickRegistered = false;
@@ -542,13 +527,12 @@ export function renderDOM() {
                 transition: "all 0.15s ease",
                 boxShadow: "0 1px 2px rgba(0, 0, 0, 0.3)",
                 zIndex: "20",
-                transform: "translateZ(0)" // Forces a GPU compositor stacking context to prevent video clipping
+                transform: "translateZ(0)"
             });
             btn.onmouseenter = () => { btn.style.backgroundColor = "rgba(0, 0, 0, 0.95)"; btn.style.color = "#fff"; };
             btn.onmouseleave = () => { btn.style.backgroundColor = "rgba(0, 0, 0, 0.75)"; btn.style.color = "#e2e8f0"; };
         };
 
-        // --- SUBMENU 2: BATCH IMAGES EXPLORER ---
         if (State.activeSubmenuBatchImages) {
             const batchInfo = State.activeSubmenuBatchImages;
 
@@ -599,7 +583,6 @@ export function renderDOM() {
                         fontSize: "11px", opacity: "0.5", textAlign: "center", padding: "12px", marginTop: "12px", userSelect: "none"
                     });
 
-                    // Symmetrical hover panel on the right with ONLY the Download Object button
                     const hoverPanel = document.createElement("div");
                     Object.assign(hoverPanel.style, {
                         position: "absolute", bottom: "4px", right: "4px", display: "none",
@@ -612,7 +595,6 @@ export function renderDOM() {
                     styleActionBtn(btnImg);
                     hoverPanel.appendChild(btnImg);
 
-                    // Symmetrical left hover panel containing ONLY btnFocus
                     const leftHoverPanel = document.createElement("div");
                     Object.assign(leftHoverPanel.style, {
                         position: "absolute", bottom: "4px", left: "4px", display: "none",
@@ -650,7 +632,6 @@ export function renderDOM() {
                     a.click();
                 };
 
-                // Focus/center target node inside Batch Explorer Submenu
                 const nodeId = findNodeIdForImage(batchInfo, img);
                 if (nodeId) {
                     cardObj.btnFocus.style.display = "inline-flex";
@@ -666,7 +647,7 @@ export function renderDOM() {
                     cardObj.btnFocus.style.display = "none";
                 }
 
-                renderCardImages(cardObj, { pid: batchInfo.pid, images: [img], workflow: batchInfo.workflow }, keepAspect);
+                renderCardImages(cardObj, { pid: batchInfo.pid, images: [img], workflow: batchInfo.workflow, nodeOutputs: batchInfo.nodeOutputs }, keepAspect);
 
                 targetElements.push(cardObj.element);
             });
@@ -676,7 +657,6 @@ export function renderDOM() {
             return;
         }
 
-        // --- SUBMENU 1: WORKFLOW OUTPUTS EXPLORER ---
         if (State.activeSubmenuPromptId) {
             const st = promptStates.get(State.activeSubmenuPromptId);
             if (!st) {
@@ -685,7 +665,6 @@ export function renderDOM() {
                 return;
             }
 
-            // Sync Header UI State for the explorer view
             if (headerTitle) {
                 headerTitle.textContent = `Outputs of #${State.activeSubmenuPromptId}`;
                 headerTitle.style.cursor = "pointer";
@@ -735,7 +714,6 @@ export function renderDOM() {
                         fontSize: "11px", opacity: "0.5", textAlign: "center", padding: "12px", marginTop: "12px", userSelect: "none"
                     });
 
-                    // Action overlay on hover containing only Download Object
                     const hoverPanel = document.createElement("div");
                     Object.assign(hoverPanel.style, {
                         position: "absolute", bottom: "4px", right: "4px", display: "none",
@@ -748,7 +726,6 @@ export function renderDOM() {
                     styleActionBtn(btnImg);
                     hoverPanel.appendChild(btnImg);
 
-                    // Symmetrical left hover panel containing ONLY btnFocus
                     const leftHoverPanel = document.createElement("div");
                     Object.assign(leftHoverPanel.style, {
                         position: "absolute", bottom: "4px", left: "4px", display: "none",
@@ -789,7 +766,6 @@ export function renderDOM() {
                         });
                     };
 
-                    // Focus/center target node inside Workflow outputs Submenu
                     cardObj.btnFocus.onclick = (ev) => {
                         ev.stopPropagation();
                         const node = app.graph.getNodeById(Number(out.nodeId));
@@ -799,7 +775,7 @@ export function renderDOM() {
                         }
                     };
 
-                    renderCardImages(cardObj, { pid: st.pid, images: out.images, workflow: st.workflow }, keepAspect);
+                    renderCardImages(cardObj, { pid: st.pid, images: out.images, workflow: st.workflow, nodeOutputs: st.nodeOutputs }, keepAspect);
                 } else {
                     cardObj.btnImg.style.display = "none";
                     cardObj.placeholder.style.display = "block";
@@ -814,7 +790,6 @@ export function renderDOM() {
             return;
         }
 
-        // --- STANDARD QUEUE RENDER LOGIC ---
         if (headerTitle) {
             headerTitle.textContent = "Queue";
             headerTitle.style.cursor = "default";
@@ -862,7 +837,6 @@ export function renderDOM() {
                 pt.appendChild(pb);
                 const statusText = document.createElement("div"); Object.assign(statusText.style, { fontSize: "11px", opacity: "0.9", color: "#3b82f6", textAlign: "center", marginTop: "6px", display: "none", fontWeight: "bold" });
                 
-                // Absolute Vertical Actions Panel on the right of the card
                 const hoverPanel = document.createElement("div"); 
                 Object.assign(hoverPanel.style, { 
                     position: "absolute", bottom: "4px", right: "4px", display: "none", 
@@ -873,7 +847,6 @@ export function renderDOM() {
                 const btnJson = document.createElement("span"); btnJson.className = "pi pi-file"; btnJson.title = "Download JSON"; styleActionBtn(btnJson);
                 const btnDel = document.createElement("span"); btnDel.className = "pi pi-trash"; btnDel.title = "Delete Card"; styleActionBtn(btnDel);
 
-                // Absolute Vertical Left Actions Panel containing btnFocus and leftHoverBtn
                 const leftHoverPanel = document.createElement("div"); 
                 Object.assign(leftHoverPanel.style, { 
                     position: "absolute", bottom: "4px", left: "4px", display: "none", 
@@ -893,7 +866,7 @@ export function renderDOM() {
                 leftHoverBtn.onclick = (ev) => {
                     ev.stopPropagation();
                     State.activeSubmenuPromptId = state.pid;
-                    resetAllCardHoverStates(); // Reset standard sidebar hover states before opening submenu
+                    resetAllCardHoverStates();
                     renderDOM();
                 };
 
@@ -909,7 +882,6 @@ export function renderDOM() {
                         cardObj.hoverPanel.style.display = "flex";
                         cardObj.leftHoverPanel.style.display = "flex";
 
-                        // Focus/Center the exact node that generated the currently active displayed image
                         const currentImg = state.images[cardObj.currentImageIndex || 0];
                         const nodeId = findNodeIdForImage(state, currentImg);
                         if (nodeId) {
@@ -926,7 +898,6 @@ export function renderDOM() {
                             cardObj.btnFocus.style.display = "none";
                         }
 
-                        // Show explorer view button if this run yielded multiple node outputs, or if it was interrupted/failed but has some outputs
                         const outputs = getRunOutputs(state.nodeOutputs, state.workflow);
                         const isInterrupted = state.status === "cancelled" || state.status === "error";
                         if (outputs.length > 1 || (outputs.length > 0 && isInterrupted)) {
@@ -942,8 +913,6 @@ export function renderDOM() {
                 });
                 
                 card.addEventListener("dragstart", (e) => {
-                    // Custom dragstart is used for JSON-only or unfinished workflows to supply a local DownloadURL.
-                    // For completed image cards, dragging is handled natively by the browser on the child <img> tag.
                     const isUnfinished = state.status && state.status !== "completed";
                     if (state.workflow && (!state.images || state.images.length === 0 || isUnfinished)) {
                         if (cardObj.firstImgElement) e.dataTransfer.setDragImage(cardObj.firstImgElement, 15, 15);
@@ -956,14 +925,12 @@ export function renderDOM() {
                         e.dataTransfer.effectAllowed = "copy";
                     }
                 });
-                cardObj.element.id = `card-${state.pid}`; // set ID helper
+                cardObj.element.id = `card-${state.pid}`;
                 cardElements.set(state.pid, cardObj);
             }
 
             cardObj.element.className = `comfy-sidebar-card ${state.status}`;
             
-            // Native drag isolation: completely remove draggable flags on image containers for finished cards.
-            // This exposes the child <img> tag directly to Chrome's native filesystem drag APIs.
             const isUnfinished = state.status && state.status !== "completed";
             if (state.images && state.images.length > 0 && !isUnfinished) {
                 cardObj.element.removeAttribute("draggable");
@@ -995,7 +962,7 @@ export function renderDOM() {
                 cardObj.cancelBtn.style.display = "flex";
                 cardObj.cancelBtn.onclick = async (ev) => { 
                     ev.stopPropagation(); 
-                    await api.interrupt(); // Natively interrupts current execution
+                    await api.interrupt();
                     await syncQueueFn(); 
                 };
             } else {
@@ -1029,7 +996,7 @@ export function renderDOM() {
                     isDeletePending = true; 
                     Object.assign(cardObj.btnDel.style, { 
                         color: "#fff", 
-                        backgroundColor: "#dc3545" // Changes to solid red on warning confirmation
+                        backgroundColor: "#dc3545"
                     }); 
                     cardObj.btnDel.title = "Click again to confirm deletion";
                     deleteTimeout = setTimeout(resetDeleteBtn, 1000);
@@ -1053,7 +1020,6 @@ export function renderDOM() {
             }
 
             if (state.images.length === 0) {
-                // Correctly display accumulated texts (like workflow prompts) while running as requested
                 if (state.texts && state.texts.length > 0) {
                     cardObj.placeholder.textContent = state.texts.join("\n"); Object.assign(cardObj.placeholder.style, { whiteSpace: "pre-wrap", textAlign: "left" });
                 } else {

@@ -1,7 +1,6 @@
 export const promptStates = new Map();
 export const cardElements = new Map();
 
-// Global shared variables
 export const State = {
     currentSearchQuery: "",
     globalOrderCounter: 0,
@@ -34,13 +33,13 @@ export function saveStatesToLocalStorage() {
         const serializable = [];
         for (const [pid, state] of promptStates.entries()) {
             const cleanedImages = (state.images || []).map(img => {
-                if (img.url && img.url.startsWith("blob:")) return null; // Skip blob URLs
+                if (img.url && img.url.startsWith("blob:")) return null;
                 return img;
             }).filter(Boolean);
 
             serializable.push({
                 pid: state.pid, status: state.status, images: cleanedImages, texts: state.texts || [],
-                nodeOutputs: state.nodeOutputs, // Persist node level outputs
+                nodeOutputs: state.nodeOutputs,
                 workflow: state.workflow, progress: state.progress || 0, queueNumber: state.queueNumber,
                 progressText: state.progressText || "", timestamp: state.timestamp,
                 activeNodeName: state.activeNodeName || "", rendered: state.rendered || false,
@@ -68,5 +67,4 @@ export function loadStatesFromLocalStorage() {
     }
 }
 
-// Load instantly and synchronously on script import to prevent race conditions during early renders!
 loadStatesFromLocalStorage();

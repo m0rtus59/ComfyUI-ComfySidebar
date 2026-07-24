@@ -5,6 +5,7 @@ async function uploadDroppedImageToInput(imageObj) {
     const src = `/view?filename=${encodeURIComponent(imageObj.filename)}&type=${imageObj.type || 'output'}&subfolder=${encodeURIComponent(imageObj.subfolder || '')}`;
     try {
         const response = await fetch(src);
+        if (!response.ok) return null;
         const blob = await response.blob();
         const file = new File([blob], imageObj.filename || "dropped_image.png", { type: blob.type });
         const formData = new FormData();
@@ -12,6 +13,7 @@ async function uploadDroppedImageToInput(imageObj) {
         formData.append("overwrite", "true");
         formData.append("type", "input");
         const uploadRes = await fetch("/upload/image", { method: "POST", body: formData });
+        if (!uploadRes.ok) return null;
         const uploadData = await uploadRes.json();
         return uploadData.name;
     } catch(e) {
@@ -27,7 +29,6 @@ export function setupDragAndDrop() {
     });
 
     document.addEventListener("drop", async (e) => {
-        // Cancel loading entirely and prevent bubbling if dropping inside the sidebar area
         const isSidebarDrop = e.target.closest('.comfyui-sidebar, .comfy-sidebar, [class*="sidebar"]') || 
                               (State.sidebarContainer && State.sidebarContainer.contains(e.target));
         if (isSidebarDrop) {
@@ -81,9 +82,8 @@ export function setupDragAndDrop() {
                             targetNode = canvas.graph.getNodeOnPos((e.clientX - rect.left - canvas.ds.offset[0]) / canvas.ds.scale, (e.clientY - rect.top - canvas.ds.offset[1]) / canvas.ds.scale);
                         }
 
-                        if (targetNode && (targetNode.type.includes("LoadImage") || targetNode.widgets?.some(w => w.name === "image"))) {
-                            // Dropped on a node with image input: Copy/Upload image to inputs
-                            const widget = targetNode.widgets.find(w => w.name === "image");
+                        if (targetNode && (targetNode.type?.includes("LoadImage") || targetNode.widgets?.some(w => w.name === "image"))) {
+                            const widget = targetNode.widgets?.find(w => w.name === "image");
                             if (widget) {
                                 const newFilename = await uploadDroppedImageToInput({ filename, type, subfolder });
                                 if (newFilename) {
@@ -94,14 +94,15 @@ export function setupDragAndDrop() {
                                 }
                             }
                         } else {
-                            // Dropped on empty canvas: Load workflow natively
                             const src = `/view?filename=${encodeURIComponent(filename)}&type=${type}&subfolder=${encodeURIComponent(subfolder)}`;
                             const res = await fetch(src);
-                            const blob = await res.blob();
-                            const file = new File([blob], filename || "workflow.png", { type: blob.type });
+                            if (res.ok) {
+                                const blob = await res.blob();
+                                const file = new File([blob], filename || "workflow.png", { type: blob.type });
 
-                            if (app.handleFile) await app.handleFile(file);
-                            else if (app.canvas?.handleDropItem) app.canvas.handleDropItem({ getAsFile: () => file });
+                                if (app.handleFile) await app.handleFile(file);
+                                else if (app.canvas?.handleDropItem) app.canvas.handleDropItem({ getAsFile: () => file });
+                            }
                         }
                     }
                 }
