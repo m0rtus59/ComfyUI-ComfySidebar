@@ -100,6 +100,70 @@ button:has([data-pc-name="avatar"]),
 }
 `;
 
+export function syncStockHistoryAndProgressSettings(enable) {
+    if (!app.ui?.settings) return;
+
+    const dockedVal = !!enable;
+    const progressVal = !enable;
+
+    // 1. Exact setting ID in ComfyUI for "Docked job history/queue panel"
+    const QPOV2_ID = "Comfy.Queue.QPOV2";
+
+    try {
+        app.ui.settings.setSettingValue(QPOV2_ID, dockedVal);
+        localStorage.setItem(QPOV2_ID, JSON.stringify(dockedVal));
+    } catch (e) {}
+
+    // 2. Click native QPOV2 PrimeVue toggle switch if Settings Drawer is open
+    try {
+        const qpovContainer = document.querySelector('[data-setting-id="Comfy.Queue.QPOV2"]') || 
+                              document.getElementById(QPOV2_ID)?.closest('.setting-item, tr, div');
+        if (qpovContainer) {
+            const toggle = qpovContainer.querySelector('input[type="checkbox"], [role="switch"], .p-toggleswitch');
+            if (toggle) {
+                const isChecked = toggle.checked || 
+                                  toggle.getAttribute('data-p-checked') === 'true' || 
+                                  toggle.classList.contains('p-toggleswitch-checked');
+                if (isChecked !== dockedVal) {
+                    toggle.click();
+                }
+            }
+        }
+    } catch (e) {}
+
+    // 3. Update candidate progress bar setting keys directly in setting store & localStorage
+    const progressKeys = [
+        "Comfy.Queue.ShowRunProgressBar",
+        "Comfy.Queue.ShowProgressBar",
+        "Comfy.Queue.ProgressBar",
+        "Comfy.Queue.InlineProgress",
+        "Comfy.Queue.RunProgressBar",
+        "Comfy.Queue.ShowProgress"
+    ];
+
+    for (const key of progressKeys) {
+        try {
+            app.ui.settings.setSettingValue(key, progressVal);
+            localStorage.setItem(key, JSON.stringify(progressVal));
+        } catch (e) {}
+    }
+
+    // 4. Click the native "Show run progress bar" action button if it is rendered in the DOM
+    try {
+        const progressBarBtn = document.querySelector('[data-testid="show-run-progress-bar-action"]');
+        if (progressBarBtn) {
+            const isChecked = !!progressBarBtn.querySelector('[class*="lucide--check"], .icon-\\[lucide--check\\]');
+            if (isChecked !== progressVal) {
+                progressBarBtn.click();
+            }
+        }
+    } catch (e) {}
+
+    try {
+        window.dispatchEvent(new Event("storage"));
+    } catch (e) {}
+}
+
 export function applyClassicLayout(enable, updateSetting = false) {
     let styleEl = document.getElementById(STYLE_ID);
     
@@ -204,7 +268,6 @@ function updateSidebarTabsVisibility() {
     };
 
     Object.entries(tabIconSelectors).forEach(([tab, selector]) => {
-        // Read from renamed "Hide Junk" path
         const shouldHide = app.ui?.settings?.getSettingValue(`Comfy Sidebar.Hide Junk.${tab}`) ?? false;
         
         const icon = sidebar.querySelector(selector);
@@ -223,7 +286,7 @@ function updateSidebarTabsVisibility() {
         }
     });
 
-    // Handle "Override Stock Job History Tab" using its renamed setting path
+    // Handle "Replace the stock Job History sidebar with Comfy Queue" using its setting path
     const hideStockHistory = app.ui?.settings?.getSettingValue("Comfy Sidebar.Hide Junk.Override Stock Job History Tab") ?? false;
     const historyIcon = sidebar.querySelector('[class*="lucide--history"]');
     if (historyIcon) {
@@ -241,17 +304,14 @@ function updateSidebarTabsVisibility() {
 }
 
 function findGraphButton() {
-    // 1. Target elements with Tailwind classes, but IGNORE those inside modal settings/sidebars
     const elements = document.querySelectorAll('.bg-secondary-background.rounded-lg.items-center.inline-flex.pointer-events-auto');
     for (const el of elements) {
-        // Filter out dialogs, sidebar overlays, settings drawers, and modals
         if (el.closest('.p-dialog, .comfy-modal, [role="dialog"], .p-sidebar, .comfy-settings')) {
             continue;
         }
         return el;
     }
 
-    // 2. Same fallback logic, excluding modals
     const fallbacks = document.querySelectorAll('button, .bg-secondary-background');
     for (const el of fallbacks) {
         if (el.closest('.p-dialog, .comfy-modal, [role="dialog"], .p-sidebar, .comfy-settings')) {
@@ -266,7 +326,6 @@ function findGraphButton() {
 }
 
 export function syncClassicLayout() {
-    // Temporarily disconnect observer to cleanly avoid infinite layout feedback loops during DOM rearrangement
     if (domObserver) domObserver.disconnect();
 
     try {
@@ -293,7 +352,6 @@ export function syncClassicLayout() {
             if (isClassicLayoutEnabled) {
                 const container = findTopbarContainer();
                 if (container && extensionsPanel.parentNode !== container) {
-                    // Save original parent so we can restore it if the layout toggle is turned off
                     if (!extensionsPanel._originalParent) {
                         extensionsPanel._originalParent = extensionsPanel.parentNode;
                         extensionsPanel._originalNextSibling = extensionsPanel.nextSibling;
@@ -302,7 +360,6 @@ export function syncClassicLayout() {
                     extensionsPanel.classList.add("comfy-sidebar-extensions-override");
                 }
             } else {
-                // Restore original placement when classic layout is disabled
                 if (extensionsPanel._originalParent && extensionsPanel.parentNode !== extensionsPanel._originalParent) {
                     extensionsPanel._originalParent.insertBefore(extensionsPanel, extensionsPanel._originalNextSibling || null);
                     extensionsPanel.classList.remove("comfy-sidebar-extensions-override");
@@ -392,7 +449,7 @@ export function syncClassicLayout() {
             customBtn.style.display = "inline-flex";
         }
 
-        // 5. Handle "0 active" indicator visibility based on history tab settings
+        // 5. Handle "0 active" indicator visibility
         const hideQueueIndicator = app.ui?.settings?.getSettingValue("Comfy Sidebar.Hide Junk.Override Stock Job History Tab") ?? false;
         const indicator = findActiveQueueIndicator();
         if (indicator) {
@@ -412,7 +469,6 @@ export function syncClassicLayout() {
     } catch (err) {
         console.error("Comfy Sidebar: Error inside layout sync routine:", err);
     } finally {
-        // Re-enable mutation monitoring once our changes have successfully updated in the DOM
         if (domObserver) {
             domObserver.observe(document.body, {
                 childList: true,

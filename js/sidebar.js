@@ -4,7 +4,7 @@ import { injectStyles } from "./styles.js";
 import { setupDragAndDrop } from "./dragdrop.js";
 import { setupSidebarUI, applySidebarOverride, findOurSidebarButton, setSyncQueue, updateSidebarBadge, renderDOM } from "./ui.js";
 import { setupApiListeners, initSessionAndHistory, syncQueue, setUIDependencies } from "./queue.js";
-import { applyClassicLayout, setupPropertiesPanelToggleFix, syncClassicLayout } from "./layout.js";
+import { applyClassicLayout, setupPropertiesPanelToggleFix, syncClassicLayout, syncStockHistoryAndProgressSettings } from "./layout.js";
 
 // Track initial loading phase to guard against early auto-fired settings triggers
 let isInitialized = false;
@@ -79,15 +79,18 @@ app.registerExtension({
         // Group the Stock History Tab override into "Hide Junk"
         app.ui.settings.addSetting({ 
             id: "Comfy Sidebar.Hide Junk.Override Stock Job History Tab", 
-            name: "Replaces the stock Job History sidebar with Comfy Queue", 
+            name: "Replace the stock Job History sidebar with Comfy Queue", 
             type: "boolean", 
             defaultValue: false,
-            onChange: () => {
+            onChange: (value) => {
+                if (isInitialized && app.ui && app.ui.settings) {
+                    syncStockHistoryAndProgressSettings(value);
+                }
                 setTimeout(() => {
                     if (typeof syncClassicLayout === "function") syncClassicLayout();
                 }, 0);
-                }
-            });
+            }
+        });
 
         // Add the toggle setting for Graph Button under "Hide Junk"
         app.ui.settings.addSetting({ 
@@ -123,6 +126,11 @@ app.registerExtension({
         // Apply saved layout configuration on startup (never force overwrite on launch)
         const isClassicLayoutEnabled = app.ui.settings.getSettingValue("Comfy Sidebar.Comfy Layout") ?? false;
         applyClassicLayout(isClassicLayoutEnabled, false);
+
+        const isHistoryOverrideEnabled = app.ui.settings.getSettingValue("Comfy Sidebar.Hide Junk.Override Stock Job History Tab") ?? false;
+        if (isHistoryOverrideEnabled) {
+            syncStockHistoryAndProgressSettings(true);
+        }
         
         // Finalize initialization to open write pathways for settings-panel adjustments
         isInitialized = true;
