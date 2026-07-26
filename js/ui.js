@@ -252,7 +252,6 @@ export function setupSidebarUI() {
         State.cardStack.style.columnGap = cols > 1 ? "12px" : "0";
     }).observe(State.sidebarContainer);
 
-    // Optimized: Early-exit timer updates when no tasks are currently active
     setInterval(() => {
         if (State.currentlyActivePromptId === null) return;
         for (const [pid, state] of promptStates.entries()) {
@@ -514,25 +513,6 @@ export function renderDOM() {
         const headerSearchIcon = State.sidebarContainer.querySelector(".pi-search");
         const headerActions = State.sidebarContainer.querySelector(".pi-eraser")?.parentNode;
 
-        const styleActionBtn = (btn) => {
-            Object.assign(btn.style, {
-                display: "inline-flex",
-                alignItems: "center", justifyContent: "center",
-                width: "32px", height: "32px",
-                backgroundColor: "rgba(0, 0, 0, 0.75)",
-                color: "#e2e8f0",
-                fontSize: "14px",
-                borderRadius: "6px",
-                cursor: "pointer",
-                transition: "all 0.15s ease",
-                boxShadow: "0 1px 2px rgba(0, 0, 0, 0.3)",
-                zIndex: "20",
-                transform: "translateZ(0)"
-            });
-            btn.onmouseenter = () => { btn.style.backgroundColor = "rgba(0, 0, 0, 0.95)"; btn.style.color = "#fff"; };
-            btn.onmouseleave = () => { btn.style.backgroundColor = "rgba(0, 0, 0, 0.75)"; btn.style.color = "#e2e8f0"; };
-        };
-
         if (State.activeSubmenuBatchImages) {
             const batchInfo = State.activeSubmenuBatchImages;
 
@@ -590,9 +570,8 @@ export function renderDOM() {
                     });
 
                     const btnImg = document.createElement("span");
-                    btnImg.className = "pi pi-image";
+                    btnImg.className = "pi pi-image comfy-sidebar-card-action-btn";
                     btnImg.title = "Download Object";
-                    styleActionBtn(btnImg);
                     hoverPanel.appendChild(btnImg);
 
                     const leftHoverPanel = document.createElement("div");
@@ -602,9 +581,8 @@ export function renderDOM() {
                     });
 
                     const btnFocus = document.createElement("span");
-                    btnFocus.className = "pi pi-eye";
+                    btnFocus.className = "pi pi-eye comfy-sidebar-card-action-btn";
                     btnFocus.title = "Show Node";
-                    styleActionBtn(btnFocus);
                     leftHoverPanel.appendChild(btnFocus);
 
                     card.append(timerEl, dimEl, grid, p, hoverPanel, leftHoverPanel);
@@ -721,9 +699,8 @@ export function renderDOM() {
                     });
 
                     const btnImg = document.createElement("span");
-                    btnImg.className = "pi pi-image";
+                    btnImg.className = "pi pi-image comfy-sidebar-card-action-btn";
                     btnImg.title = "Download Object";
-                    styleActionBtn(btnImg);
                     hoverPanel.appendChild(btnImg);
 
                     const leftHoverPanel = document.createElement("div");
@@ -733,9 +710,8 @@ export function renderDOM() {
                     });
 
                     const btnFocus = document.createElement("span");
-                    btnFocus.className = "pi pi-eye";
+                    btnFocus.className = "pi pi-eye comfy-sidebar-card-action-btn";
                     btnFocus.title = "Show Node";
-                    styleActionBtn(btnFocus);
                     leftHoverPanel.appendChild(btnFocus);
                     
                     card.append(timerEl, dimEl, grid, p, hoverPanel, leftHoverPanel);
@@ -843,9 +819,9 @@ export function renderDOM() {
                     flexDirection: "column", gap: "4px", zIndex: "20" 
                 });
 
-                const btnImg = document.createElement("span"); btnImg.className = "pi pi-image"; btnImg.title = "Download Object"; styleActionBtn(btnImg);
-                const btnJson = document.createElement("span"); btnJson.className = "pi pi-file"; btnJson.title = "Download JSON"; styleActionBtn(btnJson);
-                const btnDel = document.createElement("span"); btnDel.className = "pi pi-trash"; btnDel.title = "Delete Card"; styleActionBtn(btnDel);
+                const btnImg = document.createElement("span"); btnImg.className = "pi pi-image comfy-sidebar-card-action-btn"; btnImg.title = "Download Object";
+                const btnJson = document.createElement("span"); btnJson.className = "pi pi-file comfy-sidebar-card-action-btn"; btnJson.title = "Download JSON";
+                const btnDel = document.createElement("span"); btnDel.className = "pi pi-trash comfy-sidebar-card-action-btn"; btnDel.title = "Delete Card";
 
                 const leftHoverPanel = document.createElement("div"); 
                 Object.assign(leftHoverPanel.style, { 
@@ -854,14 +830,12 @@ export function renderDOM() {
                 });
 
                 const btnFocus = document.createElement("span");
-                btnFocus.className = "pi pi-eye";
+                btnFocus.className = "pi pi-eye comfy-sidebar-card-action-btn";
                 btnFocus.title = "Show Node";
-                styleActionBtn(btnFocus);
 
                 const leftHoverBtn = document.createElement("span");
-                leftHoverBtn.className = "pi pi-images";
+                leftHoverBtn.className = "pi pi-images comfy-sidebar-card-action-btn";
                 leftHoverBtn.title = "View all intermediate outputs";
-                styleActionBtn(leftHoverBtn);
                 
                 leftHoverBtn.onclick = (ev) => {
                     ev.stopPropagation();
@@ -982,10 +956,7 @@ export function renderDOM() {
             let deleteTimeout = null, isDeletePending = false;
             const resetDeleteBtn = () => { 
                 isDeletePending = false; 
-                Object.assign(cardObj.btnDel.style, { 
-                    color: "#e2e8f0", 
-                    backgroundColor: "rgba(0, 0, 0, 0.75)"
-                }); 
+                cardObj.btnDel.classList.remove("confirm-delete");
                 cardObj.btnDel.title = "Delete Card"; 
                 if (deleteTimeout) { clearTimeout(deleteTimeout); deleteTimeout = null; } 
             };
@@ -994,12 +965,9 @@ export function renderDOM() {
                 ev.stopPropagation();
                 if (!isDeletePending) {
                     isDeletePending = true; 
-                    Object.assign(cardObj.btnDel.style, { 
-                        color: "#fff", 
-                        backgroundColor: "#dc3545"
-                    }); 
+                    cardObj.btnDel.classList.add("confirm-delete");
                     cardObj.btnDel.title = "Click again to confirm deletion";
-                    deleteTimeout = setTimeout(resetDeleteBtn, 1000);
+                    deleteTimeout = setTimeout(resetDeleteBtn, 1500);
                 } else {
                     resetDeleteBtn(); 
                     promptStates.delete(state.pid); 

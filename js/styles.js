@@ -55,6 +55,37 @@ export function injectStyles() {
             background-color: #991b1b !important;
             color: #ffffff !important;
         }
+
+        /* Optimized Card Action Buttons */
+        .comfy-sidebar-card-action-btn {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 32px !important;
+            height: 32px !important;
+            background-color: rgba(0, 0, 0, 0.75) !important;
+            color: #e2e8f0 !important;
+            font-size: 14px !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            transition: all 0.15s ease !important;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+            z-index: 20 !important;
+            transform: translateZ(0);
+        }
+
+        .comfy-sidebar-card-action-btn:hover {
+            background-color: rgba(0, 0, 0, 0.95) !important;
+            color: #ffffff !important;
+        }
+
+        /* Delete Confirmation Active State */
+        .comfy-sidebar-card-action-btn.confirm-delete,
+        .comfy-sidebar-card-action-btn.confirm-delete:hover {
+            background-color: #dc3545 !important;
+            color: #ffffff !important;
+            box-shadow: 0 0 8px rgba(220, 53, 69, 0.6) !important;
+        }
     `;
     document.head.appendChild(style);
 }
