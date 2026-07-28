@@ -15,6 +15,44 @@ function resetAllCardHoverStates() {
     }
 }
 
+let scrollToTopBtnEl = null;
+
+// Dynamically locates ComfyUI's outer scrolling container (.sidebar-content-container)
+function getScrollContainer() {
+    if (!State.cardStack) return null;
+    return State.cardStack.closest('.sidebar-content-container, [class*="sidebar-content-container"], [class*="overflow-y-auto"]') 
+        || State.cardStack.parentElement 
+        || State.cardStack;
+}
+
+function updateScrollTopBtnVisibility() {
+    if (!scrollToTopBtnEl || !State.sidebarContainer || !State.sidebarContainer.isConnected) return;
+    const scrollEl = getScrollContainer();
+    if (scrollEl) {
+        // Pin button to the non-scrolling outer sidebar drawer viewport
+        const viewportEl = scrollEl.parentElement || State.sidebarContainer;
+        if (viewportEl && scrollToTopBtnEl.parentNode !== viewportEl) {
+            if (window.getComputedStyle(viewportEl).position === "static") {
+                viewportEl.style.position = "relative";
+            }
+            viewportEl.appendChild(scrollToTopBtnEl);
+        }
+
+        if (scrollEl.scrollTop > 200) {
+            scrollToTopBtnEl.style.display = "flex";
+        } else {
+            scrollToTopBtnEl.style.display = "none";
+        }
+    }
+}
+
+// Global document scroll capture listener (ensures scroll button works even when ComfyUI re-mounts sidebar tabs!)
+document.addEventListener("scroll", () => {
+    if (State.sidebarContainer && State.sidebarContainer.isConnected) {
+        updateScrollTopBtnVisibility();
+    }
+}, { capture: true, passive: true });
+
 function findNodeIdForImage(state, img) {
     if (!state || !state.nodeOutputs || !img) return null;
     for (const nodeId in state.nodeOutputs) {
@@ -115,7 +153,7 @@ export function setupSidebarUI() {
     State.sidebarContainer = document.createElement("div");
     Object.assign(State.sidebarContainer.style, {
         display: "flex", flexDirection: "column", height: "100%", padding: "14px", boxSizing: "border-box",
-        background: "var(--comfy-menu-bg, #121212)", color: "var(--fg-color, #eee)"
+        background: "var(--comfy-menu-bg, #121212)", color: "var(--fg-color, #eee)", position: "relative"
     });
 
     const header = document.createElement("div");
@@ -229,9 +267,45 @@ export function setupSidebarUI() {
     searchInput.onkeydown = (e) => { if (e.key === "Escape") closeSearch(); };
     searchInput.oninput = () => { State.currentSearchQuery = searchInput.value.trim(); renderDOM(); };
 
+    // Bottom padding for the card stack
     State.cardStack = document.createElement("div");
-    Object.assign(State.cardStack.style, { flex: "1", overflowY: "auto", scrollbarWidth: "thin", display: "block" });
+    Object.assign(State.cardStack.style, { flex: "1", overflowY: "visible", display: "block", paddingBottom: "28px" });
     State.sidebarContainer.appendChild(State.cardStack);
+
+    // Floating Scroll-To-Top Button
+    scrollToTopBtnEl = document.createElement("button");
+    scrollToTopBtnEl.className = "pi pi-chevron-up";
+    scrollToTopBtnEl.title = "Scroll to Top";
+    Object.assign(scrollToTopBtnEl.style, {
+        position: "absolute", bottom: "12px", right: "12px", width: "32px", height: "32px",
+        borderRadius: "50%", background: "rgba(30, 30, 30, 0.9)", color: "#eee",
+        border: "1px solid var(--border-color, #555)", cursor: "pointer", fontSize: "13px",
+        display: "none", alignItems: "center", justifyContent: "center", zIndex: "999",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.6)", transition: "all 0.15s ease-in-out", opacity: "0.85"
+    });
+
+    scrollToTopBtnEl.onmouseenter = () => {
+        scrollToTopBtnEl.style.opacity = "1";
+        scrollToTopBtnEl.style.background = "var(--p-primary-color, #3b82f6)";
+        scrollToTopBtnEl.style.color = "#fff";
+        scrollToTopBtnEl.style.borderColor = "var(--p-primary-color, #3b82f6)";
+    };
+    scrollToTopBtnEl.onmouseleave = () => {
+        scrollToTopBtnEl.style.opacity = "0.85";
+        scrollToTopBtnEl.style.background = "rgba(30, 30, 30, 0.9)";
+        scrollToTopBtnEl.style.color = "#eee";
+        scrollToTopBtnEl.style.borderColor = "var(--border-color, #555)";
+    };
+
+    scrollToTopBtnEl.onclick = (e) => {
+        e.stopPropagation();
+        const scrollEl = getScrollContainer();
+        if (scrollEl) {
+            scrollEl.scrollTo({ top: 0, behavior: "smooth" });
+        }
+    };
+
+    State.sidebarContainer.appendChild(scrollToTopBtnEl);
 
     State.sidebarContainer.onclick = (e) => {
         if (State.activeSubmenuPromptId || State.activeSubmenuBatchImages) {
@@ -248,8 +322,10 @@ export function setupSidebarUI() {
     new ResizeObserver((entries) => {
         const threshold = app.ui.settings.getSettingValue("Comfy Sidebar.Grid Columns Threshold") ?? 350;
         const cols = Math.max(1, Math.floor(entries[0].contentRect.width / (threshold / 2)));
-        State.cardStack.style.columnCount = cols.toString();
-        State.cardStack.style.columnGap = cols > 1 ? "12px" : "0";
+        if (State.cardStack) {
+            State.cardStack.style.columnCount = cols.toString();
+            State.cardStack.style.columnGap = cols > 1 ? "12px" : "0";
+        }
     }).observe(State.sidebarContainer);
 
     setInterval(() => {
@@ -263,6 +339,125 @@ export function setupSidebarUI() {
     }, 100);
 
     return State.sidebarContainer;
+}
+
+function syncCardButtonVisibility(cardObj, state) {
+    if (!cardObj) return;
+
+    if (state.status === "active" || state.status === "pending") {
+        if (cardObj.hoverPanel) cardObj.hoverPanel.style.setProperty("display", "none", "important");
+        if (cardObj.leftHoverPanel) cardObj.leftHoverPanel.style.setProperty("display", "none", "important");
+        return;
+    }
+
+    const isCompleted = state.status === "completed";
+    const hasRealImages = isCompleted && state.images && state.images.length > 0 && !state.images.some(img => img.url && img.url.startsWith("blob:"));
+
+    // 1. Download Object Button: ONLY for completed runs with saved output files
+    if (cardObj.btnImg) {
+        if (hasRealImages) {
+            cardObj.btnImg.style.removeProperty("display");
+            cardObj.btnImg.style.display = "inline-flex";
+            cardObj.btnImg.onclick = (ev) => {
+                ev.stopPropagation();
+                state.images.forEach(img => {
+                    const a = document.createElement("a");
+                    a.href = img.url ? img.url : `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}`;
+                    a.download = img.filename || "output";
+                    a.click();
+                });
+            };
+        } else {
+            cardObj.btnImg.style.setProperty("display", "none", "important");
+        }
+    }
+
+    // 2. Download JSON Button: ONLY if workflow exists
+    if (cardObj.btnJson) {
+        if (state.workflow) {
+            cardObj.btnJson.style.removeProperty("display");
+            cardObj.btnJson.style.display = "inline-flex";
+            cardObj.btnJson.onclick = (ev) => {
+                ev.stopPropagation();
+                const blob = new Blob([JSON.stringify(state.workflow, null, 2)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `workflow_${state.pid}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+        } else {
+            cardObj.btnJson.style.setProperty("display", "none", "important");
+        }
+    }
+
+    // 3. Show Node Button: ONLY if real output image links to a valid canvas node
+    if (cardObj.btnFocus) {
+        const currentImg = hasRealImages ? state.images[cardObj.currentImageIndex || 0] : null;
+        const nodeId = currentImg ? findNodeIdForImage(state, currentImg) : null;
+        if (nodeId) {
+            cardObj.btnFocus.style.removeProperty("display");
+            cardObj.btnFocus.style.display = "inline-flex";
+            cardObj.btnFocus.onclick = (ev) => {
+                ev.stopPropagation();
+                const node = app.graph.getNodeById(Number(nodeId));
+                if (node) {
+                    app.canvas.centerOnNode(node);
+                    app.canvas.selectNode(node);
+                }
+            };
+        } else {
+            cardObj.btnFocus.style.setProperty("display", "none", "important");
+        }
+    }
+
+    // 4. Intermediate Outputs Button: ONLY if STRICTLY MORE THAN 1 node output exists!
+    if (cardObj.leftHoverBtn) {
+        const outputs = getRunOutputs(state.nodeOutputs, state.workflow);
+        if (outputs.length > 1) {
+            cardObj.leftHoverBtn.style.removeProperty("display");
+            cardObj.leftHoverBtn.style.display = "inline-flex";
+            cardObj.leftHoverBtn.onclick = (ev) => {
+                ev.stopPropagation();
+                if (!State.activeSubmenuBatchImages && !State.activeSubmenuPromptId) {
+                    const scrollEl = getScrollContainer();
+                    if (scrollEl) State.mainQueueScrollTop = scrollEl.scrollTop;
+                }
+                State.activeSubmenuPromptId = state.pid;
+                resetAllCardHoverStates();
+                renderDOM();
+            };
+        } else {
+            cardObj.leftHoverBtn.style.setProperty("display", "none", "important");
+        }
+    }
+
+    // Show hover panels ONLY if they contain at least one visible action button!
+    const hasRightButtons = (cardObj.btnImg && cardObj.btnImg.style.display !== "none") || 
+                            (cardObj.btnJson && cardObj.btnJson.style.display !== "none") || 
+                            (cardObj.btnDel && cardObj.btnDel.style.display !== "none");
+                            
+    const hasLeftButtons = (cardObj.btnFocus && cardObj.btnFocus.style.display !== "none") || 
+                           (cardObj.leftHoverBtn && cardObj.leftHoverBtn.style.display !== "none");
+
+    if (cardObj.hoverPanel) {
+        if (hasRightButtons) {
+            cardObj.hoverPanel.style.removeProperty("display");
+            cardObj.hoverPanel.style.display = "flex";
+        } else {
+            cardObj.hoverPanel.style.setProperty("display", "none", "important");
+        }
+    }
+
+    if (cardObj.leftHoverPanel) {
+        if (hasLeftButtons) {
+            cardObj.leftHoverPanel.style.removeProperty("display");
+            cardObj.leftHoverPanel.style.display = "flex";
+        } else {
+            cardObj.leftHoverPanel.style.setProperty("display", "none", "important");
+        }
+    }
 }
 
 function renderCardImages(cardObj, state, keepAspect) {
@@ -326,12 +521,51 @@ function renderCardImages(cardObj, state, keepAspect) {
         }
     };
 
+    const isUnfinished = state.status && state.status !== "completed";
+    if (isUnfinished) {
+        mediaEl.setAttribute("draggable", "false");
+        mediaEl.style.cursor = "grab";
+        if (mediaEl._currentDragStart) {
+            mediaEl.removeEventListener("dragstart", mediaEl._currentDragStart);
+            delete mediaEl._currentDragStart;
+        }
+    } else {
+        mediaEl.setAttribute("draggable", "true");
+        mediaEl.style.cursor = "zoom-in";
+
+        if (isVideo) {
+            const fullSrc = src.startsWith("http") ? src : window.location.origin + src;
+            const filename = img.filename || "output.mp4";
+            const mimeType = src.includes(".webm") ? "video/webm" : "video/mp4";
+
+            const videoDragHandler = (e) => {
+                try {
+                    e.dataTransfer.setData("text/uri-list", fullSrc);
+                    e.dataTransfer.setData("text/plain", fullSrc);
+                    e.dataTransfer.setData("DownloadURL", `${mimeType}:${filename}:${fullSrc}`);
+                } catch (err) {}
+                e.dataTransfer.effectAllowed = "copy";
+                e.stopPropagation();
+            };
+
+            if (mediaEl._currentDragStart) {
+                mediaEl.removeEventListener("dragstart", mediaEl._currentDragStart);
+            }
+            mediaEl.addEventListener("dragstart", videoDragHandler);
+            mediaEl._currentDragStart = videoDragHandler;
+        } else {
+            if (mediaEl._currentDragStart) {
+                mediaEl.removeEventListener("dragstart", mediaEl._currentDragStart);
+                delete mediaEl._currentDragStart;
+            }
+        }
+    }
+
     if (isVideo) { 
         mediaEl.muted = true; 
         mediaEl.playsInline = true; 
         mediaEl.preload = "metadata";
         mediaEl.loop = true;
-        mediaEl.setAttribute("draggable", "false");
 
         mediaEl.onloadedmetadata = () => {
             applyDimensions(mediaEl.videoWidth, mediaEl.videoHeight);
@@ -360,29 +594,6 @@ function renderCardImages(cardObj, state, keepAspect) {
         mediaEl.onmouseenter = () => { playIcon.style.opacity = "0"; mediaEl.play().catch(()=>{}); };
         mediaEl.onmouseleave = () => { playIcon.style.opacity = "1"; mediaEl.pause(); };
     } else {
-        const isUnfinished = state.status && state.status !== "completed";
-        if (isUnfinished) {
-            mediaEl.setAttribute("draggable", "false");
-            mediaEl.style.cursor = "grab";
-            mediaEl.removeEventListener("dragstart", mediaEl._currentDragStart);
-            delete mediaEl._currentDragStart;
-        } else {
-            mediaEl.setAttribute("draggable", "true");
-            mediaEl.style.cursor = "zoom-in";
-            
-            const dragStartHandler = (e) => {
-                try {
-                    e.dataTransfer.setData("text/uri-list", src);
-                    e.dataTransfer.setData("text/plain", src);
-                } catch (err) {}
-                e.dataTransfer.effectAllowed = "copy";
-                e.stopPropagation();
-            };
-            mediaEl.removeEventListener("dragstart", mediaEl._currentDragStart);
-            mediaEl.addEventListener("dragstart", dragStartHandler);
-            mediaEl._currentDragStart = dragStartHandler;
-        }
-
         mediaEl.onload = () => { 
             applyDimensions(mediaEl.naturalWidth, mediaEl.naturalHeight);
         };
@@ -449,6 +660,10 @@ function renderCardImages(cardObj, state, keepAspect) {
             
             label.onclick = (ev) => {
                 ev.stopPropagation();
+                if (!State.activeSubmenuBatchImages && !State.activeSubmenuPromptId) {
+                    const scrollEl = getScrollContainer();
+                    if (scrollEl) State.mainQueueScrollTop = scrollEl.scrollTop;
+                }
                 State.activeSubmenuBatchImages = {
                     pid: state.pid || cardObj.element.id.replace("card-", ""),
                     images: state.images,
@@ -513,6 +728,7 @@ export function renderDOM() {
         const headerSearchIcon = State.sidebarContainer.querySelector(".pi-search");
         const headerActions = State.sidebarContainer.querySelector(".pi-eraser")?.parentNode;
 
+        // Submenu 1: Batch Submenu View
         if (State.activeSubmenuBatchImages) {
             const batchInfo = State.activeSubmenuBatchImages;
 
@@ -520,7 +736,11 @@ export function renderDOM() {
                 headerTitle.textContent = `Batch of #${batchInfo.pid}`;
                 headerTitle.style.cursor = "pointer";
                 headerTitle.title = "Go Back to Queue";
-                headerTitle.onclick = () => { State.activeSubmenuBatchImages = null; resetAllCardHoverStates(); renderDOM(); };
+                headerTitle.onclick = () => { 
+                    State.activeSubmenuBatchImages = null; 
+                    resetAllCardHoverStates(); 
+                    renderDOM(); 
+                };
             }
             if (headerSearchIcon) headerSearchIcon.style.display = "none";
             if (headerActions) headerActions.style.display = "none";
@@ -590,8 +810,7 @@ export function renderDOM() {
                     cardElements.set(cardId, cardObj);
 
                     card.addEventListener("mouseenter", () => {
-                        cardObj.hoverPanel.style.display = "flex";
-                        cardObj.leftHoverPanel.style.display = "flex";
+                        syncCardButtonVisibility(cardObj, { status: "completed", images: [img], workflow: batchInfo.workflow, nodeOutputs: batchInfo.nodeOutputs });
                     });
                     card.addEventListener("mouseleave", () => {
                         cardObj.hoverPanel.style.display = "none";
@@ -601,30 +820,6 @@ export function renderDOM() {
 
                 cardObj.placeholder.style.display = "none";
 
-                cardObj.btnImg.style.display = "inline-flex";
-                cardObj.btnImg.onclick = (ev) => {
-                    ev.stopPropagation();
-                    const a = document.createElement("a");
-                    a.href = img.url ? img.url : `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder)}`;
-                    a.download = img.filename || "output";
-                    a.click();
-                };
-
-                const nodeId = findNodeIdForImage(batchInfo, img);
-                if (nodeId) {
-                    cardObj.btnFocus.style.display = "inline-flex";
-                    cardObj.btnFocus.onclick = (ev) => {
-                        ev.stopPropagation();
-                        const node = app.graph.getNodeById(Number(nodeId));
-                        if (node) {
-                            app.canvas.centerOnNode(node);
-                            app.canvas.selectNode(node);
-                        }
-                    };
-                } else {
-                    cardObj.btnFocus.style.display = "none";
-                }
-
                 renderCardImages(cardObj, { pid: batchInfo.pid, images: [img], workflow: batchInfo.workflow, nodeOutputs: batchInfo.nodeOutputs }, keepAspect);
 
                 targetElements.push(cardObj.element);
@@ -632,9 +827,14 @@ export function renderDOM() {
 
             targetElements.forEach((el, index) => { if (State.cardStack.children[index] !== el) State.cardStack.insertBefore(el, State.cardStack.children[index] || null); });
             while (State.cardStack.children.length > targetElements.length) State.cardStack.removeChild(State.cardStack.lastChild);
+
+            const scrollEl = getScrollContainer();
+            if (scrollEl) scrollEl.scrollTop = 0;
+            updateScrollTopBtnVisibility();
             return;
         }
 
+        // Submenu 2: Intermediate Outputs View
         if (State.activeSubmenuPromptId) {
             const st = promptStates.get(State.activeSubmenuPromptId);
             if (!st) {
@@ -647,7 +847,11 @@ export function renderDOM() {
                 headerTitle.textContent = `Outputs of #${State.activeSubmenuPromptId}`;
                 headerTitle.style.cursor = "pointer";
                 headerTitle.title = "Go Back to Queue";
-                headerTitle.onclick = () => { State.activeSubmenuPromptId = null; resetAllCardHoverStates(); renderDOM(); };
+                headerTitle.onclick = () => { 
+                    State.activeSubmenuPromptId = null; 
+                    resetAllCardHoverStates(); 
+                    renderDOM(); 
+                };
             }
             if (headerSearchIcon) headerSearchIcon.style.display = "none";
             if (headerActions) headerActions.style.display = "none";
@@ -719,8 +923,7 @@ export function renderDOM() {
                     cardElements.set(cardId, cardObj);
 
                     card.addEventListener("mouseenter", () => {
-                        cardObj.hoverPanel.style.display = "flex";
-                        cardObj.leftHoverPanel.style.display = "flex";
+                        syncCardButtonVisibility(cardObj, { status: "completed", images: out.images, workflow: st.workflow, nodeOutputs: st.nodeOutputs });
                     });
                     card.addEventListener("mouseleave", () => {
                         cardObj.hoverPanel.style.display = "none";
@@ -730,30 +933,8 @@ export function renderDOM() {
 
                 if (out.images && out.images.length > 0) {
                     cardObj.placeholder.style.display = "none";
-                    
-                    cardObj.btnImg.style.display = "inline-flex";
-                    cardObj.btnImg.onclick = (ev) => {
-                        ev.stopPropagation();
-                        out.images.forEach(img => {
-                            const a = document.createElement("a");
-                            a.href = img.url ? img.url : `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder)}`;
-                            a.download = img.filename || "output";
-                            a.click();
-                        });
-                    };
-
-                    cardObj.btnFocus.onclick = (ev) => {
-                        ev.stopPropagation();
-                        const node = app.graph.getNodeById(Number(out.nodeId));
-                        if (node) {
-                            app.canvas.centerOnNode(node);
-                            app.canvas.selectNode(node);
-                        }
-                    };
-
                     renderCardImages(cardObj, { pid: st.pid, images: out.images, workflow: st.workflow, nodeOutputs: st.nodeOutputs }, keepAspect);
                 } else {
-                    cardObj.btnImg.style.display = "none";
                     cardObj.placeholder.style.display = "block";
                     cardObj.placeholder.textContent = "No Outputs";
                 }
@@ -763,9 +944,14 @@ export function renderDOM() {
 
             targetElements.forEach((el, index) => { if (State.cardStack.children[index] !== el) State.cardStack.insertBefore(el, State.cardStack.children[index] || null); });
             while (State.cardStack.children.length > targetElements.length) State.cardStack.removeChild(State.cardStack.lastChild);
+
+            const scrollEl = getScrollContainer();
+            if (scrollEl) scrollEl.scrollTop = 0;
+            updateScrollTopBtnVisibility();
             return;
         }
 
+        // Standard Queue Main View
         if (headerTitle) {
             headerTitle.textContent = "Queue";
             headerTitle.style.cursor = "default";
@@ -786,7 +972,10 @@ export function renderDOM() {
         const syncCardElement = (state) => {
             let cardObj = cardElements.get(state.pid);
             const isFinalStatus = state.status === "completed" || state.status === "cancelled" || state.status === "error";
-            if (cardObj && isFinalStatus && state.rendered) return cardObj.element;
+            if (cardObj && isFinalStatus && state.rendered) {
+                syncCardButtonVisibility(cardObj, state);
+                return cardObj.element;
+            }
             
             if (!cardObj) {
                 const card = document.createElement("div");
@@ -836,13 +1025,6 @@ export function renderDOM() {
                 const leftHoverBtn = document.createElement("span");
                 leftHoverBtn.className = "pi pi-images comfy-sidebar-card-action-btn";
                 leftHoverBtn.title = "View all intermediate outputs";
-                
-                leftHoverBtn.onclick = (ev) => {
-                    ev.stopPropagation();
-                    State.activeSubmenuPromptId = state.pid;
-                    resetAllCardHoverStates();
-                    renderDOM();
-                };
 
                 hoverPanel.append(btnImg, btnJson, btnDel);
                 leftHoverPanel.append(btnFocus, leftHoverBtn);
@@ -852,48 +1034,28 @@ export function renderDOM() {
                 cardObj = { element: card, timerEl, statusBadge: sBadge, grid, placeholder: p, progressContainer: pt, progressBar: pb, cancelBtn: cancelX, hoverPanel, leftHoverPanel, btnFocus, leftHoverBtn, btnImg, btnJson, btnDel, statusText, firstImgElement: null, lastImagesSignature: "" };
                 
                 card.addEventListener("mouseenter", () => { 
-                    if (state.status !== "active" && state.status !== "pending") {
-                        cardObj.hoverPanel.style.display = "flex";
-                        cardObj.leftHoverPanel.style.display = "flex";
-
-                        const currentImg = state.images[cardObj.currentImageIndex || 0];
-                        const nodeId = findNodeIdForImage(state, currentImg);
-                        if (nodeId) {
-                            cardObj.btnFocus.style.display = "inline-flex";
-                            cardObj.btnFocus.onclick = (ev) => {
-                                ev.stopPropagation();
-                                const node = app.graph.getNodeById(Number(nodeId));
-                                if (node) {
-                                    app.canvas.centerOnNode(node);
-                                    app.canvas.selectNode(node);
-                                }
-                            };
-                        } else {
-                            cardObj.btnFocus.style.display = "none";
-                        }
-
-                        const outputs = getRunOutputs(state.nodeOutputs, state.workflow);
-                        const isInterrupted = state.status === "cancelled" || state.status === "error";
-                        if (outputs.length > 1 || (outputs.length > 0 && isInterrupted)) {
-                            cardObj.leftHoverBtn.style.display = "inline-flex";
-                        } else {
-                            cardObj.leftHoverBtn.style.display = "none";
-                        }
-                    } 
+                    syncCardButtonVisibility(cardObj, state);
                 });
                 card.addEventListener("mouseleave", () => {
                     cardObj.hoverPanel.style.display = "none";
                     cardObj.leftHoverPanel.style.display = "none";
                 });
                 
+                // Drag handler for text-only / unfinished cards
                 card.addEventListener("dragstart", (e) => {
                     const isUnfinished = state.status && state.status !== "completed";
-                    if (state.workflow && (!state.images || state.images.length === 0 || isUnfinished)) {
-                        if (cardObj.firstImgElement) e.dataTransfer.setDragImage(cardObj.firstImgElement, 15, 15);
+                    const hasNoImages = !state.images || state.images.length === 0;
+
+                    if (state.workflow && (hasNoImages || isUnfinished)) {
+                        if (cardObj.firstImgElement) {
+                            try { e.dataTransfer.setDragImage(cardObj.firstImgElement, 15, 15); } catch(err){}
+                        }
                         const jsonStr = JSON.stringify(state.workflow, null, 2);
+                        const filename = `workflow_${state.pid}.json`;
+                        const base64Data = btoa(unescape(encodeURIComponent(jsonStr)));
+
                         try { 
-                            e.dataTransfer.setData("DownloadURL", `application/json:workflow_${state.pid}.json:data:application/json;base64,` + btoa(unescape(encodeURIComponent(jsonStr)))); 
-                            e.dataTransfer.setData("text/plain", jsonStr); 
+                            e.dataTransfer.setData("DownloadURL", `application/json:${filename}:data:application/json;base64,${base64Data}`);
                             e.dataTransfer.setData("application/json", jsonStr); 
                         } catch (err) {}
                         e.dataTransfer.effectAllowed = "copy";
@@ -902,6 +1064,8 @@ export function renderDOM() {
                 cardObj.element.id = `card-${state.pid}`;
                 cardElements.set(state.pid, cardObj);
             }
+
+            syncCardButtonVisibility(cardObj, state);
 
             cardObj.element.className = `comfy-sidebar-card ${state.status}`;
             
@@ -942,16 +1106,6 @@ export function renderDOM() {
             } else {
                 cardObj.cancelBtn.style.display = "none";
             }
-
-            if (state.images && state.images.length > 0) {
-                cardObj.btnImg.style.display = "inline-flex";
-                cardObj.btnImg.onclick = (ev) => { ev.stopPropagation(); state.images.forEach(img => { const a = document.createElement("a"); a.href = img.url ? img.url : `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type}&subfolder=${encodeURIComponent(img.subfolder)}`; a.download = img.filename || "output"; a.click(); }); };
-            } else cardObj.btnImg.style.display = "none";
-
-            if (state.workflow) {
-                cardObj.btnJson.style.display = "inline-flex";
-                cardObj.btnJson.onclick = (ev) => { ev.stopPropagation(); const blob = new Blob([JSON.stringify(state.workflow, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `workflow_${state.pid}.json`; a.click(); URL.revokeObjectURL(url); };
-            } else cardObj.btnJson.style.display = "none";
 
             let deleteTimeout = null, isDeletePending = false;
             const resetDeleteBtn = () => { 
@@ -1041,6 +1195,21 @@ export function renderDOM() {
         targetElements.forEach((el, index) => { if (State.cardStack.children[index] !== el) State.cardStack.insertBefore(el, State.cardStack.children[index] || null); });
         while (State.cardStack.children.length > targetElements.length) State.cardStack.removeChild(State.cardStack.lastChild);
 
+        // SYNCHRONOUS scroll restoration to prevent 1-frame scroll flashes!
+        if (State.mainQueueScrollTop !== null) {
+            const restorePos = State.mainQueueScrollTop;
+            State.mainQueueScrollTop = null;
+
+            const scrollEl = getScrollContainer();
+            if (scrollEl) {
+                scrollEl.scrollTop = restorePos;
+                requestAnimationFrame(() => {
+                    scrollEl.scrollTop = restorePos;
+                });
+            }
+        }
+
+        updateScrollTopBtnVisibility();
         saveStatesToLocalStorage();
     });
 }

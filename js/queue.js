@@ -1,6 +1,6 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
-import { State, promptStates, pruneHistory, loadStatesFromLocalStorage, cardElements } from "./state.js";
+import { State, promptStates, pruneHistory, cardElements } from "./state.js";
 import { findImagesInOutputs, findTextsInOutputs } from "./utils.js";
 
 export let renderDOMFn = () => {};
@@ -70,7 +70,6 @@ const concludeRun = async (pid, statusStr) => {
     
     const st = promptStates.get(pid);
 
-    // FIX: Revoke live preview blob URL to prevent browser memory leaks
     if (st._previewBlobUrl) {
         try { URL.revokeObjectURL(st._previewBlobUrl); } catch(e){}
         delete st._previewBlobUrl;

@@ -1,4 +1,3 @@
-import { State } from "./state.js";
 import { isVideoFormat } from "./utils.js";
 
 let activeComparisonViewer = null;
@@ -32,7 +31,6 @@ const createMediaElement = (src, muted = false) => {
 const setupVideoPlayback = (vid, container) => {
     if (!vid) return () => {};
 
-    // Localized animation loop states to prevent cross-instance contamination
     let videoSyncActive = true;
     let syncAnimationFrameId = null;
 
@@ -193,7 +191,6 @@ function createComparisonViewer(baseSrc) {
     });
     container.appendChild(wrapper);
 
-    // Bottom tooltip helper (Font size increased to 12px for legibility)
     const hintPrompt = document.createElement("div");
     Object.assign(hintPrompt.style, {
         position: "absolute", bottom: "16px", zIndex: "30",
@@ -206,13 +203,12 @@ function createComparisonViewer(baseSrc) {
     }
     container.appendChild(hintPrompt);
 
-    // Track drag actions to prevent mouseup outside the slider from triggering modal exit
     let wasDragging = false;
 
     container.onclick = (e) => {
         if (e.target === container) {
             if (wasDragging) {
-                wasDragging = false; // Ignore synthetic click caused by releasing drag on backdrop
+                wasDragging = false;
                 return;
             }
             destroy();

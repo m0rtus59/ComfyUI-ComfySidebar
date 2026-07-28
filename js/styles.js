@@ -33,7 +33,7 @@ export function injectStyles() {
         .comfy-sidebar-card-timer {
             position: absolute; top: 6px; left: 8px; font-size: 10px;
             font-family: monospace; opacity: 0.7; background: rgba(0, 0, 0, 0.6);
-            padding: 2px 4px; border-radius: 3px; pointer-events: none; z-index: 5; color: #fff;
+            padding: 2px 4px; border-radius: 3px; pointerEvents: none; z-index: 5; color: #fff;
         }
 
         .comfy-sidebar-queue-cancel-btn {
@@ -56,9 +56,9 @@ export function injectStyles() {
             color: #ffffff !important;
         }
 
-        /* Optimized Card Action Buttons */
+        /* Card Action Buttons */
         .comfy-sidebar-card-action-btn {
-            display: inline-flex !important;
+            display: inline-flex;
             align-items: center !important;
             justify-content: center !important;
             width: 32px !important;

@@ -66,6 +66,32 @@ function syncNodeVueBadge(node, isIgnored) {
     }
 }
 
+export function syncAllNodeBadges() {
+    applySidebarOverride();
+    if (!app.graph || !app.graph._nodes) return;
+
+    app.graph._nodes.forEach(node => {
+        if (!node.properties) node.properties = {};
+        const isIgnored = !!node.properties.ignoreInQueue;
+
+        if (isIgnored) {
+            if (node.boxcolor !== "#ff3333") {
+                node._oldBoxcolor = node.boxcolor || "";
+                node.boxcolor = "#ff3333";
+                if (app.graph) app.graph.setDirtyCanvas(true, true);
+            }
+        } else {
+            if (node.boxcolor === "#ff3333") {
+                node.boxcolor = node._oldBoxcolor || "";
+                delete node._oldBoxcolor;
+                if (app.graph) app.graph.setDirtyCanvas(true, true);
+            }
+        }
+
+        syncNodeVueBadge(node, isIgnored);
+    });
+}
+
 function toggleIgnoreActiveNode() {
     const canvas = app.canvas;
     if (!canvas) return;
@@ -113,7 +139,6 @@ app.registerExtension({
         app.ui.settings.addSetting({ id: "Comfy Sidebar.Show Working Node Name", name: "Shows the name of the node which is currently in the process", type: "boolean", defaultValue: true });
         app.ui.settings.addSetting({ id: "Comfy Sidebar.Auto Clear Interrupted", name: "Auto-clear cancelled & failed jobs on new generation", type: "boolean", defaultValue: false });
 
-        // NodesMap removed from sidebarTabs list
         const sidebarTabs = ["Assets", "Nodes", "Models", "Workflows", "Apps", "Templates"];
         sidebarTabs.forEach(tab => {
             app.ui.settings.addSetting({
@@ -190,6 +215,7 @@ app.registerExtension({
         
         await initSessionAndHistory();
 
+        // Keyboard shortcuts listener
         document.addEventListener("keydown", (e) => {
             const activeEl = document.activeElement;
             if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.isContentEditable || activeEl.tagName === "SELECT")) return;
@@ -206,37 +232,27 @@ app.registerExtension({
             }
         }, true);
         
-        setInterval(() => {
-            applySidebarOverride();
-            
-            if (app.graph && app.graph._nodes) {
-                const hasIgnoredOrColoredNodes = app.graph._nodes.some(n => n.properties?.ignoreInQueue || n.boxcolor === "#ff3333");
-                const hasBadgesInDOM = !!document.querySelector(".comfy-sidebar-ignore-badge");
+        // Event hooks for node additions and workflow loading (eliminates continuous polling loops)
+        if (app.graph) {
+            const originalConfigure = app.graph.configure;
+            app.graph.configure = function() {
+                const res = originalConfigure ? originalConfigure.apply(this, arguments) : undefined;
+                requestAnimationFrame(() => syncAllNodeBadges());
+                return res;
+            };
 
-                if (hasIgnoredOrColoredNodes || hasBadgesInDOM) {
-                    app.graph._nodes.forEach(node => {
-                        if (!node.properties) node.properties = {};
-                        const isIgnored = !!node.properties.ignoreInQueue;
-
-                        if (isIgnored) {
-                            if (node.boxcolor !== "#ff3333") {
-                                node._oldBoxcolor = node.boxcolor || "";
-                                node.boxcolor = "#ff3333";
-                                app.graph.setDirtyCanvas(true, true);
-                            }
-                        } else {
-                            if (node.boxcolor === "#ff3333") {
-                                node.boxcolor = node._oldBoxcolor || "";
-                                delete node._oldBoxcolor;
-                                app.graph.setDirtyCanvas(true, true);
-                            }
-                        }
-
-                        syncNodeVueBadge(node, isIgnored);
-                    });
+            const originalOnNodeAdded = app.graph.onNodeAdded;
+            app.graph.onNodeAdded = function(node) {
+                if (originalOnNodeAdded) originalOnNodeAdded.apply(this, arguments);
+                if (node && node.properties?.ignoreInQueue) {
+                    node.boxcolor = "#ff3333";
+                    syncNodeVueBadge(node, true);
                 }
-            }
-        }, 500);
+            };
+        }
+
+        // Apply sidebar override when initializing
+        applySidebarOverride();
 
         app.extensionManager.registerSidebarTab({ 
             id: "classic-comfy-sidebar", 

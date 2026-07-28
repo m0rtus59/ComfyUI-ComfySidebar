@@ -7,7 +7,7 @@ async function uploadDroppedImageToInput(imageObj) {
         const response = await fetch(src);
         if (!response.ok) return null;
         const blob = await response.blob();
-        const file = new File([blob], imageObj.filename || "dropped_image.png", { type: blob.type });
+        const file = new File([blob], imageObj.filename || "dropped_file", { type: blob.type });
         const formData = new FormData();
         formData.append("image", file);
         formData.append("overwrite", "true");
@@ -17,7 +17,7 @@ async function uploadDroppedImageToInput(imageObj) {
         const uploadData = await uploadRes.json();
         return uploadData.name;
     } catch(e) {
-        console.error("Comfy Sidebar: Failed to copy image to input.", e);
+        console.error("Comfy Sidebar: Failed to copy file to input.", e);
         return null;
     }
 }
@@ -40,8 +40,8 @@ export function setupDragAndDrop() {
         const canvas = app.canvas;
         if (!canvas || !canvas.graph) return;
 
-        // 1. Check for standard workflow JSON data drop
-        const jsonStr = e.dataTransfer.getData("application/json") || e.dataTransfer.getData("text/plain");
+        // 1. Check for workflow JSON drop (text-only and unfinished cards)
+        const jsonStr = e.dataTransfer.getData("application/json");
         if (jsonStr) {
             try {
                 const workflow = JSON.parse(jsonStr);
@@ -59,7 +59,7 @@ export function setupDragAndDrop() {
             } catch (err) {}
         }
 
-        // 2. Check for native image URL drop
+        // 2. Check for image / video URL drop
         const url = e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain");
         if (url) {
             try {
@@ -77,28 +77,43 @@ export function setupDragAndDrop() {
                         if (canvas.convertEventToCanvasOffset) {
                             const pos = canvas.convertEventToCanvasOffset(e);
                             targetNode = canvas.graph.getNodeOnPos(pos[0], pos[1]);
-                        } else {
+                        } else if (canvas.canvas) {
                             const rect = canvas.canvas.getBoundingClientRect();
                             targetNode = canvas.graph.getNodeOnPos((e.clientX - rect.left - canvas.ds.offset[0]) / canvas.ds.scale, (e.clientY - rect.top - canvas.ds.offset[1]) / canvas.ds.scale);
                         }
 
-                        if (targetNode && (targetNode.type?.includes("LoadImage") || targetNode.widgets?.some(w => w.name === "image"))) {
-                            const widget = targetNode.widgets?.find(w => w.name === "image");
-                            if (widget) {
+                        // Check if dropped on a LoadImage, LoadVideo, VHS_LoadVideo, or image/video widget node
+                        const widget = targetNode?.widgets?.find(w => 
+                            w.name === "image" || w.name === "video" || w.name === "file" || w.name === "video_path" || w.type === "image" || w.type === "customtext"
+                        );
+
+                        const isLoadNode = targetNode && (widget || targetNode.type?.includes("LoadImage") || targetNode.type?.includes("LoadVideo") || targetNode.type?.includes("VHS_LoadVideo"));
+
+                        if (isLoadNode) {
+                            const targetWidget = widget || targetNode.widgets?.[0];
+                            if (targetWidget) {
                                 const newFilename = await uploadDroppedImageToInput({ filename, type, subfolder });
                                 if (newFilename) {
-                                    widget.value = newFilename;
-                                    if (widget.callback) widget.callback(widget.value);
+                                    // Populate dropdown values list so combo widgets (like VHS_LoadVideo) accept the new video immediately!
+                                    if (targetWidget.options && Array.isArray(targetWidget.options.values)) {
+                                        if (!targetWidget.options.values.includes(newFilename)) {
+                                            targetWidget.options.values.push(newFilename);
+                                        }
+                                    }
+                                    targetWidget.value = newFilename;
+                                    if (targetWidget.callback) targetWidget.callback(targetWidget.value);
                                     targetNode.imgs = null;
                                     app.graph.setDirtyCanvas(true, true);
+                                    return;
                                 }
                             }
                         } else {
+                            // Dropped on empty canvas area: fetch file and load embedded workflow metadata
                             const src = `/view?filename=${encodeURIComponent(filename)}&type=${type}&subfolder=${encodeURIComponent(subfolder)}`;
                             const res = await fetch(src);
                             if (res.ok) {
                                 const blob = await res.blob();
-                                const file = new File([blob], filename || "workflow.png", { type: blob.type });
+                                const file = new File([blob], filename, { type: blob.type });
 
                                 if (app.handleFile) await app.handleFile(file);
                                 else if (app.canvas?.handleDropItem) app.canvas.handleDropItem({ getAsFile: () => file });
