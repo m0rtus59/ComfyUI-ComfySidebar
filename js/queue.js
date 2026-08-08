@@ -1,6 +1,6 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
-import { State, promptStates, pruneHistory, cardElements } from "./state.js";
+import { State, promptStates, pruneHistory, cardElements, saveStatesToLocalStorage } from "./state.js";
 import { findImagesInOutputs, findTextsInOutputs } from "./utils.js";
 
 export let renderDOMFn = () => {};
@@ -74,6 +74,10 @@ const concludeRun = async (pid, statusStr) => {
         try { URL.revokeObjectURL(st._previewBlobUrl); } catch(e){}
         delete st._previewBlobUrl;
     }
+    if (st._oldPreviewBlobUrl) {
+        try { URL.revokeObjectURL(st._oldPreviewBlobUrl); } catch(e){}
+        delete st._oldPreviewBlobUrl;
+    }
 
     st.status = statusStr;
     st.progressText = "";
@@ -91,7 +95,9 @@ const concludeRun = async (pid, statusStr) => {
             st.texts = findTextsInOutputs(hItem[pid].outputs, st.workflow);
         }
     } catch (err) {}
+    
     pruneHistory(app);
+    saveStatesToLocalStorage(); // Persist history state only when a job concludes
     syncQueue();
 };
 
@@ -109,6 +115,7 @@ export function setupApiListeners() {
             }
             if (toDelete.length > 0) {
                 api.fetchApi("/history", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ delete: toDelete }) }).catch(()=>{});
+                saveStatesToLocalStorage();
             }
         }
 
@@ -135,8 +142,20 @@ export function setupApiListeners() {
     api.addEventListener("progress", (e) => {
         const pid = e.detail.prompt_id;
         if (pid && promptStates.has(pid)) {
-            promptStates.get(pid).progress = Math.round((e.detail.value / e.detail.max) * 100);
-            renderDOMFn();
+            const st = promptStates.get(pid);
+            st.progress = Math.round((e.detail.value / e.detail.max) * 100);
+            
+            // Direct fast DOM update for the progress bar without triggering a full history re-sort
+            const cardObj = cardElements.get(pid);
+            if (cardObj && cardObj.progressBar) {
+                cardObj.progressBar.style.width = `${st.progress}%`;
+                if (cardObj.statusText && cardObj.statusText.style.display !== "none") {
+                    const nodeName = st.activeNodeName ? (st.activeNodeName === "Finishing..." ? "Finishing..." : `[${st.activeNodeName}]`) : "Sampling...";
+                    cardObj.statusText.textContent = `${nodeName} ${st.progress}%`;
+                }
+            } else {
+                renderDOMFn();
+            }
         }
     });
 
@@ -160,9 +179,12 @@ export function setupApiListeners() {
         const activeTasks = Array.from(promptStates.values()).filter(t => t.status === "active");
         if (activeTasks.length > 0) {
             const st = activeTasks[0];
-            if (st._previewBlobUrl) try { URL.revokeObjectURL(st._previewBlobUrl); } catch(e){}
-            st._previewBlobUrl = URL.createObjectURL(e.detail);
-            st.images = [{ url: st._previewBlobUrl }];
+            const newBlobUrl = URL.createObjectURL(e.detail);
+            
+            // Retain old blob URL so ui.js can revoke it ONLY AFTER the image element finishes loading
+            st._oldPreviewBlobUrl = st._previewBlobUrl;
+            st._previewBlobUrl = newBlobUrl;
+            st.images = [{ url: newBlobUrl }];
             renderDOMFn();
         }
     });

@@ -4,7 +4,6 @@ import { State, promptStates, cardElements, saveStatesToLocalStorage } from "./s
 import { isVideoFormat, matchesFilter, getRunOutputs } from "./utils.js";
 import { showFullscreenPreview } from "./comparison.js";
 
-// DI Hook for cyclic imports
 export let syncQueueFn = async () => {};
 export function setSyncQueue(fn) { syncQueueFn = fn; }
 
@@ -17,7 +16,6 @@ function resetAllCardHoverStates() {
 
 let scrollToTopBtnEl = null;
 
-// Dynamically locates ComfyUI's outer scrolling container (.sidebar-content-container)
 function getScrollContainer() {
     if (!State.cardStack) return null;
     return State.cardStack.closest('.sidebar-content-container, [class*="sidebar-content-container"], [class*="overflow-y-auto"]') 
@@ -29,7 +27,6 @@ function updateScrollTopBtnVisibility() {
     if (!scrollToTopBtnEl || !State.sidebarContainer || !State.sidebarContainer.isConnected) return;
     const scrollEl = getScrollContainer();
     if (scrollEl) {
-        // Pin button to the non-scrolling outer sidebar drawer viewport
         const viewportEl = scrollEl.parentElement || State.sidebarContainer;
         if (viewportEl && scrollToTopBtnEl.parentNode !== viewportEl) {
             if (window.getComputedStyle(viewportEl).position === "static") {
@@ -46,7 +43,6 @@ function updateScrollTopBtnVisibility() {
     }
 }
 
-// Global document scroll capture listener (ensures scroll button works even when ComfyUI re-mounts sidebar tabs!)
 document.addEventListener("scroll", () => {
     if (State.sidebarContainer && State.sidebarContainer.isConnected) {
         updateScrollTopBtnVisibility();
@@ -226,6 +222,7 @@ export function setupSidebarUI() {
         }
         if (toDelete.length > 0) {
             try { await api.fetchApi("/history", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ delete: toDelete }) }); } catch (err) {}
+            saveStatesToLocalStorage();
             renderDOM();
         }
     });
@@ -237,6 +234,7 @@ export function setupSidebarUI() {
             }
         }
         try { await api.fetchApi("/history", { method: "POST", body: JSON.stringify({ clear: true }) }); } catch (err) {}
+        saveStatesToLocalStorage();
         renderDOM();
     });
 
@@ -267,12 +265,10 @@ export function setupSidebarUI() {
     searchInput.onkeydown = (e) => { if (e.key === "Escape") closeSearch(); };
     searchInput.oninput = () => { State.currentSearchQuery = searchInput.value.trim(); renderDOM(); };
 
-    // Bottom padding for the card stack
     State.cardStack = document.createElement("div");
     Object.assign(State.cardStack.style, { flex: "1", overflowY: "visible", display: "block", paddingBottom: "28px" });
     State.sidebarContainer.appendChild(State.cardStack);
 
-    // Floating Scroll-To-Top Button
     scrollToTopBtnEl = document.createElement("button");
     scrollToTopBtnEl.className = "pi pi-chevron-up";
     scrollToTopBtnEl.title = "Scroll to Top";
@@ -328,6 +324,7 @@ export function setupSidebarUI() {
         }
     }).observe(State.sidebarContainer);
 
+    // Light 250ms active timer tick
     setInterval(() => {
         if (State.currentlyActivePromptId === null) return;
         for (const [pid, state] of promptStates.entries()) {
@@ -336,7 +333,7 @@ export function setupSidebarUI() {
                 if (cardObj && cardObj.timerEl) cardObj.timerEl.textContent = ((Date.now() - state.startTime) / 1000).toFixed(2) + "s";
             }
         }
-    }, 100);
+    }, 250);
 
     return State.sidebarContainer;
 }
@@ -353,7 +350,6 @@ function syncCardButtonVisibility(cardObj, state) {
     const isCompleted = state.status === "completed";
     const hasRealImages = isCompleted && state.images && state.images.length > 0 && !state.images.some(img => img.url && img.url.startsWith("blob:"));
 
-    // 1. Download Object Button: ONLY for completed runs with saved output files
     if (cardObj.btnImg) {
         if (hasRealImages) {
             cardObj.btnImg.style.removeProperty("display");
@@ -372,7 +368,6 @@ function syncCardButtonVisibility(cardObj, state) {
         }
     }
 
-    // 2. Download JSON Button: ONLY if workflow exists
     if (cardObj.btnJson) {
         if (state.workflow) {
             cardObj.btnJson.style.removeProperty("display");
@@ -392,7 +387,6 @@ function syncCardButtonVisibility(cardObj, state) {
         }
     }
 
-    // 3. Show Node Button: ONLY if real output image links to a valid canvas node
     if (cardObj.btnFocus) {
         const currentImg = hasRealImages ? state.images[cardObj.currentImageIndex || 0] : null;
         const nodeId = currentImg ? findNodeIdForImage(state, currentImg) : null;
@@ -412,7 +406,6 @@ function syncCardButtonVisibility(cardObj, state) {
         }
     }
 
-    // 4. Intermediate Outputs Button: ONLY if STRICTLY MORE THAN 1 node output exists!
     if (cardObj.leftHoverBtn) {
         const outputs = getRunOutputs(state.nodeOutputs, state.workflow);
         if (outputs.length > 1) {
@@ -433,7 +426,6 @@ function syncCardButtonVisibility(cardObj, state) {
         }
     }
 
-    // Show hover panels ONLY if they contain at least one visible action button!
     const hasRightButtons = (cardObj.btnImg && cardObj.btnImg.style.display !== "none") || 
                             (cardObj.btnJson && cardObj.btnJson.style.display !== "none") || 
                             (cardObj.btnDel && cardObj.btnDel.style.display !== "none");
@@ -596,6 +588,11 @@ function renderCardImages(cardObj, state, keepAspect) {
     } else {
         mediaEl.onload = () => { 
             applyDimensions(mediaEl.naturalWidth, mediaEl.naturalHeight);
+            // Safely revoke old preview blob URL ONLY after new frame finishes rendering!
+            if (state._oldPreviewBlobUrl) {
+                try { URL.revokeObjectURL(state._oldPreviewBlobUrl); } catch(e){}
+                delete state._oldPreviewBlobUrl;
+            }
         };
         if (mediaEl.complete && mediaEl.naturalWidth) {
             applyDimensions(mediaEl.naturalWidth, mediaEl.naturalHeight);
@@ -614,7 +611,7 @@ function renderCardImages(cardObj, state, keepAspect) {
                 mediaEl.src = src;
                 mediaEl._lastBlob = src;
                 applyDimensions(tempImg.naturalWidth, tempImg.naturalHeight);
-                if (oldBlob && oldBlob !== src) {
+                if (oldBlob && oldBlob !== src && oldBlob.startsWith("blob:")) {
                     try { URL.revokeObjectURL(oldBlob); } catch(e){}
                 }
             };
@@ -1041,7 +1038,6 @@ export function renderDOM() {
                     cardObj.leftHoverPanel.style.display = "none";
                 });
                 
-                // Drag handler for text-only / unfinished cards
                 card.addEventListener("dragstart", (e) => {
                     const isUnfinished = state.status && state.status !== "completed";
                     const hasNoImages = !state.images || state.images.length === 0;
@@ -1126,6 +1122,7 @@ export function renderDOM() {
                     resetDeleteBtn(); 
                     promptStates.delete(state.pid); 
                     await api.fetchApi("/history", { method: "POST", body: JSON.stringify({ delete: [state.pid] }) }); 
+                    saveStatesToLocalStorage();
                     renderDOM();
                 }
             };
@@ -1195,7 +1192,6 @@ export function renderDOM() {
         targetElements.forEach((el, index) => { if (State.cardStack.children[index] !== el) State.cardStack.insertBefore(el, State.cardStack.children[index] || null); });
         while (State.cardStack.children.length > targetElements.length) State.cardStack.removeChild(State.cardStack.lastChild);
 
-        // SYNCHRONOUS scroll restoration to prevent 1-frame scroll flashes!
         if (State.mainQueueScrollTop !== null) {
             const restorePos = State.mainQueueScrollTop;
             State.mainQueueScrollTop = null;
@@ -1210,6 +1206,5 @@ export function renderDOM() {
         }
 
         updateScrollTopBtnVisibility();
-        saveStatesToLocalStorage();
     });
 }

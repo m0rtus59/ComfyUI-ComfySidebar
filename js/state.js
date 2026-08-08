@@ -17,10 +17,13 @@ export const State = {
  */
 export function deletePromptState(pid) {
     const state = promptStates.get(pid);
-    if (state && state._previewBlobUrl) {
-        try {
-            URL.revokeObjectURL(state._previewBlobUrl);
-        } catch (e) {}
+    if (state) {
+        if (state._previewBlobUrl) {
+            try { URL.revokeObjectURL(state._previewBlobUrl); } catch (e) {}
+        }
+        if (state._oldPreviewBlobUrl) {
+            try { URL.revokeObjectURL(state._oldPreviewBlobUrl); } catch (e) {}
+        }
     }
     promptStates.delete(pid);
     cardElements.delete(pid);
@@ -47,7 +50,7 @@ export function pruneHistory(app) {
 
 /**
  * Saves all prompt states (including workflows, text outputs, video runs, and failed tasks) to localStorage.
- * Uses FIFO eviction if browser storage quota (5MB) is reached.
+ * Call ONLY on job completion, cancellation, error, or card deletion.
  */
 export function saveStatesToLocalStorage() {
     try {

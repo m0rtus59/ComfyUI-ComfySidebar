@@ -204,13 +204,11 @@ function findTopbarContainer() {
 }
 
 function isPropertiesPanelOpen() {
-    // 1. Direct check via data-testid
     const panel = document.querySelector('[data-testid="properties-panel"]');
     if (panel && panel.offsetWidth > 0 && panel.offsetHeight > 0) {
         return true;
     }
 
-    // 2. Fallback check for visible headings/containers
     const headings = document.querySelectorAll('h1, h2, h3, h4');
     for (const h of headings) {
         if (h.textContent.trim() === "Workflow Overview" && h.offsetWidth > 0 && h.offsetHeight > 0) {
@@ -218,7 +216,6 @@ function isPropertiesPanelOpen() {
         }
     }
 
-    // 3. Fallback check for original button active state
     const origBtn = findOriginalButton();
     if (origBtn) {
         if (origBtn.classList.contains("p-button-active") || 
@@ -491,7 +488,6 @@ export function setupPropertiesPanelToggleFix() {
             .comfy-sidebar-hide-original-properties-btn {
                 display: none !important;
             }
-            /* Suppress stock red dot ONLY when original button is hidden by custom layout */
             .comfy-sidebar-hide-original-properties-btn ~ span,
             .comfy-sidebar-hide-original-properties-btn + span {
                 display: none !important;
@@ -521,12 +517,20 @@ export function setupPropertiesPanelToggleFix() {
 
     domObserver = new MutationObserver((mutations) => {
         let shouldSync = false;
+
+        const isInternalSidebarMutation = (node) => {
+            if (!node || node.nodeType !== 1) return false;
+            return node.closest?.('.comfyui-sidebar, .comfy-sidebar, .comfy-sidebar-comparison-overlay') ||
+                   node.classList?.contains('comfy-sidebar-card');
+        };
+
         for (const mutation of mutations) {
             if (mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0) {
-                const hasElementMutation = Array.from(mutation.addedNodes).some(node => node.nodeType === 1) ||
-                                           Array.from(mutation.removedNodes).some(node => node.nodeType === 1);
+                const hasExternalElementMutation = 
+                    Array.from(mutation.addedNodes).some(node => node.nodeType === 1 && !isInternalSidebarMutation(node)) ||
+                    Array.from(mutation.removedNodes).some(node => node.nodeType === 1 && !isInternalSidebarMutation(node));
                 
-                if (hasElementMutation) {
+                if (hasExternalElementMutation) {
                     shouldSync = true;
                     break;
                 }

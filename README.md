@@ -37,6 +37,6 @@ See additional tweaks in ComfyUI settings menu > Comfy Sidebar. From there, you 
 
 ## ⌨️ Shortcuts
 
-* **`Q`**: Instantly toggles the sidebar panel open or closed. Safely ignores inputs if you are currently typing inside a text field, input area, or combo box.
+* **`Q`**: Toggle sidebar queue panel.
 * **`Ctrl+Q on a selected node`**: Sets the node to be ignored in the sidebar panel results.
-* **`Click`**  on a card to enter preview. **`Shift+Click`** on another card in preview to enter compare mode.
+* **`Click`** on a card to enter preview. **`Shift+Click`** on another card in preview to enter compare mode.
