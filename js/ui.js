@@ -324,7 +324,6 @@ export function setupSidebarUI() {
         }
     }).observe(State.sidebarContainer);
 
-    // Light 250ms active timer tick
     setInterval(() => {
         if (State.currentlyActivePromptId === null) return;
         for (const [pid, state] of promptStates.entries()) {
@@ -588,7 +587,6 @@ function renderCardImages(cardObj, state, keepAspect) {
     } else {
         mediaEl.onload = () => { 
             applyDimensions(mediaEl.naturalWidth, mediaEl.naturalHeight);
-            // Safely revoke old preview blob URL ONLY after new frame finishes rendering!
             if (state._oldPreviewBlobUrl) {
                 try { URL.revokeObjectURL(state._oldPreviewBlobUrl); } catch(e){}
                 delete state._oldPreviewBlobUrl;

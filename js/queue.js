@@ -1,7 +1,7 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 import { State, promptStates, pruneHistory, cardElements, saveStatesToLocalStorage } from "./state.js";
-import { findImagesInOutputs, findTextsInOutputs } from "./utils.js";
+import { findImagesInOutputs, findTextsInOutputs, parseWorkflow, getPrimaryOutputImages } from "./utils.js";
 
 export let renderDOMFn = () => {};
 export let updateSidebarBadgeFn = () => {};
@@ -13,6 +13,7 @@ export function setUIDependencies(renderFn, badgeFn) {
 export async function syncQueue() {
     try {
         const q = await api.getQueue();
+        
         const runningList = q.Running || q.queue_running || [];
         const pendingList = q.Pending || q.queue_pending || [];
         const pendingIds = new Set();
@@ -26,7 +27,7 @@ export async function syncQueue() {
                 pid = p.prompt_id || p.id || p.uuid;
                 seq = typeof p.number === 'number' ? p.number : (typeof p.prompt_number === 'number' ? p.prompt_number : idx);
             }
-            return { pid, seq, original: p };
+            return { pid: pid ? String(pid) : null, seq, original: p };
         });
 
         normalizedPending.sort((a, b) => a.seq - b.seq);
@@ -65,10 +66,11 @@ export async function syncQueue() {
 }
 
 const concludeRun = async (pid, statusStr) => {
-    if (!pid || !promptStates.has(pid)) return;
-    if (State.currentlyActivePromptId === pid) State.currentlyActivePromptId = null;
+    const key = String(pid);
+    if (!key || !promptStates.has(key)) return;
+    if (State.currentlyActivePromptId === key) State.currentlyActivePromptId = null;
     
-    const st = promptStates.get(pid);
+    const st = promptStates.get(key);
 
     if (st._previewBlobUrl) {
         try { URL.revokeObjectURL(st._previewBlobUrl); } catch(e){}
@@ -85,19 +87,28 @@ const concludeRun = async (pid, statusStr) => {
     st.endTime = Date.now();
     if (st.startTime) st.duration = (st.endTime - st.startTime) / 1000;
     
-    try {
-        const res = await fetch(`/history/${pid}`);
-        const hItem = await res.json();
-        if (hItem && hItem[pid]) {
-            if (!st.workflow) st.workflow = hItem[pid].extra_data?.extra_pnginfo?.workflow || null;
-            st.nodeOutputs = hItem[pid].outputs;
-            if (st.images.length === 0) st.images = findImagesInOutputs(hItem[pid].outputs, st.workflow);
-            st.texts = findTextsInOutputs(hItem[pid].outputs, st.workflow);
-        }
-    } catch (err) {}
+    for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+            const res = await fetch(`/history/${key}`);
+            const hItem = await res.json();
+            if (hItem && hItem[key]) {
+                const rawWf = hItem[key].extra_data?.extra_pnginfo?.workflow || hItem[key].prompt?.[3]?.extra_pnginfo?.workflow || null;
+                st.workflow = parseWorkflow(rawWf) || st.workflow;
+                st.nodeOutputs = hItem[key].outputs;
+                
+                const primaryImgs = getPrimaryOutputImages(hItem[key].outputs, st.workflow);
+                if (primaryImgs.length > 0) st.images = primaryImgs;
+                
+                const fetchedTexts = findTextsInOutputs(hItem[key].outputs, st.workflow);
+                if (fetchedTexts.length > 0) st.texts = fetchedTexts;
+                break;
+            }
+        } catch (err) {}
+        await new Promise(r => setTimeout(r, 200));
+    }
     
     pruneHistory(app);
-    saveStatesToLocalStorage(); // Persist history state only when a job concludes
+    saveStatesToLocalStorage();
     syncQueue();
 };
 
@@ -119,7 +130,7 @@ export function setupApiListeners() {
             }
         }
 
-        const pid = e.detail.prompt_id;
+        const pid = String(e.detail.prompt_id);
         State.currentlyActivePromptId = pid; 
         const activeWorkspaceWorkflow = app.graph.serialize();
 
@@ -140,12 +151,11 @@ export function setupApiListeners() {
     });
 
     api.addEventListener("progress", (e) => {
-        const pid = e.detail.prompt_id;
+        const pid = e.detail.prompt_id ? String(e.detail.prompt_id) : null;
         if (pid && promptStates.has(pid)) {
             const st = promptStates.get(pid);
             st.progress = Math.round((e.detail.value / e.detail.max) * 100);
             
-            // Direct fast DOM update for the progress bar without triggering a full history re-sort
             const cardObj = cardElements.get(pid);
             if (cardObj && cardObj.progressBar) {
                 cardObj.progressBar.style.width = `${st.progress}%`;
@@ -181,7 +191,6 @@ export function setupApiListeners() {
             const st = activeTasks[0];
             const newBlobUrl = URL.createObjectURL(e.detail);
             
-            // Retain old blob URL so ui.js can revoke it ONLY AFTER the image element finishes loading
             st._oldPreviewBlobUrl = st._previewBlobUrl;
             st._previewBlobUrl = newBlobUrl;
             st.images = [{ url: newBlobUrl }];
@@ -190,15 +199,16 @@ export function setupApiListeners() {
     });
 
     api.addEventListener("executed", (e) => {
-        if (promptStates.has(e.detail.prompt_id)) {
-            const st = promptStates.get(e.detail.prompt_id);
-            const finalImgs = findImagesInOutputs({ [e.detail.node]: e.detail.output }, st.workflow);
-            if (finalImgs.length > 0) {
-                st.images = finalImgs;
+        const pid = e.detail.prompt_id ? String(e.detail.prompt_id) : null;
+        if (pid && promptStates.has(pid)) {
+            const st = promptStates.get(pid);
+            const nodeImgs = findImagesInOutputs({ [e.detail.node]: e.detail.output }, st.workflow);
+            if (nodeImgs.length > 0) {
+                st.images = nodeImgs;
             }
-            const finalTexts = findTextsInOutputs({ [e.detail.node]: e.detail.output }, st.workflow);
-            if (finalTexts.length > 0) {
-                st.texts = finalTexts;
+            const nodeTexts = findTextsInOutputs({ [e.detail.node]: e.detail.output }, st.workflow);
+            if (nodeTexts.length > 0) {
+                st.texts = nodeTexts;
             }
 
             if (!st.nodeOutputs) st.nodeOutputs = {};
@@ -217,42 +227,63 @@ export function setupApiListeners() {
 }
 
 export async function initSessionAndHistory() {
-    let backendSessionId = null;
     try {
-        const res = await fetch("/classic-sidebar/session");
-        const data = await res.json();
-        backendSessionId = data.session_id;
-    } catch (err) {
-        console.warn("Comfy Sidebar: Custom session endpoint not found. Queue persistence will fall back to cache.");
-    }
+        const historyData = await api.getHistory();
+        if (!historyData) return;
 
-    const storedSessionId = localStorage.getItem("comfy_sidebar_backend_session_id");
-    if (backendSessionId && backendSessionId !== storedSessionId) {
-        promptStates.clear();
-        cardElements.clear();
-        localStorage.removeItem("comfy_sidebar_prompt_states");
-        if (backendSessionId) localStorage.setItem("comfy_sidebar_backend_session_id", backendSessionId);
-    } else if (!storedSessionId && backendSessionId) {
-        localStorage.setItem("comfy_sidebar_backend_session_id", backendSessionId);
-    }
+        const rawItems = [];
+        if (Array.isArray(historyData.History)) {
+            historyData.History.forEach(item => {
+                if (item && item.prompt_id) rawItems.push({ pid: String(item.prompt_id), data: item });
+            });
+        } else if (typeof historyData === 'object') {
+            Object.keys(historyData).forEach(pidKey => {
+                const item = historyData[pidKey];
+                rawItems.push({ pid: String(pidKey), data: Array.isArray(item) ? { prompt: item[0], outputs: item[1], status: item[2] } : item });
+            });
+        }
 
-    const historyData = await api.getHistory();
-    const ids = Object.keys(historyData).sort((a,b) => Number(a)-Number(b));
-    ids.forEach(id => {
-        if (promptStates.has(id)) return;
-        const workflow = historyData[id].extra_data?.extra_pnginfo?.workflow || null;
-        const images = findImagesInOutputs(historyData[id].outputs, workflow);
-        const texts = findTextsInOutputs(historyData[id].outputs, workflow);
-        if (images.length === 0 && texts.length === 0) return;
-
-        State.globalOrderCounter++;
-        promptStates.set(id, {
-            pid: id, status: "completed", images, texts,
-            nodeOutputs: historyData[id].outputs,
-            workflow: workflow,
-            progressText: "", timestamp: State.globalOrderCounter, rendered: true
+        rawItems.sort((a, b) => {
+            const numA = a.data.prompt?.[0] ?? 0;
+            const numB = b.data.prompt?.[0] ?? 0;
+            return numA - numB;
         });
-    });
-    pruneHistory(app);
-    await syncQueue();
+
+        rawItems.forEach(({ pid, data }) => {
+            if (promptStates.has(pid)) return;
+
+            const extraData = data.extra_data || data.prompt?.[3] || {};
+            const workflow = parseWorkflow(extraData.extra_pnginfo?.workflow || extraData.workflow);
+            const outputs = data.outputs || {};
+            
+            const images = getPrimaryOutputImages(outputs, workflow);
+            const texts = findTextsInOutputs(outputs, workflow);
+            
+            const statusStr = data.status?.status_str || "completed";
+            const status = (statusStr === "success" || statusStr === "completed") ? "completed" : 
+                           (statusStr === "error" ? "error" : "cancelled");
+
+            // Filter out empty records from history so dummy "No Outputs" cards don't pollute queue
+            if (images.length === 0 && texts.length === 0 && status === "completed") return;
+
+            State.globalOrderCounter++;
+            promptStates.set(pid, {
+                pid: pid, 
+                status: status, 
+                images: images, 
+                texts: texts,
+                nodeOutputs: outputs,
+                workflow: workflow,
+                progressText: "", 
+                timestamp: State.globalOrderCounter, 
+                rendered: true
+            });
+        });
+
+        pruneHistory(app);
+        saveStatesToLocalStorage();
+        await syncQueue();
+    } catch (err) {
+        console.error("Comfy Sidebar: Failed to initialize history from server API", err);
+    }
 }

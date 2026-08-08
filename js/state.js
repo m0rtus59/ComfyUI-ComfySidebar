@@ -12,11 +12,9 @@ export const State = {
     activeSubmenuBatchImages: null    // Active batch images explorer pointer
 };
 
-/**
- * Safely removes a prompt state from memory and revokes any active preview blob URLs.
- */
 export function deletePromptState(pid) {
-    const state = promptStates.get(pid);
+    const key = String(pid);
+    const state = promptStates.get(key);
     if (state) {
         if (state._previewBlobUrl) {
             try { URL.revokeObjectURL(state._previewBlobUrl); } catch (e) {}
@@ -25,13 +23,10 @@ export function deletePromptState(pid) {
             try { URL.revokeObjectURL(state._oldPreviewBlobUrl); } catch (e) {}
         }
     }
-    promptStates.delete(pid);
-    cardElements.delete(pid);
+    promptStates.delete(key);
+    cardElements.delete(key);
 }
 
-/**
- * Prunes completed/cancelled history when total items exceed user setting.
- */
 export function pruneHistory(app) {
     const maxItems = app.ui.settings.getSettingValue("Comfy.Queue.MaxHistoryItems") ?? 64;
     const tasks = Array.from(promptStates.entries())
@@ -48,10 +43,6 @@ export function pruneHistory(app) {
     }
 }
 
-/**
- * Saves all prompt states (including workflows, text outputs, video runs, and failed tasks) to localStorage.
- * Call ONLY on job completion, cancellation, error, or card deletion.
- */
 export function saveStatesToLocalStorage() {
     try {
         let serializable = [];
@@ -61,13 +52,17 @@ export function saveStatesToLocalStorage() {
                 return img;
             }).filter(Boolean);
 
+            // Include workflow JSON ONLY for image-less / unfinished / failed tasks
+            // so users can load or save their workflows even after browser reloads!
+            const includeWorkflow = cleanedImages.length === 0 || state.status !== "completed";
+
             serializable.push({
-                pid: state.pid, 
+                pid: String(state.pid), 
                 status: state.status, 
                 images: cleanedImages, 
                 texts: state.texts || [],
                 nodeOutputs: state.nodeOutputs,
-                workflow: state.workflow,
+                workflow: includeWorkflow ? state.workflow : null,
                 progress: state.progress || 0, 
                 queueNumber: state.queueNumber,
                 progressText: state.progressText || "", 
@@ -80,6 +75,11 @@ export function saveStatesToLocalStorage() {
             });
         }
 
+        if (serializable.length === 0) {
+            localStorage.removeItem("comfy_sidebar_prompt_states");
+            return;
+        }
+
         serializable.sort((a, b) => a.timestamp - b.timestamp);
 
         while (serializable.length > 0) {
@@ -90,32 +90,25 @@ export function saveStatesToLocalStorage() {
                 if (e.name === "QuotaExceededError" || e.code === 22 || e.code === 1014) {
                     serializable.shift();
                 } else {
-                    console.error("Comfy Sidebar: Failed to save state to localStorage", e);
                     break;
                 }
             }
         }
-    } catch (e) {
-        console.error("Comfy Sidebar: Error preparing localStorage data", e);
-    }
+    } catch (e) {}
 }
 
-/**
- * Loads cached card states on extension initialization.
- */
 export function loadStatesFromLocalStorage() {
     try {
         const data = localStorage.getItem("comfy_sidebar_prompt_states");
         if (data) {
             const list = JSON.parse(data);
             list.forEach(state => {
-                promptStates.set(state.pid, state);
+                const key = String(state.pid);
+                promptStates.set(key, state);
                 if (state.timestamp > State.globalOrderCounter) State.globalOrderCounter = state.timestamp;
             });
         }
-    } catch (e) {
-        console.error("Comfy Sidebar: Failed to load state from localStorage", e);
-    }
+    } catch (e) {}
 }
 
 loadStatesFromLocalStorage();
