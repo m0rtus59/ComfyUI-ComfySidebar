@@ -1,6 +1,6 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
-import { State, promptStates, cardElements, saveStatesToLocalStorage } from "./state.js";
+import { State, promptStates, cardElements, saveStatesToLocalStorage, deletePromptState } from "./state.js";
 import { isVideoFormat, matchesFilter, getRunOutputs } from "./utils.js";
 import { showFullscreenPreview } from "./comparison.js";
 
@@ -340,12 +340,6 @@ export function setupSidebarUI() {
 function syncCardButtonVisibility(cardObj, state) {
     if (!cardObj) return;
 
-    if (state.status === "active" || state.status === "pending") {
-        if (cardObj.hoverPanel) cardObj.hoverPanel.style.setProperty("display", "none", "important");
-        if (cardObj.leftHoverPanel) cardObj.leftHoverPanel.style.setProperty("display", "none", "important");
-        return;
-    }
-
     const isCompleted = state.status === "completed";
     const hasRealImages = isCompleted && state.images && state.images.length > 0 && !state.images.some(img => img.url && img.url.startsWith("blob:"));
 
@@ -424,31 +418,6 @@ function syncCardButtonVisibility(cardObj, state) {
             cardObj.leftHoverBtn.style.setProperty("display", "none", "important");
         }
     }
-
-    const hasRightButtons = (cardObj.btnImg && cardObj.btnImg.style.display !== "none") || 
-                            (cardObj.btnJson && cardObj.btnJson.style.display !== "none") || 
-                            (cardObj.btnDel && cardObj.btnDel.style.display !== "none");
-                            
-    const hasLeftButtons = (cardObj.btnFocus && cardObj.btnFocus.style.display !== "none") || 
-                           (cardObj.leftHoverBtn && cardObj.leftHoverBtn.style.display !== "none");
-
-    if (cardObj.hoverPanel) {
-        if (hasRightButtons) {
-            cardObj.hoverPanel.style.removeProperty("display");
-            cardObj.hoverPanel.style.display = "flex";
-        } else {
-            cardObj.hoverPanel.style.setProperty("display", "none", "important");
-        }
-    }
-
-    if (cardObj.leftHoverPanel) {
-        if (hasLeftButtons) {
-            cardObj.leftHoverPanel.style.removeProperty("display");
-            cardObj.leftHoverPanel.style.display = "flex";
-        } else {
-            cardObj.leftHoverPanel.style.setProperty("display", "none", "important");
-        }
-    }
 }
 
 function renderCardImages(cardObj, state, keepAspect) {
@@ -500,6 +469,15 @@ function renderCardImages(cardObj, state, keepAspect) {
     mediaEl.onclick = (ev) => { 
         ev.stopPropagation(); 
         showFullscreenPreview([src], ev.shiftKey); 
+    };
+
+    // Auto-prune card if file was deleted by startup temp cleanup script
+    mediaEl.onerror = () => {
+        if (src && !src.startsWith("blob:")) {
+            deletePromptState(state.pid);
+            saveStatesToLocalStorage();
+            if (cardObj.element) cardObj.element.remove();
+        }
     };
 
     const applyDimensions = (width, height) => {
@@ -779,8 +757,9 @@ export function renderDOM() {
                     });
 
                     const hoverPanel = document.createElement("div");
+                    hoverPanel.className = "comfy-sidebar-hover-panel";
                     Object.assign(hoverPanel.style, {
-                        position: "absolute", bottom: "4px", right: "4px", display: "none",
+                        position: "absolute", bottom: "4px", right: "4px",
                         flexDirection: "column", gap: "4px", zIndex: "20"
                     });
 
@@ -790,8 +769,9 @@ export function renderDOM() {
                     hoverPanel.appendChild(btnImg);
 
                     const leftHoverPanel = document.createElement("div");
+                    leftHoverPanel.className = "comfy-sidebar-left-hover-panel";
                     Object.assign(leftHoverPanel.style, {
-                        position: "absolute", bottom: "4px", left: "4px", display: "none",
+                        position: "absolute", bottom: "4px", left: "4px",
                         flexDirection: "column", gap: "4px", zIndex: "20"
                     });
 
@@ -806,10 +786,6 @@ export function renderDOM() {
 
                     card.addEventListener("mouseenter", () => {
                         syncCardButtonVisibility(cardObj, { status: "completed", images: [img], workflow: batchInfo.workflow, nodeOutputs: batchInfo.nodeOutputs });
-                    });
-                    card.addEventListener("mouseleave", () => {
-                        cardObj.hoverPanel.style.display = "none";
-                        cardObj.leftHoverPanel.style.display = "none";
                     });
                 }
 
@@ -892,8 +868,9 @@ export function renderDOM() {
                     });
 
                     const hoverPanel = document.createElement("div");
+                    hoverPanel.className = "comfy-sidebar-hover-panel";
                     Object.assign(hoverPanel.style, {
-                        position: "absolute", bottom: "4px", right: "4px", display: "none",
+                        position: "absolute", bottom: "4px", right: "4px",
                         flexDirection: "column", gap: "4px", zIndex: "20"
                     });
 
@@ -903,8 +880,9 @@ export function renderDOM() {
                     hoverPanel.appendChild(btnImg);
 
                     const leftHoverPanel = document.createElement("div");
+                    leftHoverPanel.className = "comfy-sidebar-left-hover-panel";
                     Object.assign(leftHoverPanel.style, {
-                        position: "absolute", bottom: "4px", left: "4px", display: "none",
+                        position: "absolute", bottom: "4px", left: "4px",
                         flexDirection: "column", gap: "4px", zIndex: "20"
                     });
 
@@ -919,10 +897,6 @@ export function renderDOM() {
 
                     card.addEventListener("mouseenter", () => {
                         syncCardButtonVisibility(cardObj, { status: "completed", images: out.images, workflow: st.workflow, nodeOutputs: st.nodeOutputs });
-                    });
-                    card.addEventListener("mouseleave", () => {
-                        cardObj.hoverPanel.style.display = "none";
-                        cardObj.leftHoverPanel.style.display = "none";
                     });
                 }
 
@@ -998,8 +972,9 @@ export function renderDOM() {
                 const statusText = document.createElement("div"); Object.assign(statusText.style, { fontSize: "11px", opacity: "0.9", color: "#3b82f6", textAlign: "center", marginTop: "6px", display: "none", fontWeight: "bold" });
                 
                 const hoverPanel = document.createElement("div"); 
+                hoverPanel.className = "comfy-sidebar-hover-panel";
                 Object.assign(hoverPanel.style, { 
-                    position: "absolute", bottom: "4px", right: "4px", display: "none", 
+                    position: "absolute", bottom: "4px", right: "4px", 
                     flexDirection: "column", gap: "4px", zIndex: "20" 
                 });
 
@@ -1008,8 +983,9 @@ export function renderDOM() {
                 const btnDel = document.createElement("span"); btnDel.className = "pi pi-trash comfy-sidebar-card-action-btn"; btnDel.title = "Delete Card";
 
                 const leftHoverPanel = document.createElement("div"); 
+                leftHoverPanel.className = "comfy-sidebar-left-hover-panel";
                 Object.assign(leftHoverPanel.style, { 
-                    position: "absolute", bottom: "4px", left: "4px", display: "none", 
+                    position: "absolute", bottom: "4px", left: "4px", 
                     flexDirection: "column", gap: "4px", zIndex: "20" 
                 });
 
@@ -1030,10 +1006,6 @@ export function renderDOM() {
                 
                 card.addEventListener("mouseenter", () => { 
                     syncCardButtonVisibility(cardObj, state);
-                });
-                card.addEventListener("mouseleave", () => {
-                    cardObj.hoverPanel.style.display = "none";
-                    cardObj.leftHoverPanel.style.display = "none";
                 });
                 
                 card.addEventListener("dragstart", (e) => {
