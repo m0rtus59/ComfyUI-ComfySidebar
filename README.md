@@ -1,20 +1,22 @@
 # ComfyUI-ComfySidebar
 
-A lightweight, high-performance ComfyUI extension that replaces the cluttered stock Job History/Queue interface with a compact drag&drop queue panel, inspired by the pre-vue ComfyUI frontend design. 
+A compact sidebar for ComfyUI that replaces the stock queue/history UI with a faster way to browse, preview, compare, and manage generation results.
 
 > ⚠️ **Note:** This repository was developed collaboratively with AI. While it is fully functional and has been tested, there is always room for optimization. If you have ideas for improvements, contributions via Pull Requests are highly welcome!
 
 ## ✨ Features
 
-* **Advanced Drag & Drop Support**: Designed specifically for precise mouse pointer controls. Easily drag previous generations back to the empty canvas to restore workflows, or drop images directly into `LoadImage` and input nodes to hot-swap them.
-* **High-Visibility Preview Cards**: Keep your past runs instantly recognizable. Supports aspect-ratio locked thumbnails for images and auto-playing muted loops for video formats, as well as clean rendering for multi-line text outputs.
-* **Quick Save Buttons**: Dedicated interactive shortcuts appear on hover, allowing you to instantly download generation outputs or export exact workflow JSON files with a single click.
-* **Compact Adaptive Design**: A clean, smart layout that automatically balances single or multi-column grids based on your sidebar width. It maximizes viewable content and respects your active screen area without wasting precious space.
-* **Live Queue Tracking**: Stay informed on your server state. Includes a visual progress bar that tracks generations dynamically and displays the exact node title currently being executed.
-* A compact topbar layout displaying both workflow tabs and the control panel on a single unified top bar. See the 'Comfy Layout' toggle in the settings.
-* Toggles to hide buttons you don't need from the side panel.
-* **[NEW]** Preview compare slider - just click the result image preview in the sidebar, and then `Shift+Click` another to load it alongside the first one for pixel by pixel comparison. 
-* **[NEW]** Prevent selected nodes from showing the output in the queue bar and intermediate results. `Ctrl+Q` to toggle. 
+* Browse generation results in a compact grid.
+* Drag results back onto the canvas to restore workflows.
+* Drag images directly into `LoadImage` and compatible input nodes.
+* Preview images, videos, and text outputs.
+* Compare two results side by side with `Shift+Click`.
+* Download generated files or workflow JSON directly from result cards.
+* Show queue progress and the node currently being executed.
+* Hide sidebar tabs and UI elements you don't use.
+* Optionally replace the stock Job History sidebar.
+* Optional unified top bar for workflow tabs and controls.
+* Exclude selected nodes from sidebar results with `Ctrl+Q`.
 
 <img width="385" height="336" alt="image" src="https://github.com/user-attachments/assets/743fbf85-9281-4561-9dd0-cd9af4d8c0e4" />
 
@@ -33,10 +35,31 @@ Restart your ComfyUI server and refresh the browser tab.
 
 ## ⚙️ Configuration
 
-See additional tweaks in ComfyUI settings menu > Comfy Sidebar. From there, you can adjust the layout or fully replace the stock V2 panel by enabling options like **"Comfy Layout"** and **"Replace the stock Job History sidebar with Comfy Queue"**.
+Open **Settings → Comfy Sidebar** to configure:
+
+* Queue grid layout
+* Result aspect ratio
+* Queue display mode
+* Working node display
+* Automatic cleanup of cancelled/failed jobs
+* Sidebar tabs to hide
+* Stock Job History replacement
+* Graph button visibility
+* Unified top bar layout
 
 ## ⌨️ Shortcuts
 
-* **`Q`**: Toggle sidebar queue panel.
-* **`Ctrl+Q on a selected node`**: Sets the node to be ignored in the sidebar panel results.
-* **`Click`** on a card to enter preview. **`Shift+Click`** on another card in preview to enter compare mode.
+| Shortcut      | Action                                             |
+| ------------- | -------------------------------------------------- |
+| `Q`           | Toggle ComfySidebar                                |
+| `Ctrl+Q`      | Toggle sidebar output filtering for selected nodes |
+| `Click`       | Open result preview                                |
+| `Shift+Click` | Compare another result                             |
+
+## 📝 Notes
+
+ComfySidebar integrates with the ComfyUI frontend and therefore depends on parts of its UI structure. Frontend changes in ComfyUI may require corresponding updates to this extension.
+
+## License
+
+See [LICENSE](LICENSE).
