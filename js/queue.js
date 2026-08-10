@@ -115,6 +115,12 @@ const concludeRun = async (pid, statusStr) => {
 export function setupApiListeners() {
     api.addEventListener("status", syncQueue);
     
+    api.addEventListener("reconnected", async () => {
+        console.log("Comfy Sidebar: Server reconnected, syncing state and history");
+        await initSessionAndHistory();
+        await syncQueue();
+    });
+    
     api.addEventListener("execution_start", (e) => {
         if (app.ui.settings.getSettingValue("Comfy Sidebar.Auto Clear Interrupted") ?? false) {
             const toDelete = [];

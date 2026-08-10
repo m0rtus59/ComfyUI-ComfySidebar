@@ -97,46 +97,26 @@ button:has([data-pc-name="avatar"]),
 }
 `;
 
+/**
+ * Native settings synchronization without direct DOM element querying or simulated clicks.
+ */
 export function syncStockHistoryAndProgressSettings(enable) {
-    if (!app.ui?.settings) return;
-
     const dockedVal = !!enable;
     const progressVal = !enable;
     const QPOV2_ID = "Comfy.Queue.QPOV2";
-
-    try {
-        app.ui.settings.setSettingValue(QPOV2_ID, dockedVal);
-        localStorage.setItem(QPOV2_ID, JSON.stringify(dockedVal));
-    } catch (e) {}
-
-    try {
-        const qpovContainer = document.querySelector('[data-setting-id="Comfy.Queue.QPOV2"]') || 
-                              document.getElementById(QPOV2_ID)?.closest('.setting-item, tr, div');
-        if (qpovContainer) {
-            const toggle = qpovContainer.querySelector('input[type="checkbox"], [role="switch"], .p-toggleswitch');
-            if (toggle) {
-                const isChecked = toggle.checked || 
-                                  toggle.getAttribute('data-p-checked') === 'true' || 
-                                  toggle.classList.contains('p-toggleswitch-checked');
-                if (isChecked !== dockedVal) toggle.click();
-            }
-        }
-    } catch (e) {}
-
     const progressKey = "Comfy.Queue.ShowRunProgressBar";
-    try {
-        app.ui.settings.setSettingValue(progressKey, progressVal);
-        localStorage.setItem(progressKey, JSON.stringify(progressVal));
-    } catch (e) {}
 
-    try {
-        const progressBarBtn = document.querySelector('[data-testid="show-run-progress-bar-action"]');
-        if (progressBarBtn) {
-            const isChecked = !!progressBarBtn.querySelector('[class*="lucide--check"], .icon-\\[lucide--check\\]');
-            if (isChecked !== progressVal) progressBarBtn.click();
-        }
-    } catch (e) {}
+    // Use official extensionManager setting API if present, with fallback to app.ui.settings
+    if (app.extensionManager?.setting) {
+        try { app.extensionManager.setting.set(QPOV2_ID, dockedVal); } catch (e) {}
+        try { app.extensionManager.setting.set(progressKey, progressVal); } catch (e) {}
+    } else if (app.ui?.settings) {
+        try { app.ui.settings.setSettingValue(QPOV2_ID, dockedVal); } catch (e) {}
+        try { app.ui.settings.setSettingValue(progressKey, progressVal); } catch (e) {}
+    }
 
+    try { localStorage.setItem(QPOV2_ID, JSON.stringify(dockedVal)); } catch (e) {}
+    try { localStorage.setItem(progressKey, JSON.stringify(progressVal)); } catch (e) {}
     try { window.dispatchEvent(new Event("storage")); } catch (e) {}
 }
 
@@ -144,8 +124,12 @@ export function applyClassicLayout(enable, updateSetting = false) {
     let styleEl = document.getElementById(STYLE_ID);
     
     if (enable) {
-        if (updateSetting && app.ui?.settings) {
-            app.ui.settings.setSettingValue("Comfy.Workflow.WorkflowTabsPosition", "Topbar");
+        if (updateSetting) {
+            if (app.extensionManager?.setting) {
+                app.extensionManager.setting.set("Comfy.Workflow.WorkflowTabsPosition", "Topbar");
+            } else if (app.ui?.settings) {
+                app.ui.settings.setSettingValue("Comfy.Workflow.WorkflowTabsPosition", "Topbar");
+            }
         }
         if (!styleEl) {
             styleEl = document.createElement("style");
@@ -155,8 +139,12 @@ export function applyClassicLayout(enable, updateSetting = false) {
         styleEl.textContent = CLASSIC_LAYOUT_CSS_MEDIA;
     } else {
         if (styleEl) styleEl.remove();
-        if (updateSetting && app.ui?.settings) {
-            app.ui.settings.setSettingValue("Comfy.Workflow.WorkflowTabsPosition", "Sidebar");
+        if (updateSetting) {
+            if (app.extensionManager?.setting) {
+                app.extensionManager.setting.set("Comfy.Workflow.WorkflowTabsPosition", "Sidebar");
+            } else if (app.ui?.settings) {
+                app.ui.settings.setSettingValue("Comfy.Workflow.WorkflowTabsPosition", "Sidebar");
+            }
         }
     }
 }
@@ -166,6 +154,11 @@ let domObserver = null;
 let syncScheduled = false;
 
 function findOriginalButton() {
+    const byTestId = document.querySelector('[data-testid="properties-panel-toggle"]');
+    if (byTestId && !byTestId.classList.contains("comfy-sidebar-custom-properties-toggle")) {
+        return byTestId;
+    }
+
     const icons = document.querySelectorAll('[class*="lucide--panel-right"], [class*="lucide--panel-left"], [class*="lucide--panel-bottom"]');
     for (const icon of icons) {
         const btn = icon.closest('button, [role="button"], .comfyui-menu-item, .p-button');

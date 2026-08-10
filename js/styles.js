@@ -97,6 +97,63 @@ export function injectStyles() {
             color: #ffffff !important;
             box-shadow: 0 0 8px rgba(220, 53, 69, 0.6) !important;
         }
+
+        /* Header Icons & Header Action Buttons */
+        .comfy-sidebar-header-btn {
+            background: transparent;
+            color: var(--desc-color, #aaa);
+            border: 1px solid var(--border-color, #555);
+            border-radius: 3px;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.15s ease-in-out;
+        }
+
+        .comfy-sidebar-header-btn:hover {
+            border-color: var(--fg-color, #eee);
+            color: var(--fg-color, #eee);
+        }
+
+        .comfy-sidebar-icon-btn {
+            cursor: pointer;
+            font-size: 13px;
+            opacity: 0.6;
+            transition: opacity 0.15s ease-in-out;
+        }
+
+        .comfy-sidebar-icon-btn:hover {
+            opacity: 1;
+        }
+
+        /* Scroll To Top Floating Button */
+        .comfy-sidebar-scroll-top-btn {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(30, 30, 30, 0.9);
+            color: #eee;
+            border: 1px solid var(--border-color, #555);
+            cursor: pointer;
+            font-size: 13px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+            transition: all 0.15s ease-in-out;
+            opacity: 0.85;
+        }
+
+        .comfy-sidebar-scroll-top-btn:hover {
+            opacity: 1;
+            background: var(--p-primary-color, #3b82f6);
+            color: #fff;
+            border-color: var(--p-primary-color, #3b82f6);
+        }
     `;
     document.head.appendChild(style);
 }

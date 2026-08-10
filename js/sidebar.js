@@ -6,6 +6,8 @@ import { setupApiListeners, initSessionAndHistory, syncQueue, setUIDependencies 
 import { applyClassicLayout, setupPropertiesPanelToggleFix, syncClassicLayout, syncStockHistoryAndProgressSettings } from "./layout.js";
 
 let isInitialized = false;
+let activeKeydownHandler = null;
+let nodeDOMObserver = null;
 
 // Helper to scan node container for the exact text element rendering the title (Vue Mode)
 function findHeaderByText(parent, text) {
@@ -24,7 +26,12 @@ function findHeaderByText(parent, text) {
 }
 
 function syncNodeVueBadge(node, isIgnored) {
-    const nodeEl = document.querySelector(`.comfy-node[data-node-id="${node.id}"], [data-node-id="${node.id}"]`);
+    // Robust multi-selector search for Vue node containers across different frontend versions
+    const nodeEl = document.querySelector(
+        `.comfy-node[data-node-id="${node.id}"], ` +
+        `[data-node-id="${node.id}"], ` +
+        `[data-id="${node.id}"]`
+    );
     if (!nodeEl) return;
 
     const titleTextNode = findHeaderByText(nodeEl, node.title || node.type);
@@ -89,6 +96,40 @@ export function syncAllNodeBadges() {
         }
 
         syncNodeVueBadge(node, isIgnored);
+    });
+}
+
+function setupVueNodeObserver() {
+    if (nodeDOMObserver) nodeDOMObserver.disconnect();
+
+    let timeoutId = null;
+    nodeDOMObserver = new MutationObserver((mutations) => {
+        let hasNodeMutation = false;
+        for (const m of mutations) {
+            for (const node of m.addedNodes) {
+                if (node.nodeType === 1) {
+                    if (node.hasAttribute?.("data-node-id") || 
+                        node.classList?.contains("comfy-node") || 
+                        node.querySelector?.('[data-node-id], .comfy-node')) {
+                        hasNodeMutation = true;
+                        break;
+                    }
+                }
+            }
+            if (hasNodeMutation) break;
+        }
+
+        if (hasNodeMutation) {
+            if (timeoutId) clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => {
+                syncAllNodeBadges();
+            }, 50);
+        }
+    });
+
+    nodeDOMObserver.observe(document.body, {
+        childList: true,
+        subtree: true
     });
 }
 
@@ -188,6 +229,33 @@ app.registerExtension({
         });
     },
 
+    commands: [
+        {
+            id: "ComfySidebar.ToggleSidebar",
+            label: "Toggle Comfy Queue Sidebar",
+            function: () => {
+                const ourBtn = findOurSidebarButton();
+                if (ourBtn) ourBtn.click();
+            }
+        },
+        {
+            id: "ComfySidebar.ToggleIgnoreNode",
+            label: "Toggle Ignore Selected Node(s) in Queue",
+            function: () => toggleIgnoreActiveNode()
+        }
+    ],
+
+    nodeCreated(node) {
+        if (node && node.properties?.ignoreInQueue) {
+            node.boxcolor = "#ff3333";
+            syncNodeVueBadge(node, true);
+        }
+    },
+
+    afterConfigureGraph() {
+        requestAnimationFrame(() => syncAllNodeBadges());
+    },
+
     async setup() {
         if (!app.extensionManager || !app.extensionManager.registerSidebarTab) return;
 
@@ -215,41 +283,42 @@ app.registerExtension({
         
         await initSessionAndHistory();
 
-        // Keyboard shortcuts listener
-        document.addEventListener("keydown", (e) => {
+        // Watch for Vue DOM node mounting events (e.g. LiteGraph ↔ Vue mode switches)
+        setupVueNodeObserver();
+
+        // Remove any existing keydown listener from previous hot-reload
+        if (activeKeydownHandler) {
+            document.removeEventListener("keydown", activeKeydownHandler, true);
+            activeKeydownHandler = null;
+        }
+
+        // Clean, direct keyboard listener
+        activeKeydownHandler = (e) => {
             const activeEl = document.activeElement;
-            if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.isContentEditable || activeEl.tagName === "SELECT")) return;
+            if (activeEl && (
+                activeEl.tagName === "INPUT" || 
+                activeEl.tagName === "TEXTAREA" || 
+                activeEl.isContentEditable || 
+                activeEl.tagName === "SELECT"
+            )) return;
             
+            // Toggle sidebar with Q
             if (e.key.toLowerCase() === "q" && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
-                e.preventDefault(); e.stopPropagation();
+                e.preventDefault();
+                e.stopPropagation();
                 const ourBtn = findOurSidebarButton();
                 if (ourBtn) ourBtn.click();
             }
 
-            if (e.key.toLowerCase() === "q" && (e.ctrlKey || e.metaKey)) {
-                e.preventDefault(); e.stopPropagation();
+            // Toggle ignore node with Ctrl+Q or Cmd+Q (Mac)
+            if (e.key.toLowerCase() === "q" && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+                e.preventDefault();
+                e.stopPropagation();
                 toggleIgnoreActiveNode();
             }
-        }, true);
-        
-        // Event hooks for node additions and workflow loading (eliminates continuous polling loops)
-        if (app.graph) {
-            const originalConfigure = app.graph.configure;
-            app.graph.configure = function() {
-                const res = originalConfigure ? originalConfigure.apply(this, arguments) : undefined;
-                requestAnimationFrame(() => syncAllNodeBadges());
-                return res;
-            };
+        };
 
-            const originalOnNodeAdded = app.graph.onNodeAdded;
-            app.graph.onNodeAdded = function(node) {
-                if (originalOnNodeAdded) originalOnNodeAdded.apply(this, arguments);
-                if (node && node.properties?.ignoreInQueue) {
-                    node.boxcolor = "#ff3333";
-                    syncNodeVueBadge(node, true);
-                }
-            };
-        }
+        document.addEventListener("keydown", activeKeydownHandler, true);
 
         // Apply sidebar override when initializing
         applySidebarOverride();
@@ -262,5 +331,21 @@ app.registerExtension({
             type: "custom", 
             render: (el) => { el.appendChild(sidebarContainer); } 
         });
+    },
+
+    destroy() {
+        if (nodeDOMObserver) {
+            nodeDOMObserver.disconnect();
+            nodeDOMObserver = null;
+        }
+
+        if (activeKeydownHandler) {
+            document.removeEventListener("keydown", activeKeydownHandler, true);
+            activeKeydownHandler = null;
+        }
+
+        if (app.extensionManager?.unregisterSidebarTab) {
+            app.extensionManager.unregisterSidebarTab("classic-comfy-sidebar");
+        }
     }
 });

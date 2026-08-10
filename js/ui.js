@@ -162,11 +162,8 @@ export function setupSidebarUI() {
     Object.assign(titleGroup.style, { display: "flex", alignItems: "center", gap: "8px" });
 
     const searchIcon = document.createElement("span");
-    searchIcon.className = "pi pi-search";
+    searchIcon.className = "pi pi-search comfy-sidebar-icon-btn";
     searchIcon.title = "Search History";
-    Object.assign(searchIcon.style, { cursor: "pointer", fontSize: "13px", opacity: "0.6", transition: "opacity 0.15s ease-in-out" });
-    searchIcon.onmouseenter = () => searchIcon.style.opacity = "1";
-    searchIcon.onmouseleave = () => searchIcon.style.opacity = "0.6";
 
     const title = document.createElement("h3");
     title.textContent = "Queue";
@@ -181,12 +178,8 @@ export function setupSidebarUI() {
 
     const createActionBtn = (iconClass, tooltip, hoverColor, onClickFn) => {
         const btn = document.createElement("button");
-        btn.className = iconClass;
+        btn.className = `${iconClass} comfy-sidebar-header-btn`;
         btn.title = tooltip;
-        Object.assign(btn.style, {
-            background: "transparent", color: "var(--desc-color, #aaa)", border: "1px solid var(--border-color, #555)",
-            borderRadius: "3px", padding: "4px 8px", cursor: "pointer", fontSize: "13px", transition: "all 0.15s ease-in-out"
-        });
 
         let timeout = null, isPending = false;
         const reset = () => {
@@ -195,10 +188,7 @@ export function setupSidebarUI() {
             if (timeout) { clearTimeout(timeout); timeout = null; }
         };
 
-        btn.onmouseenter = () => { if (!isPending) { btn.style.borderColor = "var(--fg-color, #eee)"; btn.style.color = "var(--fg-color, #eee)"; } };
-        btn.onmouseleave = () => { if (!isPending) { btn.style.borderColor = "var(--border-color, #555)"; btn.style.color = "var(--desc-color, #aaa)"; } };
-
-        btn.onclick = async (ev) => {
+        btn.addEventListener("click", async (ev) => {
             ev.stopPropagation();
             if (!isPending) {
                 isPending = true;
@@ -208,7 +198,7 @@ export function setupSidebarUI() {
                 reset();
                 await onClickFn();
             }
-        };
+        });
         return btn;
     };
 
@@ -251,59 +241,38 @@ export function setupSidebarUI() {
     Object.assign(searchInput, { type: "text", placeholder: "Filter by text, images, nodes..." });
     Object.assign(searchInput.style, { flex: "1", background: "transparent", border: "none", outline: "none", color: "var(--comfy-input-color, var(--fg-color, #eee))", fontSize: "11px", padding: "0" });
     const clearSearchBtn = document.createElement("span");
-    clearSearchBtn.className = "pi pi-times";
+    clearSearchBtn.className = "pi pi-times comfy-sidebar-icon-btn";
     clearSearchBtn.title = "Clear & Close Search";
-    Object.assign(clearSearchBtn.style, { cursor: "pointer", fontSize: "11px", opacity: "0.6", marginLeft: "6px", transition: "opacity 0.15s ease" });
-    clearSearchBtn.onmouseenter = () => clearSearchBtn.style.opacity = "1"; clearSearchBtn.onmouseleave = () => clearSearchBtn.style.opacity = "0.6";
+    Object.assign(clearSearchBtn.style, { marginLeft: "6px" });
 
     searchContainer.appendChild(searchInputIcon); searchContainer.appendChild(searchInput); searchContainer.appendChild(clearSearchBtn);
     header.appendChild(standardHeader); header.appendChild(searchContainer); State.sidebarContainer.appendChild(header);
 
-    searchIcon.onclick = (e) => { e.stopPropagation(); standardHeader.style.display = "none"; searchContainer.style.display = "flex"; searchInput.focus(); };
+    searchIcon.addEventListener("click", (e) => { e.stopPropagation(); standardHeader.style.display = "none"; searchContainer.style.display = "flex"; searchInput.focus(); });
     const closeSearch = () => { searchInput.value = ""; State.currentSearchQuery = ""; searchContainer.style.display = "none"; standardHeader.style.display = "flex"; renderDOM(); };
-    clearSearchBtn.onclick = (e) => { e.stopPropagation(); closeSearch(); };
-    searchInput.onkeydown = (e) => { if (e.key === "Escape") closeSearch(); };
-    searchInput.oninput = () => { State.currentSearchQuery = searchInput.value.trim(); renderDOM(); };
+    clearSearchBtn.addEventListener("click", (e) => { e.stopPropagation(); closeSearch(); });
+    searchInput.addEventListener("keydown", (e) => { if (e.key === "Escape") closeSearch(); });
+    searchInput.addEventListener("input", () => { State.currentSearchQuery = searchInput.value.trim(); renderDOM(); });
 
     State.cardStack = document.createElement("div");
     Object.assign(State.cardStack.style, { flex: "1", overflowY: "visible", display: "block", paddingBottom: "28px" });
     State.sidebarContainer.appendChild(State.cardStack);
 
     scrollToTopBtnEl = document.createElement("button");
-    scrollToTopBtnEl.className = "pi pi-chevron-up";
+    scrollToTopBtnEl.className = "pi pi-chevron-up comfy-sidebar-scroll-top-btn";
     scrollToTopBtnEl.title = "Scroll to Top";
-    Object.assign(scrollToTopBtnEl.style, {
-        position: "absolute", bottom: "12px", right: "12px", width: "32px", height: "32px",
-        borderRadius: "50%", background: "rgba(30, 30, 30, 0.9)", color: "#eee",
-        border: "1px solid var(--border-color, #555)", cursor: "pointer", fontSize: "13px",
-        display: "none", alignItems: "center", justifyContent: "center", zIndex: "999",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.6)", transition: "all 0.15s ease-in-out", opacity: "0.85"
-    });
 
-    scrollToTopBtnEl.onmouseenter = () => {
-        scrollToTopBtnEl.style.opacity = "1";
-        scrollToTopBtnEl.style.background = "var(--p-primary-color, #3b82f6)";
-        scrollToTopBtnEl.style.color = "#fff";
-        scrollToTopBtnEl.style.borderColor = "var(--p-primary-color, #3b82f6)";
-    };
-    scrollToTopBtnEl.onmouseleave = () => {
-        scrollToTopBtnEl.style.opacity = "0.85";
-        scrollToTopBtnEl.style.background = "rgba(30, 30, 30, 0.9)";
-        scrollToTopBtnEl.style.color = "#eee";
-        scrollToTopBtnEl.style.borderColor = "var(--border-color, #555)";
-    };
-
-    scrollToTopBtnEl.onclick = (e) => {
+    scrollToTopBtnEl.addEventListener("click", (e) => {
         e.stopPropagation();
         const scrollEl = getScrollContainer();
         if (scrollEl) {
             scrollEl.scrollTo({ top: 0, behavior: "smooth" });
         }
-    };
+    });
 
     State.sidebarContainer.appendChild(scrollToTopBtnEl);
 
-    State.sidebarContainer.onclick = (e) => {
+    State.sidebarContainer.addEventListener("click", (e) => {
         if (State.activeSubmenuPromptId || State.activeSubmenuBatchImages) {
             if (e.target.closest('img, video, .comfy-sidebar-card-timer, .pi-times, .comfy-sidebar-left-hover-btn, .comfy-sidebar-queue-cancel-btn, button, span')) return;
             State.activeSubmenuPromptId = null;
@@ -313,7 +282,7 @@ export function setupSidebarUI() {
             document.removeEventListener("click", handleGlobalClick, true);
             globalClickRegistered = false;
         }
-    };
+    });
 
     new ResizeObserver((entries) => {
         const threshold = app.ui.settings.getSettingValue("Comfy Sidebar.Grid Columns Threshold") ?? 350;
@@ -471,7 +440,7 @@ function renderCardImages(cardObj, state, keepAspect) {
         showFullscreenPreview([src], ev.shiftKey); 
     };
 
-    // Auto-prune card if file was deleted by startup temp cleanup script
+    // Auto-prune card if file was deleted
     mediaEl.onerror = () => {
         if (src && !src.startsWith("blob:")) {
             deletePromptState(state.pid);
