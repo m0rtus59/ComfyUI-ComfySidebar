@@ -59,7 +59,7 @@ export function setupDragAndDrop() {
             } catch (err) {}
         }
 
-        // 2. Check for image / video URL drop
+        // 2. Check for image / video / 3D URL drop
         const url = e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain");
         if (url) {
             try {
@@ -82,19 +82,26 @@ export function setupDragAndDrop() {
                             targetNode = canvas.graph.getNodeOnPos((e.clientX - rect.left - canvas.ds.offset[0]) / canvas.ds.scale, (e.clientY - rect.top - canvas.ds.offset[1]) / canvas.ds.scale);
                         }
 
-                        // Check if dropped on a LoadImage, LoadVideo, VHS_LoadVideo, or image/video widget node
+                        // Check if dropped on a LoadImage, LoadVideo, Load3D, VHS_LoadVideo, or image/video/3D widget node
                         const widget = targetNode?.widgets?.find(w => 
-                            w.name === "image" || w.name === "video" || w.name === "file" || w.name === "video_path" || w.type === "image" || w.type === "customtext"
+                            w.name === "image" || w.name === "video" || w.name === "file" || w.name === "video_path" || w.name === "model_file" || w.name === "3d_file" || w.type === "image" || w.type === "customtext"
                         );
 
-                        const isLoadNode = targetNode && (widget || targetNode.type?.includes("LoadImage") || targetNode.type?.includes("LoadVideo") || targetNode.type?.includes("VHS_LoadVideo"));
+                        const isLoadNode = targetNode && (
+                            widget || 
+                            targetNode.type?.includes("LoadImage") || 
+                            targetNode.type?.includes("LoadVideo") || 
+                            targetNode.type?.includes("VHS_LoadVideo") || 
+                            targetNode.type?.includes("Load3D") || 
+                            targetNode.type?.includes("Load 3D") || 
+                            targetNode.type?.includes("Preview3D")
+                        );
 
                         if (isLoadNode) {
                             const targetWidget = widget || targetNode.widgets?.[0];
                             if (targetWidget) {
                                 const newFilename = await uploadDroppedImageToInput({ filename, type, subfolder });
                                 if (newFilename) {
-                                    // Populate dropdown values list so combo widgets (like VHS_LoadVideo) accept the new video immediately!
                                     if (targetWidget.options && Array.isArray(targetWidget.options.values)) {
                                         if (!targetWidget.options.values.includes(newFilename)) {
                                             targetWidget.options.values.push(newFilename);

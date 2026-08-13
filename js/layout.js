@@ -3,12 +3,24 @@ import { app } from "/scripts/app.js";
 const STYLE_ID = "comfy-sidebar-classic-layout-override";
 
 const CLASSIC_LAYOUT_CSS_MEDIA = `
+/* Remove the ghost underlay container border & background (the oval) without affecting the topbar header */
+.actionbar-container,
+.shadow-interface.rounded-lg.bg-comfy-menu-bg,
+.shadow-interface.rounded-lg.border-interface-stroke,
+.shadow-interface.border.rounded-lg:has([class*="actionbar-buttons"]),
+.shadow-interface.border.rounded-lg:has(.actionbar-buttons),
+div.border-interface-stroke.rounded-lg:has([class*="actionbar-buttons"]) {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
 /* Style and align the custom plugins bar (Manager, LoRA, etc.) */
 [class*="actionbar"]:not(.actionbar),
 [class*="actionbar-buttons"],
 .actionbar-buttons {
     position: fixed !important;
-    top: -5px !important; 
+    top: 3px !important; 
     right: 4px !important; 
     left: auto !important;
     transform: none !important;
@@ -250,7 +262,7 @@ function updateSidebarTabsVisibility() {
         "Assets": '[class*="comfy--image-ai-edit"]',
         "Nodes": '[class*="comfy--node"]',
         "Models": '[class*="comfy--ai-model"]',
-        "Workflows": '[class*="comfy--workflow"]',
+        "Workflows": '[class*="comfy--workflow"], [class*="workflow"]',
         "Apps": '[class*="lucide--panels-top-left"]',
         "Templates": '[class*="comfy--template"]'
     };
@@ -281,18 +293,18 @@ function updateSidebarTabsVisibility() {
 }
 
 function findGraphButton() {
-    const elements = document.querySelectorAll('.bg-secondary-background.rounded-lg.items-center.inline-flex.pointer-events-auto');
+    const elements = document.querySelectorAll('.p-1.bg-base-background.rounded-lg, .bg-base-background.rounded-lg, .bg-secondary-background.rounded-lg.items-center.inline-flex.pointer-events-auto, [data-testid="graph-view-button"]');
     for (const el of elements) {
-        if (el.closest('.p-dialog, .comfy-modal, [role="dialog"], .p-sidebar, .comfy-settings')) continue;
-        return el;
+        if (el.closest('.p-dialog, .comfy-modal, [role="dialog"], .p-sidebar, .comfy-settings, .comfyui-sidebar, .comfy-sidebar')) continue;
+        return el.closest('.group, .p-1') || el;
     }
 
-    const fallbacks = document.querySelectorAll('button, .bg-secondary-background');
+    const fallbacks = document.querySelectorAll('button, .bg-base-background, .bg-secondary-background');
     for (const el of fallbacks) {
-        if (el.closest('.p-dialog, .comfy-modal, [role="dialog"], .p-sidebar, .comfy-settings')) continue;
-        const text = (el.textContent || el.getAttribute("title") || "").toLowerCase();
+        if (el.closest('.p-dialog, .comfy-modal, [role="dialog"], .p-sidebar, .comfy-settings, .comfyui-sidebar, .comfy-sidebar')) continue;
+        const text = (el.textContent || el.getAttribute("title") || el.getAttribute("aria-label") || "").toLowerCase();
         if (text.includes("graph") || text.includes("workflow") || el.querySelector('[class*="sitemap"], [class*="workflow"]')) {
-            return el;
+            return el.closest('.group, .p-1, .bg-base-background, .bg-secondary-background') || el;
         }
     }
     return null;

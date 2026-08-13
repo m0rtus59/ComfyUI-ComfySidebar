@@ -1,7 +1,7 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 import { State, promptStates, cardElements, saveStatesToLocalStorage, deletePromptState } from "./state.js";
-import { isVideoFormat, matchesFilter, getRunOutputs } from "./utils.js";
+import { isVideoFormat, is3DFormat, matchesFilter, getRunOutputs } from "./utils.js";
 import { showFullscreenPreview } from "./comparison.js";
 
 export let syncQueueFn = async () => {};
@@ -63,6 +63,20 @@ function findNodeIdForImage(state, img) {
                 return nodeId;
             }
         }
+    }
+    return null;
+}
+
+function findNodeIdFor3DAsset(state, img) {
+    const exactNodeId = findNodeIdForImage(state, img);
+    if (exactNodeId) return exactNodeId;
+
+    if (app.graph && app.graph._nodes) {
+        const node = app.graph._nodes.find(n => 
+            n.type?.includes("Preview3D") || n.type?.includes("Load3D") || 
+            n.type?.includes("SaveGLB") || n.type?.includes("Save 3D")
+        );
+        if (node) return String(node.id);
     }
     return null;
 }
@@ -389,6 +403,108 @@ function syncCardButtonVisibility(cardObj, state) {
     }
 }
 
+function render3DCardPreview(cardObj, wrapper, src, img, state) {
+    let preview3D = wrapper.querySelector(".comfy-sidebar-3d-wrapper");
+    const fullUrl = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}`;
+
+    // Find the LAST 2D image generated in the same prompt run to use as background thumbnail
+    const imageAssets = state?.images?.filter(i => !is3DFormat(i.filename || i.url) && !isVideoFormat(i.filename || i.url)) || [];
+    const lastImageAsset = imageAssets.length > 0 ? imageAssets[imageAssets.length - 1] : null;
+    const bgImgSrc = lastImageAsset
+        ? (lastImageAsset.url || window.location.origin + `/view?filename=${encodeURIComponent(lastImageAsset.filename)}&type=${lastImageAsset.type || 'output'}&subfolder=${encodeURIComponent(lastImageAsset.subfolder || '')}`)
+        : null;
+
+    if (!preview3D) {
+        wrapper.innerHTML = "";
+        preview3D = document.createElement("div");
+        preview3D.className = "comfy-sidebar-3d-wrapper";
+
+        if (bgImgSrc) {
+            const bgImg = document.createElement("img");
+            bgImg.className = "comfy-sidebar-3d-preview-img";
+            bgImg.src = bgImgSrc;
+            bgImg.alt = "3D Thumbnail Preview";
+            preview3D.appendChild(bgImg);
+        }
+
+        const overlay = document.createElement("div");
+        overlay.className = "comfy-sidebar-3d-overlay";
+
+        const badge = document.createElement("span");
+        badge.className = "comfy-sidebar-3d-badge";
+        const ext = (img.filename || src).split('.').pop().toUpperCase();
+        badge.textContent = ext || "3D";
+
+        const icon = document.createElement("span");
+        icon.className = "pi pi-box comfy-sidebar-3d-icon";
+
+        const title = document.createElement("span");
+        title.className = "comfy-sidebar-3d-title";
+        title.textContent = img.filename || "3D Model";
+
+        overlay.append(badge, icon, title);
+        preview3D.appendChild(overlay);
+        wrapper.appendChild(preview3D);
+    } else {
+        const bgImg = preview3D.querySelector(".comfy-sidebar-3d-preview-img");
+        if (bgImg && bgImgSrc && bgImg.src !== bgImgSrc) {
+            bgImg.src = bgImgSrc;
+        } else if (!bgImg && bgImgSrc) {
+            const newBgImg = document.createElement("img");
+            newBgImg.className = "comfy-sidebar-3d-preview-img";
+            newBgImg.src = bgImgSrc;
+            newBgImg.alt = "3D Thumbnail Preview";
+            preview3D.insertBefore(newBgImg, preview3D.firstChild);
+        }
+        const title = preview3D.querySelector(".comfy-sidebar-3d-title");
+        if (title) title.textContent = img.filename || "3D Model";
+    }
+
+    cardObj.firstImgElement = preview3D;
+
+    preview3D.onclick = (ev) => {
+        ev.stopPropagation();
+        
+        // 1. Try Native Frontend 3D Viewer if available
+        if (window.app?.ui?.show3DViewer) {
+            window.app.ui.show3DViewer(fullUrl);
+            return;
+        }
+
+        // 2. Focus and select 3D node on workflow canvas
+        const nodeId = findNodeIdFor3DAsset(state, img);
+        if (nodeId && app.graph && app.canvas) {
+            const node = app.graph.getNodeById(Number(nodeId));
+            if (node) {
+                app.canvas.centerOnNode(node);
+                app.canvas.selectNode(node);
+                return;
+            }
+        }
+
+        // 3. Fallback to comparison/fullscreen modal handler
+        showFullscreenPreview([fullUrl], ev.shiftKey);
+    };
+
+    // Configure drag & drop for 3D files
+    preview3D.setAttribute("draggable", "true");
+    preview3D.ondragstart = (e) => {
+        e.stopPropagation();
+        const filename = img.filename || "model.glb";
+        const mimeType = "application/octet-stream";
+        
+        try {
+            e.dataTransfer.setData("text/uri-list", fullUrl);
+            e.dataTransfer.setData("text/plain", fullUrl);
+            e.dataTransfer.setData("DownloadURL", `${mimeType}:${filename}:${fullUrl}`);
+            if (state && state.workflow) {
+                e.dataTransfer.setData("application/json", JSON.stringify(state.workflow));
+            }
+        } catch (err) {}
+        e.dataTransfer.effectAllowed = "copy";
+    };
+}
+
 function renderCardImages(cardObj, state, keepAspect) {
     cardObj.currentImageIndex = cardObj.currentImageIndex || 0;
     if (cardObj.currentImageIndex >= state.images.length) {
@@ -406,6 +522,7 @@ function renderCardImages(cardObj, state, keepAspect) {
 
     const src = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}`;
     const isVideo = isVideoFormat(src);
+    const is3D = is3DFormat(src) || is3DFormat(img.filename);
 
     let wrapper = cardObj.grid.querySelector(".comfy-sidebar-media-wrapper");
     if (!wrapper) {
@@ -414,6 +531,11 @@ function renderCardImages(cardObj, state, keepAspect) {
         wrapper.className = "comfy-sidebar-media-wrapper";
         Object.assign(wrapper.style, { position: "relative", width: "100%", display: "block" });
         cardObj.grid.appendChild(wrapper);
+    }
+
+    if (is3D) {
+        render3DCardPreview(cardObj, wrapper, src, img, state);
+        return;
     }
 
     let mediaEl = wrapper.querySelector("img, video");
@@ -440,12 +562,24 @@ function renderCardImages(cardObj, state, keepAspect) {
         showFullscreenPreview([src], ev.shiftKey); 
     };
 
-    // Auto-prune card if file was deleted
-    mediaEl.onerror = () => {
-        if (src && !src.startsWith("blob:")) {
-            deletePromptState(state.pid);
-            saveStatesToLocalStorage();
-            if (cardObj.element) cardObj.element.remove();
+    // Auto-prune card ONLY if file returns 404 Not Found from server
+    mediaEl.onerror = async () => {
+        if (src && !src.startsWith("blob:") && !is3D) {
+            try {
+                const res = await fetch(src, { method: "HEAD" });
+                if (res.status === 404) {
+                    deletePromptState(state.pid);
+                    saveStatesToLocalStorage();
+                    if (cardObj.element) cardObj.element.remove();
+                    return;
+                }
+            } catch (e) {
+                // Ignore network error - keep card
+            }
+            if (cardObj.placeholder) {
+                cardObj.placeholder.textContent = "Error loading media preview";
+                cardObj.placeholder.style.display = "block";
+            }
         }
     };
 

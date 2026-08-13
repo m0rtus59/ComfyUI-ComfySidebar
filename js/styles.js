@@ -154,6 +154,101 @@ export function injectStyles() {
             color: #fff;
             border-color: var(--p-primary-color, #3b82f6);
         }
+
+        /* 3D Preview Cards */
+        .comfy-sidebar-3d-wrapper {
+            width: 100%;
+            height: 160px;
+            background: linear-gradient(135deg, #1e1e2e 0%, #0f172a 100%);
+            border-radius: 4px;
+            display: flex;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            transition: all 0.2s ease-in-out;
+            user-select: none;
+            cursor: pointer;
+        }
+
+        .comfy-sidebar-3d-wrapper:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 0 12px rgba(59, 130, 246, 0.35);
+        }
+
+        .comfy-sidebar-3d-preview-img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: brightness(0.45);
+            transition: filter 0.2s ease, transform 0.2s ease;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .comfy-sidebar-3d-wrapper:hover .comfy-sidebar-3d-preview-img {
+            filter: brightness(0.6);
+            transform: scale(1.03);
+        }
+
+        .comfy-sidebar-3d-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .comfy-sidebar-3d-icon {
+            font-size: 38px;
+            color: #60a5fa;
+            margin-bottom: 6px;
+            filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.8));
+            transition: transform 0.2s ease;
+        }
+
+        .comfy-sidebar-3d-wrapper:hover .comfy-sidebar-3d-icon {
+            transform: scale(1.1) rotate(6deg);
+        }
+
+        .comfy-sidebar-3d-badge {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: rgba(59, 130, 246, 0.9);
+            color: #fff;
+            font-size: 9px;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 3px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+            z-index: 3;
+        }
+
+        .comfy-sidebar-3d-title {
+            font-size: 10px;
+            color: #f1f5f9;
+            font-family: monospace;
+            max-width: 85%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            background: rgba(0, 0, 0, 0.65);
+            padding: 2px 6px;
+            border-radius: 3px;
+            backdrop-filter: blur(2px);
+            z-index: 3;
+        }
     `;
     document.head.appendChild(style);
 }

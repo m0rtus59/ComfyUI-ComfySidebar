@@ -6,6 +6,14 @@ export const isVideoFormat = (url) => {
     return s.includes(".mp4") || s.includes(".webm");
 };
 
+export const is3DFormat = (url) => {
+    if (!url) return false;
+    const s = String(url).toLowerCase();
+    return s.includes(".glb") || s.includes(".gltf") || s.includes(".obj") || 
+           s.includes(".ply") || s.includes(".stl") || s.includes(".splat") || 
+           s.includes(".spz") || s.includes(".ksplat") || s.includes(".fbx");
+};
+
 export function parseWorkflow(workflow) {
     if (!workflow) return null;
     if (typeof workflow === "object") return workflow;

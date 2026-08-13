@@ -1,4 +1,5 @@
-import { isVideoFormat } from "./utils.js";
+import { isVideoFormat, is3DFormat } from "./utils.js";
+import { app } from "/scripts/app.js";
 
 let activeComparisonViewer = null;
 let globalKeydownHandler = null;
@@ -373,11 +374,34 @@ function createComparisonViewer(baseSrc) {
 
 export function showFullscreenPreview(imgSrcs, isShiftClick = false) {
     if (!imgSrcs || imgSrcs.length === 0) return;
+
+    const src = imgSrcs[0];
+
+    // Handle 3D assets natively or by focusing 3D node
+    if (is3DFormat(src)) {
+        if (window.app?.ui?.show3DViewer) {
+            window.app.ui.show3DViewer(src);
+            return;
+        }
+
+        if (app.graph && app.canvas) {
+            const nodes = app.graph._nodes || [];
+            const node = nodes.find(n => 
+                n.type?.includes("Preview3D") || n.type?.includes("Load3D") || 
+                n.type?.includes("SaveGLB") || n.type?.includes("Save 3D")
+            );
+            if (node) {
+                app.canvas.centerOnNode(node);
+                app.canvas.selectNode(node);
+            }
+        }
+        return;
+    }
     
     if (activeComparisonViewer) {
-        activeComparisonViewer.loadTarget(imgSrcs[0], isShiftClick);
+        activeComparisonViewer.loadTarget(src, isShiftClick);
         return;
     }
 
-    activeComparisonViewer = createComparisonViewer(imgSrcs[0]);
+    activeComparisonViewer = createComparisonViewer(src);
 }
