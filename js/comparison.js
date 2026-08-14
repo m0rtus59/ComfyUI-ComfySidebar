@@ -1,5 +1,6 @@
 import { isVideoFormat, is3DFormat } from "./utils.js";
 import { app } from "/scripts/app.js";
+import { State } from "./state.js";
 
 let activeComparisonViewer = null;
 let globalKeydownHandler = null;
@@ -9,6 +10,12 @@ const getClientX = (e) => {
     if (e.touches && e.touches.length > 0) return e.touches[0].clientX;
     if (e.changedTouches && e.changedTouches.length > 0) return e.changedTouches[0].clientX;
     return e.clientX || 0;
+};
+
+const getClientY = (e) => {
+    if (e.touches && e.touches.length > 0) return e.touches[0].clientY;
+    if (e.changedTouches && e.changedTouches.length > 0) return e.changedTouches[0].clientY;
+    return e.clientY || 0;
 };
 
 const createMediaElement = (src, muted = false) => {
@@ -23,7 +30,8 @@ const createMediaElement = (src, muted = false) => {
     }
     Object.assign(el.style, {
         gridArea: "1 / 1", maxWidth: "100%", maxHeight: "80vh",
-        objectFit: "contain", pointerEvents: "none"
+        width: "auto", height: "auto", objectFit: "contain",
+        pointerEvents: "none", userSelect: "none", webkitUserSelect: "none"
     });
     el.src = isVideo ? src + "#t=0.001" : src;
     return el;
@@ -144,42 +152,86 @@ function createComparisonViewer(baseSrc) {
     }
 
     const isBaseVideo = isVideoFormat(baseSrc);
-    const canvasEl = document.querySelector("#graph-canvas, canvas");
-    const targetContainer = canvasEl ? canvasEl.parentNode : document.body;
 
-    if (targetContainer && targetContainer !== document.body) {
-        targetContainer.style.position = "relative";
-    }
-
+    // Root overlay fixed to the screen
     const container = document.createElement("div");
     container.className = "comfy-sidebar-comparison-overlay";
     Object.assign(container.style, {
-        position: "absolute", top: "0", left: "0", width: "100%", height: "100%",
+        position: "fixed", top: "0", left: "0", width: "100vw", height: "100vh",
         background: "rgba(10, 10, 10, 0.95)", display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center",
-        zIndex: "10", 
+        zIndex: "1000", boxSizing: "border-box", overflow: "hidden",
         pointerEvents: "auto", userSelect: "none", "-webkit-user-select": "none"
     });
 
+    // Dynamic bounds updater: perfectly shifts the overlay outside the active sidebar
+    const updateOverlayBounds = () => {
+        const sidebarEl = State.sidebarContainer?.closest('.comfyui-sidebar, .comfy-sidebar, .p-sidebar, [class*="sidebar"]') || State.sidebarContainer;
+        
+        if (sidebarEl && sidebarEl.offsetWidth > 0 && sidebarEl.isConnected) {
+            const rect = sidebarEl.getBoundingClientRect();
+            if (rect.left < window.innerWidth / 2) {
+                const leftOffset = Math.max(0, rect.right);
+                container.style.left = `${leftOffset}px`;
+                container.style.width = `calc(100vw - ${leftOffset}px)`;
+                container.style.right = "0px";
+            } else {
+                const rightOffset = Math.max(0, window.innerWidth - rect.left);
+                container.style.left = "0px";
+                container.style.width = `calc(100vw - ${rightOffset}px)`;
+                container.style.right = `${rightOffset}px`;
+            }
+            container.style.top = `${Math.max(0, rect.top)}px`;
+            container.style.height = `calc(100vh - ${Math.max(0, rect.top)}px)`;
+        } else {
+            container.style.left = "0px";
+            container.style.width = "100vw";
+            container.style.top = "0px";
+            container.style.height = "100vh";
+        }
+    };
+
+    updateOverlayBounds();
+    window.addEventListener("resize", updateOverlayBounds);
+
+    let resizeObserver = null;
+    const sidebarEl = State.sidebarContainer?.closest('.comfyui-sidebar, .comfy-sidebar, .p-sidebar, [class*="sidebar"]') || State.sidebarContainer;
+    if (sidebarEl && window.ResizeObserver) {
+        resizeObserver = new ResizeObserver(() => updateOverlayBounds());
+        resizeObserver.observe(sidebarEl);
+    }
+
+    // Scrollable viewport container: allows 100% zoom navigation without moving fixed controls
+    const scrollContainer = document.createElement("div");
+    Object.assign(scrollContainer.style, {
+        position: "absolute", top: "0", left: "0", width: "100%", height: "100%",
+        display: "flex", overflow: "auto", boxSizing: "border-box",
+        padding: "54px 28px 48px 28px", scrollbarWidth: "thin",
+        scrollbarColor: "#555 rgba(0, 0, 0, 0.3)", zIndex: "15"
+    });
+    container.appendChild(scrollContainer);
+
     const header = document.createElement("div");
     Object.assign(header.style, {
-        position: "absolute", top: "16px", display: "flex", gap: "16px",
-        zIndex: "30", color: "#aaa", fontSize: "12px", fontFamily: "sans-serif",
-        pointerEvents: "none"
+        position: "absolute", top: "16px", left: "50%", transform: "translateX(-50%)",
+        display: "flex", gap: "16px", zIndex: "30", color: "#aaa", fontSize: "12px",
+        fontFamily: "sans-serif", pointerEvents: "none", background: "rgba(10,10,10,0.75)",
+        padding: "4px 10px", borderRadius: "4px", backdropFilter: "blur(4px)",
+        boxShadow: "0 2px 6px rgba(0,0,0,0.4)", maxWidth: "85%", textAlign: "center"
     });
     const infoText = document.createElement("span");
     infoText.textContent = isBaseVideo 
         ? "Video playback. Press Esc to close." 
-        : "Reference loaded. Click to replace | Shift+Click another card image to compare.";
+        : "Click image to zoom (100%/Fit) | Shift+Click another card to compare.";
     header.appendChild(infoText);
     container.appendChild(header);
 
     const closeBtn = document.createElement("span");
     closeBtn.className = "pi pi-times";
-    closeBtn.title = "Close Comparison (Esc)";
+    closeBtn.title = "Close (Esc)";
     Object.assign(closeBtn.style, {
         position: "absolute", top: "16px", right: "24px", zIndex: "30",
-        cursor: "pointer", fontSize: "20px", color: "#aaa", transition: "color 0.15s ease"
+        cursor: "pointer", fontSize: "20px", color: "#aaa", transition: "color 0.15s ease",
+        background: "rgba(10,10,10,0.6)", borderRadius: "50%", padding: "4px"
     });
     closeBtn.onmouseenter = () => closeBtn.style.color = "#fff";
     closeBtn.onmouseleave = () => closeBtn.style.color = "#aaa";
@@ -188,15 +240,17 @@ function createComparisonViewer(baseSrc) {
     const wrapper = document.createElement("div");
     Object.assign(wrapper.style, {
         position: "relative", display: "grid", placeItems: "center",
-        maxWidth: "85%", maxHeight: "85%"
+        maxWidth: "85%", maxHeight: "85%", margin: "auto",
+        flexShrink: "0", cursor: isBaseVideo ? "default" : "zoom-in"
     });
-    container.appendChild(wrapper);
+    scrollContainer.appendChild(wrapper);
 
     const hintPrompt = document.createElement("div");
     Object.assign(hintPrompt.style, {
-        position: "absolute", bottom: "16px", zIndex: "30",
-        color: "#888", fontSize: "12px", fontFamily: "sans-serif",
-        pointerEvents: "none"
+        position: "absolute", bottom: "16px", left: "50%", transform: "translateX(-50%)",
+        zIndex: "30", color: "#888", fontSize: "12px", fontFamily: "sans-serif",
+        pointerEvents: "none", background: "rgba(10,10,10,0.75)", padding: "4px 10px",
+        borderRadius: "4px", backdropFilter: "blur(4px)", boxShadow: "0 2px 6px rgba(0,0,0,0.4)"
     });
     hintPrompt.innerHTML = 'Tip: Hold <span style="color:#aaa;font-weight:bold;">Shift</span> while clicking sidebar cards to compare outputs side-by-side.';
     if (isBaseVideo) {
@@ -204,22 +258,11 @@ function createComparisonViewer(baseSrc) {
     }
     container.appendChild(hintPrompt);
 
-    let wasDragging = false;
-
-    container.onclick = (e) => {
-        if (e.target === container) {
-            if (wasDragging) {
-                wasDragging = false;
-                return;
-            }
-            destroy();
-        }
-    };
-
     let mediaA = createMediaElement(baseSrc, false);
     wrapper.appendChild(mediaA);
 
     let mediaB = null;
+    let isZoomed = false;
 
     const slider = document.createElement("div");
     Object.assign(slider.style, {
@@ -242,7 +285,6 @@ function createComparisonViewer(baseSrc) {
     wrapper.appendChild(slider);
 
     let splitRatio = 50; 
-    let isDragging = false;
     let destroyVideoPlaybackFn = null;
 
     const updateSliderPosition = (percent) => {
@@ -253,27 +295,161 @@ function createComparisonViewer(baseSrc) {
         }
     };
 
+    // Synchronize dimensions, aspect ratios, and upscaler scaling
+    const syncImageScales = () => {
+        if (!mediaA) return;
+
+        const wA = mediaA.naturalWidth || mediaA.videoWidth || 0;
+        const hA = mediaA.naturalHeight || mediaA.videoHeight || 0;
+
+        if (!mediaB) {
+            // Single image mode
+            if (isZoomed && wA && hA) {
+                wrapper.style.maxWidth = "none";
+                wrapper.style.maxHeight = "none";
+                wrapper.style.width = `${wA}px`;
+                wrapper.style.height = `${hA}px`;
+                wrapper.style.cursor = "zoom-out";
+
+                mediaA.style.maxWidth = "none";
+                mediaA.style.maxHeight = "none";
+                mediaA.style.width = "100%";
+                mediaA.style.height = "100%";
+                mediaA.style.objectFit = "fill";
+            } else {
+                wrapper.style.maxWidth = "85%";
+                wrapper.style.maxHeight = "85%";
+                wrapper.style.width = "auto";
+                wrapper.style.height = "auto";
+                wrapper.style.cursor = isBaseVideo ? "default" : "zoom-in";
+
+                mediaA.style.maxWidth = "100%";
+                mediaA.style.maxHeight = "80vh";
+                mediaA.style.width = "auto";
+                mediaA.style.height = "auto";
+                mediaA.style.objectFit = "contain";
+            }
+            return;
+        }
+
+        const wB = mediaB.naturalWidth || mediaB.videoWidth || 0;
+        const hB = mediaB.naturalHeight || mediaB.videoHeight || 0;
+
+        if (!wA || !hA || !wB || !hB) return;
+
+        // Aspect ratio verification (5% tolerance)
+        const arA = wA / hA;
+        const arB = wB / hB;
+        const arDiff = Math.abs(arA - arB) / Math.max(arA, arB);
+
+        if (arDiff > 0.05) {
+            infoText.textContent = `Aspect ratio mismatch (${wA}x${hA} vs ${wB}x${hB}). Images must have matching proportions to compare.`;
+            infoText.style.color = "#f87171";
+            setTimeout(() => {
+                if (infoText) {
+                    infoText.style.color = "#aaa";
+                    infoText.textContent = "Click image to zoom (100%/Fit) | Shift+Click another card to compare.";
+                }
+            }, 3500);
+
+            cleanupMedia(mediaB);
+            mediaB.remove();
+            mediaB = null;
+            slider.style.display = "none";
+            syncImageScales();
+            return;
+        }
+
+        // Proportions match: stretch to the larger image size for perfect upscaler comparison
+        const maxW = Math.max(wA, wB);
+        const maxH = Math.max(hA, hB);
+
+        if (isZoomed) {
+            wrapper.style.maxWidth = "none";
+            wrapper.style.maxHeight = "none";
+            wrapper.style.width = `${maxW}px`;
+            wrapper.style.height = `${maxH}px`;
+            wrapper.style.cursor = "zoom-out";
+
+            [mediaA, mediaB].forEach(el => {
+                if (el) {
+                    el.style.maxWidth = "none";
+                    el.style.maxHeight = "none";
+                    el.style.width = "100%";
+                    el.style.height = "100%";
+                    el.style.objectFit = "fill";
+                }
+            });
+        } else {
+            wrapper.style.maxWidth = "85%";
+            wrapper.style.maxHeight = "85%";
+            wrapper.style.width = "auto";
+            wrapper.style.height = "auto";
+            wrapper.style.aspectRatio = `${maxW} / ${maxH}`;
+            wrapper.style.cursor = "zoom-in";
+
+            [mediaA, mediaB].forEach(el => {
+                if (el) {
+                    el.style.maxWidth = "100%";
+                    el.style.maxHeight = "80vh";
+                    el.style.width = "100%";
+                    el.style.height = "100%";
+                    el.style.objectFit = "fill";
+                    el.style.aspectRatio = `${maxW} / ${maxH}`;
+                }
+            });
+        }
+    };
+
+    mediaA.onload = syncImageScales;
+    if (mediaA.complete) syncImageScales();
+
+    const toggleZoom = () => {
+        if (isBaseVideo) return;
+        isZoomed = !isZoomed;
+        syncImageScales();
+        if (!isZoomed) {
+            scrollContainer.scrollTop = 0;
+            scrollContainer.scrollLeft = 0;
+        }
+    };
+
+    // Clean drag & click arbitration
+    let isDraggingSlider = false;
+    let dragMoved = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+
     const startDrag = (e) => { 
-        e.preventDefault(); 
-        e.stopPropagation();
-        isDragging = true; 
-        wasDragging = false;
-        
-        const rect = wrapper.getBoundingClientRect();
-        const clientX = getClientX(e);
-        const percent = ((clientX - rect.left) / rect.width) * 100;
-        updateSliderPosition(percent);
+        if (e.button && e.button !== 0) return;
+        dragStartX = getClientX(e);
+        dragStartY = getClientY(e);
+        dragMoved = false;
+        isDraggingSlider = true;
     };
+
     const doDrag = (e) => {
-        if (!isDragging) return;
-        wasDragging = true;
-        const rect = wrapper.getBoundingClientRect();
+        if (!isDraggingSlider) return;
         const clientX = getClientX(e);
-        const percent = ((clientX - rect.left) / rect.width) * 100;
-        updateSliderPosition(percent);
+        const clientY = getClientY(e);
+        
+        if (!dragMoved && (Math.abs(clientX - dragStartX) > 4 || Math.abs(clientY - dragStartY) > 4)) {
+            dragMoved = true;
+        }
+
+        if (dragMoved && mediaB) {
+            const rect = wrapper.getBoundingClientRect();
+            const percent = ((clientX - rect.left) / rect.width) * 100;
+            updateSliderPosition(percent);
+        }
     };
+
     const endDrag = () => { 
-        isDragging = false; 
+        if (!isDraggingSlider) return;
+        isDraggingSlider = false;
+        if (dragMoved) {
+            setTimeout(() => { dragMoved = false; }, 50);
+        }
     };
 
     wrapper.addEventListener("mousedown", startDrag);
@@ -284,6 +460,20 @@ function createComparisonViewer(baseSrc) {
     window.addEventListener("mouseup", endDrag);
     window.addEventListener("touchend", endDrag);
 
+    // Clicking image area toggles zoom
+    wrapper.addEventListener("click", (e) => {
+        if (dragMoved || isBaseVideo) return;
+        toggleZoom();
+    });
+
+    // Clicking backdrop cleanly closes in 1 click
+    scrollContainer.addEventListener("click", (e) => {
+        if (dragMoved) return;
+        if (e.target === scrollContainer || e.target === container) {
+            destroy();
+        }
+    });
+
     const cleanupMedia = (el) => {
         if (el && el.tagName === "VIDEO") {
             el.pause();
@@ -293,6 +483,12 @@ function createComparisonViewer(baseSrc) {
     };
 
     const destroy = () => {
+        window.removeEventListener("resize", updateOverlayBounds);
+        if (resizeObserver) {
+            resizeObserver.disconnect();
+            resizeObserver = null;
+        }
+
         window.removeEventListener("mousemove", doDrag);
         window.removeEventListener("touchmove", doDrag);
         window.removeEventListener("mouseup", endDrag);
@@ -325,7 +521,7 @@ function createComparisonViewer(baseSrc) {
     globalKeydownHandler = handleKeys;
     document.addEventListener("keydown", globalKeydownHandler);
 
-    targetContainer.appendChild(container);
+    document.body.appendChild(container);
 
     if (isBaseVideo) {
         destroyVideoPlaybackFn = setupVideoPlayback(mediaA, container);
@@ -335,13 +531,9 @@ function createComparisonViewer(baseSrc) {
         loadTarget(targetSrc, isShiftClick) {
             const isTargetVideo = isVideoFormat(targetSrc);
 
-            if (isBaseVideo) {
+            if (isBaseVideo || isTargetVideo) {
                 destroy();
                 showFullscreenPreview([targetSrc], isShiftClick);
-                return;
-            }
-
-            if (isTargetVideo) {
                 return;
             }
 
@@ -353,11 +545,17 @@ function createComparisonViewer(baseSrc) {
 
                 mediaB = createMediaElement(targetSrc, false);
                 mediaB.style.pointerEvents = "none";
+                mediaB.onload = () => {
+                    syncImageScales();
+                    slider.style.display = "block";
+                    infoText.style.color = "#aaa";
+                    infoText.textContent = "Drag slider to compare. Click image to zoom (100%/Fit) | Shift+Click another card | Esc to close.";
+                    updateSliderPosition(50);
+                };
                 wrapper.appendChild(mediaB);
-
-                slider.style.display = "block";
-                infoText.textContent = "Drag the slider to compare. Shift+Click other card images to update target | Esc to close.";
-                updateSliderPosition(50);
+                if (mediaB.complete && mediaB.naturalWidth) {
+                    mediaB.onload();
+                }
             } else {
                 if (mediaB) {
                     cleanupMedia(mediaB);
@@ -366,7 +564,11 @@ function createComparisonViewer(baseSrc) {
                 }
                 slider.style.display = "none";
                 mediaA.src = targetSrc;
-                infoText.textContent = "Reference loaded. Click to replace | Shift+Click another card image to compare.";
+                mediaA.onload = () => {
+                    infoText.style.color = "#aaa";
+                    infoText.textContent = "Click image to zoom (100%/Fit) | Shift+Click another card to compare.";
+                    syncImageScales();
+                };
             }
         }
     };

@@ -593,7 +593,7 @@ function renderCardImages(cardObj, state, keepAspect) {
         }
     };
 
-    const isUnfinished = state.status && state.status !== "completed";
+    const isUnfinished = state.status ? (state.status !== "completed") : false;
     if (isUnfinished) {
         mediaEl.setAttribute("draggable", "false");
         mediaEl.style.cursor = "grab";
@@ -615,6 +615,9 @@ function renderCardImages(cardObj, state, keepAspect) {
                     e.dataTransfer.setData("text/uri-list", fullSrc);
                     e.dataTransfer.setData("text/plain", fullSrc);
                     e.dataTransfer.setData("DownloadURL", `${mimeType}:${filename}:${fullSrc}`);
+                    if (state && state.workflow) {
+                        e.dataTransfer.setData("application/json", JSON.stringify(state.workflow));
+                    }
                 } catch (err) {}
                 e.dataTransfer.effectAllowed = "copy";
                 e.stopPropagation();
@@ -894,7 +897,7 @@ export function renderDOM() {
 
                 cardObj.placeholder.style.display = "none";
 
-                renderCardImages(cardObj, { pid: batchInfo.pid, images: [img], workflow: batchInfo.workflow, nodeOutputs: batchInfo.nodeOutputs }, keepAspect);
+                renderCardImages(cardObj, { pid: batchInfo.pid, status: "completed", images: [img], workflow: batchInfo.workflow, nodeOutputs: batchInfo.nodeOutputs }, keepAspect);
 
                 targetElements.push(cardObj.element);
             });
@@ -1005,7 +1008,7 @@ export function renderDOM() {
 
                 if (out.images && out.images.length > 0) {
                     cardObj.placeholder.style.display = "none";
-                    renderCardImages(cardObj, { pid: st.pid, images: out.images, workflow: st.workflow, nodeOutputs: st.nodeOutputs }, keepAspect);
+                    renderCardImages(cardObj, { pid: st.pid, status: "completed", images: out.images, workflow: st.workflow, nodeOutputs: st.nodeOutputs }, keepAspect);
                 } else {
                     cardObj.placeholder.style.display = "block";
                     cardObj.placeholder.textContent = "No Outputs";
@@ -1200,7 +1203,7 @@ export function renderDOM() {
                 }
             };
 
-            const currentImagesSignature = state.images ? state.images.map(img => img.url || img.filename).join("|") : "";
+            const currentImagesSignature = `${state.status || ""}:${state.images ? state.images.map(img => img.url || img.filename).join("|") : ""}`;
             if (cardObj.lastImagesSignature !== currentImagesSignature) {
                 if (!state.images || state.images.length === 0) {
                     cardObj.grid.innerHTML = ""; cardObj.firstImgElement = null; cardObj.placeholder.style.display = "block";
