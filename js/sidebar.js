@@ -1,13 +1,14 @@
 import { app } from "/scripts/app.js";
 import { injectStyles } from "./styles.js";
 import { setupDragAndDrop } from "./dragdrop.js";
-import { setupSidebarUI, applySidebarOverride, findOurSidebarButton, setSyncQueue, updateSidebarBadge, renderDOM } from "./ui.js";
+import { setupSidebarUI, applySidebarOverride, findOurSidebarButton, setSyncQueue, updateSidebarBadge, renderDOM, setupScrollListener } from "./ui.js";
 import { setupApiListeners, initSessionAndHistory, syncQueue, setUIDependencies } from "./queue.js";
-import { applyClassicLayout, setupPropertiesPanelToggleFix, syncClassicLayout, syncStockHistoryAndProgressSettings } from "./layout.js";
+import { applyClassicLayout, setupPropertiesPanelToggleFix, syncClassicLayout, syncStockHistoryAndProgressSettings, destroyLayoutFix } from "./layout.js";
 
 let isInitialized = false;
 let activeKeydownHandler = null;
 let nodeDOMObserver = null;
+let cleanupFns = [];
 
 function findHeaderByText(parent, text) {
     if (!text) return null;
@@ -272,11 +273,13 @@ app.registerExtension({
         setUIDependencies(renderDOM, updateSidebarBadge);
 
         injectStyles();
-        setupDragAndDrop();
+
+        // Register disposable subsystems
+        cleanupFns.push(setupDragAndDrop());
+        cleanupFns.push(setupScrollListener());
+        cleanupFns.push(setupApiListeners());
 
         const sidebarContainer = setupSidebarUI();
-        
-        setupApiListeners();
         
         await initSessionAndHistory();
 
@@ -325,6 +328,11 @@ app.registerExtension({
     },
 
     destroy() {
+        for (const fn of cleanupFns.splice(0)) {
+            try { if (typeof fn === "function") fn(); } catch (e) {}
+        }
+        destroyLayoutFix();
+
         if (nodeDOMObserver) {
             nodeDOMObserver.disconnect();
             nodeDOMObserver = null;

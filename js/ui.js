@@ -1,13 +1,12 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
-import { State, promptStates, cardElements, saveStatesToLocalStorage, deletePromptState } from "./state.js";
+import { State, promptStates, cardElements, scheduleStateSave, deletePromptState } from "./state.js";
 import { isVideoFormat, is3DFormat, isAudioFormat, getFilenameFromUrl, matchesFilter, getRunOutputs } from "./utils.js";
 import { showFullscreenPreview, isAudioViewerOpen } from "./comparison.js";
 
 export let syncQueueFn = async () => {};
 export function setSyncQueue(fn) { syncQueueFn = fn; }
 
-// Global audio playback manager: ensures only 1 audio stream plays at a time
 let currentlyPlayingAudio = null;
 export function stopAllAudioPlayback() {
     if (currentlyPlayingAudio) {
@@ -54,11 +53,18 @@ function updateScrollTopBtnVisibility() {
     }
 }
 
-document.addEventListener("scroll", () => {
+const scrollListener = () => {
     if (State.sidebarContainer && State.sidebarContainer.isConnected) {
         updateScrollTopBtnVisibility();
     }
-}, { capture: true, passive: true });
+};
+
+export function setupScrollListener() {
+    document.addEventListener("scroll", scrollListener, { capture: true, passive: true });
+    return () => {
+        document.removeEventListener("scroll", scrollListener, { capture: true, passive: true });
+    };
+}
 
 function findNodeIdForImage(state, img) {
     if (!state || !state.nodeOutputs || !img) return null;
@@ -223,7 +229,7 @@ export function setupSidebarUI() {
         }
         if (toDelete.length > 0) {
             try { await api.fetchApi("/history", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ delete: toDelete }) }); } catch (err) {}
-            saveStatesToLocalStorage();
+            scheduleStateSave();
             renderDOM();
         }
     });
@@ -235,7 +241,7 @@ export function setupSidebarUI() {
             }
         }
         try { await api.fetchApi("/history", { method: "POST", body: JSON.stringify({ clear: true }) }); } catch (err) {}
-        saveStatesToLocalStorage();
+        scheduleStateSave();
         renderDOM();
     });
 
@@ -320,6 +326,17 @@ export function setupSidebarUI() {
 function syncCardButtonVisibility(cardObj, state) {
     if (!cardObj) return;
 
+    // Pending and currently running cards should never display hover action panels
+    const isPendingOrActive = state.status === "pending" || state.status === "active";
+    if (isPendingOrActive) {
+        if (cardObj.hoverPanel) cardObj.hoverPanel.style.setProperty("display", "none", "important");
+        if (cardObj.leftHoverPanel) cardObj.leftHoverPanel.style.setProperty("display", "none", "important");
+        return;
+    } else {
+        if (cardObj.hoverPanel) cardObj.hoverPanel.style.removeProperty("display");
+        if (cardObj.leftHoverPanel) cardObj.leftHoverPanel.style.removeProperty("display");
+    }
+
     const isCompleted = state.status === "completed";
     const hasRealImages = isCompleted && state.images && state.images.length > 0 && !state.images.some(img => img.url && img.url.startsWith("blob:"));
 
@@ -358,6 +375,11 @@ function syncCardButtonVisibility(cardObj, state) {
         } else {
             cardObj.btnJson.style.setProperty("display", "none", "important");
         }
+    }
+
+    if (cardObj.btnDel) {
+        cardObj.btnDel.style.removeProperty("display");
+        cardObj.btnDel.style.display = "inline-flex";
     }
 
     if (cardObj.btnFocus) {
@@ -487,7 +509,6 @@ function renderAudioCardPreview(cardObj, wrapper, src, img, state) {
     const filename = img.filename || getFilenameFromUrl(src) || "audio.wav";
     const ext = filename.split('.').pop().toUpperCase();
 
-    // Solid white SVGs for exact video card style consistency
     const playIconSvg = `<svg viewBox="0 0 24 24" width="14" height="14" style="margin-left: 2px; pointer-events: none;"><polygon points="6,4 20,12 6,20" fill="#ffffff"/></svg>`;
     const stopIconSvg = `<svg viewBox="0 0 24 24" width="12" height="12" style="pointer-events: none;"><rect x="5" y="5" width="14" height="14" rx="2" fill="#ffffff"/></svg>`;
 
@@ -509,7 +530,6 @@ function renderAudioCardPreview(cardObj, wrapper, src, img, state) {
 
         topRow.append(title, badge);
 
-        // Center Area: Waveform + Centered Play Button
         const centerArea = document.createElement("div");
         Object.assign(centerArea.style, { position: "relative", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", margin: "6px 0" });
 
@@ -537,7 +557,6 @@ function renderAudioCardPreview(cardObj, wrapper, src, img, state) {
 
         centerArea.append(soundwave, playBtn);
 
-        // Bottom Row: Scrubber + Centered Time Label (with side padding so corner hover buttons don't block controls)
         const bottomRow = document.createElement("div");
         Object.assign(bottomRow.style, { display: "flex", flexDirection: "column", gap: "4px", width: "100%", padding: "0 34px", boxSizing: "border-box" });
 
@@ -547,9 +566,7 @@ function renderAudioCardPreview(cardObj, wrapper, src, img, state) {
             position: "relative", cursor: "pointer"
         });
         const scrubberFill = document.createElement("div");
-        Object.assign(scrubberFill.style, {
-            width: "0%", height: "100%", background: "#c084fc", borderRadius: "2px"
-        });
+        Object.assign(scrubberFill.style, { width: "0%", height: "100%", background: "#c084fc", borderRadius: "2px" });
         scrubber.appendChild(scrubberFill);
 
         const timeLabel = document.createElement("div");
@@ -597,7 +614,6 @@ function renderAudioCardPreview(cardObj, wrapper, src, img, state) {
         const togglePlay = (e) => {
             e.stopPropagation();
 
-            // If the fullscreen audio player is open, switch the modal player to this track
             if (isAudioViewerOpen()) {
                 stopAllAudioPlayback();
                 showFullscreenPreview([fullUrl]);
@@ -635,15 +651,12 @@ function renderAudioCardPreview(cardObj, wrapper, src, img, state) {
             e.stopPropagation();
             const rect = scrubber.getBoundingClientRect();
             const pos = (e.clientX - rect.left) / rect.width;
-            if (audioEl.duration > 0) {
-                audioEl.currentTime = pos * audioEl.duration;
-            }
+            if (audioEl.duration > 0) audioEl.currentTime = pos * audioEl.duration;
         };
 
         previewAudio.append(topRow, centerArea, bottomRow, audioEl);
         wrapper.appendChild(previewAudio);
 
-        // Clicking the card stops any other audio and launches the fullscreen player
         previewAudio.onclick = (e) => {
             if (e.target.closest('button, input') || e.target === scrubber || e.target === scrubberFill) return;
             stopAllAudioPlayback();
@@ -738,7 +751,7 @@ function renderCardImages(cardObj, state) {
                 const res = await fetch(src, { method: "HEAD" });
                 if (res.status === 404) {
                     deletePromptState(state.pid);
-                    saveStatesToLocalStorage();
+                    scheduleStateSave();
                     if (cardObj.element) cardObj.element.remove();
                     return;
                 }
@@ -970,7 +983,6 @@ export function renderDOM() {
         const headerSearchIcon = State.sidebarContainer.querySelector(".pi-search");
         const headerActions = State.sidebarContainer.querySelector(".pi-eraser")?.parentNode;
 
-        // Submenu 1: Batch Submenu View
         if (State.activeSubmenuBatchImages) {
             const batchInfo = State.activeSubmenuBatchImages;
 
@@ -1070,7 +1082,6 @@ export function renderDOM() {
             return;
         }
 
-        // Submenu 2: Intermediate Outputs View
         if (State.activeSubmenuPromptId) {
             const st = promptStates.get(State.activeSubmenuPromptId);
             if (!st) {
@@ -1183,7 +1194,6 @@ export function renderDOM() {
             return;
         }
 
-        // Standard Queue Main View
         if (headerTitle) {
             headerTitle.textContent = "Queue";
             headerTitle.style.cursor = "default";
@@ -1354,7 +1364,7 @@ export function renderDOM() {
                     resetDeleteBtn(); 
                     promptStates.delete(state.pid); 
                     await api.fetchApi("/history", { method: "POST", body: JSON.stringify({ delete: [state.pid] }) }); 
-                    saveStatesToLocalStorage();
+                    scheduleStateSave();
                     renderDOM();
                 }
             };
@@ -1405,7 +1415,9 @@ export function renderDOM() {
             return cardObj.element;
         };
 
-        for (const [pid, cardObj] of cardElements.entries()) { if (pid !== "pending-summary-card" && pid !== "pending-cancel-all-standalone" && !promptStates.has(pid)) cardElements.delete(pid); }
+        for (const [pid] of cardElements.entries()) { 
+            if (pid !== "pending-summary-card" && pid !== "pending-cancel-all-standalone" && !promptStates.has(pid)) cardElements.delete(pid); 
+        }
 
         const pendingCount = Array.from(promptStates.values()).filter(t => t.status === "pending").length;
         const targetElements = [];

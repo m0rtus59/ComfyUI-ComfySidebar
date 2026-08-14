@@ -3,7 +3,6 @@ import { app } from "/scripts/app.js";
 const STYLE_ID = "comfy-sidebar-classic-layout-override";
 
 const CLASSIC_LAYOUT_CSS_MEDIA = `
-/* Remove the ghost underlay container border & background (the oval) without affecting the topbar header */
 .actionbar-container,
 .shadow-interface.rounded-lg.bg-comfy-menu-bg,
 .shadow-interface.rounded-lg.border-interface-stroke,
@@ -15,7 +14,6 @@ div.border-interface-stroke.rounded-lg:has([class*="actionbar-buttons"]) {
     box-shadow: none !important;
 }
 
-/* Style and align the custom plugins bar (Manager, LoRA, etc.) */
 [class*="actionbar"]:not(.actionbar),
 [class*="actionbar-buttons"],
 .actionbar-buttons {
@@ -25,7 +23,6 @@ div.border-interface-stroke.rounded-lg:has([class*="actionbar-buttons"]) {
     left: auto !important;
     transform: none !important;
     z-index: 1010 !important;
-
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
@@ -35,7 +32,6 @@ div.border-interface-stroke.rounded-lg:has([class*="actionbar-buttons"]) {
     align-items: center !important;
 }
 
-/* Style overrides for the new native Extensions button container when embedded in top actionbar */
 .comfy-sidebar-extensions-override {
     background: transparent !important;
     border: none !important;
@@ -49,7 +45,6 @@ div.border-interface-stroke.rounded-lg:has([class*="actionbar-buttons"]) {
     align-items: center !important;
 }
 
-/* Scale down performance indicators (Crystools) uniformly */
 #crysmonitor-monitors-root,
 #crystools-monitors-root,
 .crysmonitor-monitors-container {
@@ -58,7 +53,6 @@ div.border-interface-stroke.rounded-lg:has([class*="actionbar-buttons"]) {
     align-items: center !important;
 }
 
-/* Hide user account profile button and PrimeVue components */
 img[alt*="User Avatar"],
 img[alt*="user avatar"],
 button:has(img[alt*="User Avatar"]),
@@ -74,14 +68,12 @@ button:has([data-pc-name="avatar"]),
     display: none !important;
 }
 
-/* Base rules: Large/Wide desktop screens (>= 1600px width) */
 .p-tabview-nav-content,
 [class*="tabview"] {
     padding-left: 150px !important;
     padding-right: 580px !important; 
 }
 
-/* Medium desktop screens (between 1200px and 1599px width) */
 @media (max-width: 1599px) {
     .p-tabview-nav-content,
     [class*="tabview"] {
@@ -90,7 +82,6 @@ button:has([data-pc-name="avatar"]),
     }
 }
 
-/* Standard laptops / small monitors (between 900px and 1199px width) */
 @media (max-width: 1199px) {
     .p-tabview-nav-content,
     [class*="tabview"] {
@@ -99,7 +90,6 @@ button:has([data-pc-name="avatar"]),
     }
 }
 
-/* Very narrow or heavily zoomed displays (< 900px width) */
 @media (max-width: 899px) {
     .p-tabview-nav-content,
     [class*="tabview"] {
@@ -109,16 +99,12 @@ button:has([data-pc-name="avatar"]),
 }
 `;
 
-/**
- * Native settings synchronization without direct DOM element querying or simulated clicks.
- */
 export function syncStockHistoryAndProgressSettings(enable) {
     const dockedVal = !!enable;
     const progressVal = !enable;
     const QPOV2_ID = "Comfy.Queue.QPOV2";
     const progressKey = "Comfy.Queue.ShowRunProgressBar";
 
-    // Use official extensionManager setting API if present, with fallback to app.ui.settings
     if (app.extensionManager?.setting) {
         try { app.extensionManager.setting.set(QPOV2_ID, dockedVal); } catch (e) {}
         try { app.extensionManager.setting.set(progressKey, progressVal); } catch (e) {}
@@ -210,15 +196,11 @@ function findTopbarContainer() {
 
 function isPropertiesPanelOpen() {
     const panel = document.querySelector('[data-testid="properties-panel"]');
-    if (panel && panel.offsetWidth > 0 && panel.offsetHeight > 0) {
-        return true;
-    }
+    if (panel && panel.offsetWidth > 0 && panel.offsetHeight > 0) return true;
 
     const headings = document.querySelectorAll('h1, h2, h3, h4');
     for (const h of headings) {
-        if (h.textContent.trim() === "Workflow Overview" && h.offsetWidth > 0 && h.offsetHeight > 0) {
-            return true;
-        }
+        if (h.textContent.trim() === "Workflow Overview" && h.offsetWidth > 0 && h.offsetHeight > 0) return true;
     }
 
     const origBtn = findOriginalButton();
@@ -230,7 +212,6 @@ function isPropertiesPanelOpen() {
             return true;
         }
     }
-
     return false;
 }
 
@@ -556,4 +537,15 @@ export function setupPropertiesPanelToggleFix() {
     });
 
     syncClassicLayout();
+}
+
+export function destroyLayoutFix() {
+    if (domObserver) {
+        domObserver.disconnect();
+        domObserver = null;
+    }
+    const styleEl = document.getElementById(STYLE_ID);
+    if (styleEl) styleEl.remove();
+    const fixStyles = document.getElementById("comfy-sidebar-layout-fix-styles");
+    if (fixStyles) fixStyles.remove();
 }

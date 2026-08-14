@@ -1,11 +1,10 @@
 import { isVideoFormat, is3DFormat, isAudioFormat, getFilenameFromUrl } from "./utils.js";
-import { State } from "./state.js";
 import { create3DViewer } from "./viewer3d.js";
 import { createTextReader } from "./text_reader.js";
 import { stopAllAudioPlayback } from "./ui.js";
+import { SidebarOverlay } from "./overlay.js";
 
 let activeComparisonViewer = null;
-let globalKeydownHandler = null;
 
 export function isAudioViewerOpen() {
     return !!(activeComparisonViewer && activeComparisonViewer.isAudio);
@@ -24,59 +23,17 @@ const getClientY = (e) => {
 };
 
 function createAudioViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = () => {}) {
-    if (globalKeydownHandler) {
-        document.removeEventListener("keydown", globalKeydownHandler);
-        globalKeydownHandler = null;
-    }
+    let togglePlayFn = () => {};
 
-    const container = document.createElement("div");
-    container.className = "comfy-sidebar-comparison-overlay";
-    Object.assign(container.style, {
-        position: "fixed", top: "0", left: "0", width: "100vw", height: "100vh",
-        background: "rgba(10, 10, 10, 0.95)", display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center", zIndex: "1000",
-        boxSizing: "border-box", overflow: "hidden", pointerEvents: "auto", userSelect: "none"
-    });
-
-    const updateOverlayBounds = () => {
-        const sidebarEl = State.sidebarContainer?.closest('.comfyui-sidebar, .comfy-sidebar, .p-sidebar, [class*="sidebar"]') || State.sidebarContainer;
-        if (sidebarEl && sidebarEl.offsetWidth > 0 && sidebarEl.isConnected) {
-            const rect = sidebarEl.getBoundingClientRect();
-            if (rect.left < window.innerWidth / 2) {
-                const leftOffset = Math.max(0, rect.right);
-                container.style.left = `${leftOffset}px`;
-                container.style.width = `calc(100vw - ${leftOffset}px)`;
-                container.style.right = "0px";
-            } else {
-                const rightOffset = Math.max(0, window.innerWidth - rect.left);
-                container.style.left = "0px";
-                container.style.width = `calc(100vw - ${rightOffset}px)`;
-                container.style.right = `${rightOffset}px`;
+    const overlay = new SidebarOverlay({
+        onDestroy,
+        onKeyDown: (e) => {
+            if (e.key === " ") {
+                e.preventDefault();
+                togglePlayFn();
             }
-            container.style.top = `${Math.max(0, rect.top)}px`;
-            container.style.height = `calc(100vh - ${Math.max(0, rect.top)}px)`;
-        } else {
-            container.style.left = "0px";
-            container.style.width = "100vw";
-            container.style.top = "0px";
-            container.style.height = "100vh";
         }
-    };
-
-    updateOverlayBounds();
-    window.addEventListener("resize", updateOverlayBounds);
-
-    const closeBtn = document.createElement("span");
-    closeBtn.className = "pi pi-times";
-    closeBtn.title = "Close (Esc)";
-    Object.assign(closeBtn.style, {
-        position: "absolute", top: "16px", right: "24px", zIndex: "30",
-        cursor: "pointer", fontSize: "20px", color: "#aaa", transition: "color 0.15s ease",
-        background: "rgba(10,10,10,0.6)", borderRadius: "50%", padding: "4px"
     });
-    closeBtn.onmouseenter = () => closeBtn.style.color = "#fff";
-    closeBtn.onmouseleave = () => closeBtn.style.color = "#aaa";
-    container.appendChild(closeBtn);
 
     const playerBox = document.createElement("div");
     Object.assign(playerBox.style, {
@@ -101,7 +58,6 @@ function createAudioViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = () => 
     badge.textContent = parsedExt;
     titleRow.append(title, badge);
 
-    // Waveform visualization
     const soundwave = document.createElement("div");
     soundwave.className = "comfy-sidebar-soundwave-container";
     soundwave.style.height = "56px";
@@ -115,26 +71,21 @@ function createAudioViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = () => 
         soundwave.appendChild(bar);
     });
 
-    // Scrubber
     const scrubberContainer = document.createElement("div");
     Object.assign(scrubberContainer.style, {
         width: "100%", height: "6px", background: "#334155", borderRadius: "3px",
         position: "relative", cursor: "pointer"
     });
     const scrubberFill = document.createElement("div");
-    Object.assign(scrubberFill.style, {
-        width: "0%", height: "100%", background: "#c084fc", borderRadius: "3px"
-    });
+    Object.assign(scrubberFill.style, { width: "0%", height: "100%", background: "#c084fc", borderRadius: "3px" });
     scrubberContainer.appendChild(scrubberFill);
 
-    // Controls Row
     const controlsRow = document.createElement("div");
     Object.assign(controlsRow.style, { display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" });
 
     const leftControls = document.createElement("div");
     Object.assign(leftControls.style, { display: "flex", alignItems: "center", gap: "10px" });
 
-    // Play & Stop SVGs
     const playIconSvg = `<svg viewBox="0 0 24 24" width="14" height="14" style="margin-left: 2px; pointer-events: none;"><polygon points="6,4 20,12 6,20" fill="#ffffff"/></svg>`;
     const stopIconSvg = `<svg viewBox="0 0 24 24" width="12" height="12" style="pointer-events: none;"><rect x="5" y="5" width="14" height="14" rx="2" fill="#ffffff"/></svg>`;
 
@@ -180,12 +131,12 @@ function createAudioViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = () => 
     controlsRow.append(leftControls, rightControls);
 
     playerBox.append(titleRow, soundwave, scrubberContainer, controlsRow);
-    container.appendChild(playerBox);
+    overlay.container.appendChild(playerBox);
 
     const audioEl = document.createElement("audio");
     audioEl.src = baseSrc;
     audioEl.preload = "metadata";
-    container.appendChild(audioEl);
+    overlay.container.appendChild(audioEl);
 
     const formatTime = (t) => {
         const m = Math.floor(t / 60);
@@ -211,7 +162,7 @@ function createAudioViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = () => 
         scrubberFill.style.width = "0%";
     };
 
-    const togglePlay = () => {
+    togglePlayFn = () => {
         if (audioEl.paused) {
             stopAllAudioPlayback();
             audioEl.play().catch(()=>{});
@@ -227,54 +178,25 @@ function createAudioViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = () => 
         }
     };
 
-    playBtn.onclick = togglePlay;
-
+    playBtn.onclick = togglePlayFn;
     loopBtn.onclick = () => {
         audioEl.loop = !audioEl.loop;
         loopBtn.style.borderColor = audioEl.loop ? "#a855f7" : "#444";
         loopBtn.style.color = audioEl.loop ? "#c084fc" : "#aaa";
     };
-
-    speedSelect.onchange = (e) => {
-        audioEl.playbackRate = Number(e.target.value);
-    };
+    speedSelect.onchange = (e) => { audioEl.playbackRate = Number(e.target.value); };
 
     scrubberContainer.onclick = (e) => {
         const rect = scrubberContainer.getBoundingClientRect();
         const pos = (e.clientX - rect.left) / rect.width;
-        if (audioEl.duration > 0) {
-            audioEl.currentTime = pos * audioEl.duration;
-        }
+        if (audioEl.duration > 0) audioEl.currentTime = pos * audioEl.duration;
     };
 
-    const destroy = () => {
-        window.removeEventListener("resize", updateOverlayBounds);
-        if (globalKeydownHandler) {
-            document.removeEventListener("keydown", globalKeydownHandler);
-            globalKeydownHandler = null;
-        }
+    overlay.addCleanup(() => {
         audioEl.pause();
         audioEl.src = "";
-        container.remove();
-        onDestroy();
-    };
+    });
 
-    closeBtn.onclick = destroy;
-    container.onclick = (e) => {
-        if (e.target === container) destroy();
-    };
-
-    const handleKeys = (e) => {
-        if (e.key === "Escape") destroy();
-        if (e.key === " ") {
-            e.preventDefault();
-            togglePlay();
-        }
-    };
-    globalKeydownHandler = handleKeys;
-    document.addEventListener("keydown", globalKeydownHandler);
-
-    document.body.appendChild(container);
     audioEl.play().then(() => {
         playBtn.innerHTML = stopIconSvg;
         playerBox.classList.add("playing");
@@ -284,7 +206,7 @@ function createAudioViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = () => 
         isAudio: true,
         loadTarget(targetSrc) {
             if (!isAudioFormat(targetSrc)) {
-                destroy();
+                overlay.destroy();
                 onSwitchMedia(targetSrc);
                 return;
             }
@@ -297,7 +219,7 @@ function createAudioViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = () => 
                 playerBox.classList.add("playing");
             }).catch(()=>{});
         },
-        destroy
+        destroy: () => overlay.destroy()
     };
 }
 
@@ -326,9 +248,7 @@ const setupVideoPlayback = (vid, container) => {
     let videoSyncActive = true;
     let syncAnimationFrameId = null;
 
-    const onMetaLoaded = () => {
-        vid.play().catch(()=>{});
-    };
+    const onMetaLoaded = () => { vid.play().catch(()=>{}); };
     vid.addEventListener("loadedmetadata", onMetaLoaded);
     if (vid.readyState >= 1) onMetaLoaded();
 
@@ -363,9 +283,7 @@ const setupVideoPlayback = (vid, container) => {
         position: "relative", cursor: "pointer"
     });
     const scrubberFill = document.createElement("div");
-    Object.assign(scrubberFill.style, {
-        width: "0%", height: "100%", background: "#3b82f6", borderRadius: "2px"
-    });
+    Object.assign(scrubberFill.style, { width: "0%", height: "100%", background: "#3b82f6", borderRadius: "2px" });
     scrubberContainer.appendChild(scrubberFill);
 
     const timeLabel = document.createElement("span");
@@ -398,7 +316,6 @@ const setupVideoPlayback = (vid, container) => {
 
     const syncLoop = () => {
         if (!videoSyncActive) return;
-
         const cur = vid.currentTime || 0;
         const dur = vid.duration || 0;
         if (dur > 0) {
@@ -410,7 +327,6 @@ const setupVideoPlayback = (vid, container) => {
             };
             timeLabel.textContent = `${formatTime(cur)} / ${formatTime(dur)}`;
         }
-
         playBtn.className = vid.paused ? "pi pi-play" : "pi pi-pause";
         syncAnimationFrameId = requestAnimationFrame(syncLoop);
     };
@@ -429,57 +345,19 @@ const setupVideoPlayback = (vid, container) => {
 };
 
 function createComparisonViewer(baseSrc, onDestroy = () => {}) {
-    if (globalKeydownHandler) {
-        document.removeEventListener("keydown", globalKeydownHandler);
-        globalKeydownHandler = null;
-    }
-
     const isBaseVideo = isVideoFormat(baseSrc);
+    let splitRatio = 50; 
+    let mediaB = null;
 
-    const container = document.createElement("div");
-    container.className = "comfy-sidebar-comparison-overlay";
-    Object.assign(container.style, {
-        position: "fixed", top: "0", left: "0", width: "100vw", height: "100vh",
-        background: "rgba(10, 10, 10, 0.95)", display: "flex", flexDirection: "column",
-        zIndex: "1000", boxSizing: "border-box", overflow: "hidden",
-        pointerEvents: "auto", userSelect: "none", "-webkit-user-select": "none"
-    });
-
-    const updateOverlayBounds = () => {
-        const sidebarEl = State.sidebarContainer?.closest('.comfyui-sidebar, .comfy-sidebar, .p-sidebar, [class*="sidebar"]') || State.sidebarContainer;
-        
-        if (sidebarEl && sidebarEl.offsetWidth > 0 && sidebarEl.isConnected) {
-            const rect = sidebarEl.getBoundingClientRect();
-            if (rect.left < window.innerWidth / 2) {
-                const leftOffset = Math.max(0, rect.right);
-                container.style.left = `${leftOffset}px`;
-                container.style.width = `calc(100vw - ${leftOffset}px)`;
-                container.style.right = "0px";
-            } else {
-                const rightOffset = Math.max(0, window.innerWidth - rect.left);
-                container.style.left = "0px";
-                container.style.width = `calc(100vw - ${rightOffset}px)`;
-                container.style.right = `${rightOffset}px`;
+    const overlay = new SidebarOverlay({
+        onDestroy,
+        onKeyDown: (e) => {
+            if (e.key === " " && mediaB) {
+                e.preventDefault();
+                updateSliderPosition(splitRatio > 50 ? 0 : 100);
             }
-            container.style.top = `${Math.max(0, rect.top)}px`;
-            container.style.height = `calc(100vh - ${Math.max(0, rect.top)}px)`;
-        } else {
-            container.style.left = "0px";
-            container.style.width = "100vw";
-            container.style.top = "0px";
-            container.style.height = "100vh";
         }
-    };
-
-    updateOverlayBounds();
-    window.addEventListener("resize", updateOverlayBounds);
-
-    let resizeObserver = null;
-    const sidebarEl = State.sidebarContainer?.closest('.comfyui-sidebar, .comfy-sidebar, .p-sidebar, [class*="sidebar"]') || State.sidebarContainer;
-    if (sidebarEl && window.ResizeObserver) {
-        resizeObserver = new ResizeObserver(() => updateOverlayBounds());
-        resizeObserver.observe(sidebarEl);
-    }
+    });
 
     const scrollContainer = document.createElement("div");
     Object.assign(scrollContainer.style, {
@@ -488,7 +366,7 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
         padding: "54px 28px 48px 28px", scrollbarWidth: "thin",
         scrollbarColor: "#555 rgba(0, 0, 0, 0.3)", zIndex: "15"
     });
-    container.appendChild(scrollContainer);
+    overlay.container.appendChild(scrollContainer);
 
     const header = document.createElement("div");
     Object.assign(header.style, {
@@ -503,19 +381,7 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
         ? "Video playback. Press Esc to close." 
         : "Click image to zoom (100%/Fit) | Shift+Click another card to compare.";
     header.appendChild(infoText);
-    container.appendChild(header);
-
-    const closeBtn = document.createElement("span");
-    closeBtn.className = "pi pi-times";
-    closeBtn.title = "Close (Esc)";
-    Object.assign(closeBtn.style, {
-        position: "absolute", top: "16px", right: "24px", zIndex: "30",
-        cursor: "pointer", fontSize: "20px", color: "#aaa", transition: "color 0.15s ease",
-        background: "rgba(10,10,10,0.6)", borderRadius: "50%", padding: "4px"
-    });
-    closeBtn.onmouseenter = () => closeBtn.style.color = "#fff";
-    closeBtn.onmouseleave = () => closeBtn.style.color = "#aaa";
-    container.appendChild(closeBtn);
+    overlay.container.appendChild(header);
 
     const wrapper = document.createElement("div");
     Object.assign(wrapper.style, {
@@ -533,15 +399,11 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
         borderRadius: "4px", backdropFilter: "blur(4px)", boxShadow: "0 2px 6px rgba(0,0,0,0.4)"
     });
     hintPrompt.innerHTML = 'Tip: Hold <span style="color:#aaa;font-weight:bold;">Shift</span> while clicking sidebar cards to compare outputs side-by-side.';
-    if (isBaseVideo) {
-        hintPrompt.style.display = "none";
-    }
-    container.appendChild(hintPrompt);
+    if (isBaseVideo) hintPrompt.style.display = "none";
+    overlay.container.appendChild(hintPrompt);
 
     let mediaA = createMediaElement(baseSrc, false);
     wrapper.appendChild(mediaA);
-
-    let mediaB = null;
     let isZoomed = false;
 
     const slider = document.createElement("div");
@@ -557,15 +419,11 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
         transform: "translate(-50%, -50%)", width: "32px", height: "32px",
         borderRadius: "50%", background: "#fff", color: "#333",
         display: "flex", alignItems: "center", justifyContent: "center",
-        boxShadow: "0 2px 6px rgba(0,0,0,0.4)", pointerEvents: "auto",
-        userSelect: "none", webkitUserSelect: "none"
+        boxShadow: "0 2px 6px rgba(0,0,0,0.4)", pointerEvents: "auto"
     });
     sliderButton.innerHTML = `<span class="pi pi-arrows-h" style="font-size: 12px;"></span>`;
     slider.appendChild(sliderButton);
     wrapper.appendChild(slider);
-
-    let splitRatio = 50; 
-    let destroyVideoPlaybackFn = null;
 
     const updateSliderPosition = (percent) => {
         splitRatio = Math.max(0, Math.min(100, percent));
@@ -575,9 +433,16 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
         }
     };
 
+    const cleanupMedia = (el) => {
+        if (el && el.tagName === "VIDEO") {
+            el.pause();
+            el.src = "";
+            el.load();
+        }
+    };
+
     const syncImageScales = () => {
         if (!mediaA) return;
-
         const wA = mediaA.naturalWidth || mediaA.videoWidth || 0;
         const hA = mediaA.naturalHeight || mediaA.videoHeight || 0;
 
@@ -589,7 +454,6 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
                 wrapper.style.width = `${wA}px`;
                 wrapper.style.height = `${hA}px`;
                 wrapper.style.cursor = "zoom-out";
-
                 mediaA.style.maxWidth = "none";
                 mediaA.style.maxHeight = "none";
                 mediaA.style.width = "100%";
@@ -601,7 +465,6 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
                 wrapper.style.width = "auto";
                 wrapper.style.height = "auto";
                 wrapper.style.cursor = isBaseVideo ? "default" : "zoom-in";
-
                 mediaA.style.maxWidth = "100%";
                 mediaA.style.maxHeight = "80vh";
                 mediaA.style.width = "auto";
@@ -613,7 +476,6 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
 
         const wB = mediaB.naturalWidth || mediaB.videoWidth || 0;
         const hB = mediaB.naturalHeight || mediaB.videoHeight || 0;
-
         if (!wA || !hA || !wB || !hB) return;
 
         const arA = wA / hA;
@@ -696,10 +558,7 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
         }
     };
 
-    let isDraggingSlider = false;
-    let dragMoved = false;
-    let dragStartX = 0;
-    let dragStartY = 0;
+    let isDraggingSlider = false, dragMoved = false, dragStartX = 0, dragStartY = 0;
 
     const startDrag = (e) => { 
         if (e.button && e.button !== 0) return;
@@ -713,11 +572,9 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
         if (!isDraggingSlider) return;
         const clientX = getClientX(e);
         const clientY = getClientY(e);
-        
         if (!dragMoved && (Math.abs(clientX - dragStartX) > 4 || Math.abs(clientY - dragStartY) > 4)) {
             dragMoved = true;
         }
-
         if (dragMoved && mediaB) {
             const rect = wrapper.getBoundingClientRect();
             const percent = ((clientX - rect.left) / rect.width) * 100;
@@ -728,83 +585,42 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
     const endDrag = () => { 
         if (!isDraggingSlider) return;
         isDraggingSlider = false;
-        if (dragMoved) {
-            setTimeout(() => { dragMoved = false; }, 50);
-        }
+        if (dragMoved) setTimeout(() => { dragMoved = false; }, 50);
     };
 
     wrapper.addEventListener("mousedown", startDrag);
     wrapper.addEventListener("touchstart", startDrag);
-    
     window.addEventListener("mousemove", doDrag);
     window.addEventListener("touchmove", doDrag);
     window.addEventListener("mouseup", endDrag);
     window.addEventListener("touchend", endDrag);
 
-    wrapper.addEventListener("click", (e) => {
+    overlay.addCleanup(() => {
+        window.removeEventListener("mousemove", doDrag);
+        window.removeEventListener("touchmove", doDrag);
+        window.removeEventListener("mouseup", endDrag);
+        window.removeEventListener("touchend", endDrag);
+    });
+
+    wrapper.addEventListener("click", () => {
         if (dragMoved || isBaseVideo) return;
         toggleZoom();
     });
 
     scrollContainer.addEventListener("click", (e) => {
         if (dragMoved) return;
-        if (e.target === scrollContainer || e.target === container) {
-            destroy();
-        }
+        if (e.target === scrollContainer || e.target === overlay.container) overlay.destroy();
     });
 
-    const cleanupMedia = (el) => {
-        if (el && el.tagName === "VIDEO") {
-            el.pause();
-            el.src = "";
-            el.load();
-        }
-    };
+    if (isBaseVideo) {
+        const destroyVideoPlayback = setupVideoPlayback(mediaA, overlay.container);
+        overlay.addCleanup(destroyVideoPlayback);
+    }
 
-    const destroy = () => {
-        window.removeEventListener("resize", updateOverlayBounds);
-        if (resizeObserver) {
-            resizeObserver.disconnect();
-            resizeObserver = null;
-        }
-
-        window.removeEventListener("mousemove", doDrag);
-        window.removeEventListener("touchmove", doDrag);
-        window.removeEventListener("mouseup", endDrag);
-        window.removeEventListener("touchend", endDrag);
-        
-        if (globalKeydownHandler) {
-            document.removeEventListener("keydown", globalKeydownHandler);
-            globalKeydownHandler = null;
-        }
-        
-        if (destroyVideoPlaybackFn) destroyVideoPlaybackFn();
-
+    overlay.addCleanup(() => {
         cleanupMedia(mediaA);
         cleanupMedia(mediaB);
-
-        container.remove();
-        onDestroy();
-    };
-
-    closeBtn.onclick = destroy;
-
-    const handleKeys = (e) => {
-        if (e.key === "Escape") destroy();
-        if (e.key === " " && mediaB) {
-            e.preventDefault();
-            updateSliderPosition(splitRatio > 50 ? 0 : 100);
-        }
-    };
-    
-    globalKeydownHandler = handleKeys;
-    document.addEventListener("keydown", globalKeydownHandler);
-
-    document.body.appendChild(container);
-
-    if (isBaseVideo) {
-        destroyVideoPlaybackFn = setupVideoPlayback(mediaA, container);
-    }
+    });
 
     return {
         is3D: false,
@@ -817,7 +633,7 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
             const isTargetText = typeof targetSrc === "object" && targetSrc.text;
 
             if (isBaseVideo || isTargetVideo || isTarget3D || isTargetAudio || isTargetText) {
-                destroy();
+                overlay.destroy();
                 showFullscreenPreview([targetSrc], isShiftClick);
                 return;
             }
@@ -828,16 +644,11 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
                     mediaB.remove();
                     mediaB = null;
                 }
-
                 mediaB = createMediaElement(targetSrc, false);
                 mediaB.style.pointerEvents = "none";
-                mediaB.onload = () => {
-                    syncImageScales();
-                };
+                mediaB.onload = syncImageScales;
                 wrapper.appendChild(mediaB);
-                if (mediaB.complete && mediaB.naturalWidth) {
-                    syncImageScales();
-                }
+                if (mediaB.complete && mediaB.naturalWidth) syncImageScales();
             } else {
                 if (mediaB) {
                     cleanupMedia(mediaB);
@@ -853,7 +664,7 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
                 };
             }
         },
-        destroy
+        destroy: () => overlay.destroy()
     };
 }
 

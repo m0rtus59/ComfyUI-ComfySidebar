@@ -29,6 +29,14 @@ export function injectStyles() {
         .comfy-sidebar-card.active:hover .comfy-sidebar-queue-cancel-btn { 
             display: flex !important; 
         }
+
+        /* Prevent action hover buttons (Delete/JSON/Node) from showing on pending & running cards */
+        .comfy-sidebar-card.pending .comfy-sidebar-hover-panel,
+        .comfy-sidebar-card.active .comfy-sidebar-hover-panel,
+        .comfy-sidebar-card.pending .comfy-sidebar-left-hover-panel,
+        .comfy-sidebar-card.active .comfy-sidebar-left-hover-panel {
+            display: none !important;
+        }
         
         .comfy-sidebar-card-timer {
             position: absolute; top: 6px; left: 8px; font-size: 10px;
@@ -56,14 +64,14 @@ export function injectStyles() {
             color: #ffffff !important;
         }
 
-        /* Hover Panels CSS Hover Control */
+        /* Hover Panels CSS Hover Control for Completed / Cancelled / Error cards */
         .comfy-sidebar-hover-panel,
         .comfy-sidebar-left-hover-panel {
             display: none !important;
         }
 
-        .comfy-sidebar-card:hover .comfy-sidebar-hover-panel,
-        .comfy-sidebar-card:hover .comfy-sidebar-left-hover-panel {
+        .comfy-sidebar-card:not(.pending):not(.active):hover .comfy-sidebar-hover-panel,
+        .comfy-sidebar-card:not(.pending):not(.active):hover .comfy-sidebar-left-hover-panel {
             display: flex !important;
         }
 

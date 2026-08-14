@@ -1,6 +1,4 @@
-import { State } from "./state.js";
-
-let globalKeydownHandler = null;
+import { SidebarOverlay } from "./overlay.js";
 
 // Global helper for code block copying in Markdown view
 window.moonCopyCode = function(button) {
@@ -195,63 +193,11 @@ function parseMarkdown(text) {
 }
 
 export function createTextReader(textData, onSwitchMedia = () => {}, onDestroy = () => {}) {
-    if (globalKeydownHandler) {
-        document.removeEventListener("keydown", globalKeydownHandler);
-        globalKeydownHandler = null;
-    }
-
     let rawText = typeof textData === "object" ? (textData.text || "") : String(textData);
     let pid = typeof textData === "object" ? textData.pid : "";
     let isMarkdownMode = true;
 
-    const container = document.createElement("div");
-    container.className = "comfy-sidebar-comparison-overlay";
-    Object.assign(container.style, {
-        position: "fixed", top: "0", left: "0", width: "100vw", height: "100vh",
-        background: "rgba(10, 10, 10, 0.95)", display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center", zIndex: "1000",
-        boxSizing: "border-box", overflow: "hidden", pointerEvents: "auto", userSelect: "none"
-    });
-
-    const updateOverlayBounds = () => {
-        const sidebarEl = State.sidebarContainer?.closest('.comfyui-sidebar, .comfy-sidebar, .p-sidebar, [class*="sidebar"]') || State.sidebarContainer;
-        if (sidebarEl && sidebarEl.offsetWidth > 0 && sidebarEl.isConnected) {
-            const rect = sidebarEl.getBoundingClientRect();
-            if (rect.left < window.innerWidth / 2) {
-                const leftOffset = Math.max(0, rect.right);
-                container.style.left = `${leftOffset}px`;
-                container.style.width = `calc(100vw - ${leftOffset}px)`;
-                container.style.right = "0px";
-            } else {
-                const rightOffset = Math.max(0, window.innerWidth - rect.left);
-                container.style.left = "0px";
-                container.style.width = `calc(100vw - ${rightOffset}px)`;
-                container.style.right = `${rightOffset}px`;
-            }
-            container.style.top = `${Math.max(0, rect.top)}px`;
-            container.style.height = `calc(100vh - ${Math.max(0, rect.top)}px)`;
-        } else {
-            container.style.left = "0px";
-            container.style.width = "100vw";
-            container.style.top = "0px";
-            container.style.height = "100vh";
-        }
-    };
-
-    updateOverlayBounds();
-    window.addEventListener("resize", updateOverlayBounds);
-
-    const closeBtn = document.createElement("span");
-    closeBtn.className = "pi pi-times";
-    closeBtn.title = "Close (Esc)";
-    Object.assign(closeBtn.style, {
-        position: "absolute", top: "16px", right: "24px", zIndex: "30",
-        cursor: "pointer", fontSize: "20px", color: "#aaa", transition: "color 0.15s ease",
-        background: "rgba(10,10,10,0.6)", borderRadius: "50%", padding: "4px"
-    });
-    closeBtn.onmouseenter = () => closeBtn.style.color = "#fff";
-    closeBtn.onmouseleave = () => closeBtn.style.color = "#aaa";
-    container.appendChild(closeBtn);
+    const overlay = new SidebarOverlay({ onDestroy });
 
     const readerBox = document.createElement("div");
     Object.assign(readerBox.style, {
@@ -363,32 +309,13 @@ export function createTextReader(textData, onSwitchMedia = () => {}, onDestroy =
     updateView();
 
     readerBox.append(headerRow, textArea);
-    container.appendChild(readerBox);
-
-    const destroy = () => {
-        window.removeEventListener("resize", updateOverlayBounds);
-        if (globalKeydownHandler) {
-            document.removeEventListener("keydown", globalKeydownHandler);
-            globalKeydownHandler = null;
-        }
-        container.remove();
-        onDestroy();
-    };
-
-    closeBtn.onclick = destroy;
-    container.onclick = (e) => { if (e.target === container) destroy(); };
-
-    const handleKeys = (e) => { if (e.key === "Escape") destroy(); };
-    globalKeydownHandler = handleKeys;
-    document.addEventListener("keydown", globalKeydownHandler);
-
-    document.body.appendChild(container);
+    overlay.container.appendChild(readerBox);
 
     return {
         isText: true,
         loadTarget(targetData) {
             if (typeof targetData !== "object" || !targetData.text) {
-                destroy();
+                overlay.destroy();
                 onSwitchMedia(targetData);
                 return;
             }
@@ -397,6 +324,6 @@ export function createTextReader(textData, onSwitchMedia = () => {}, onDestroy =
             title.textContent = pid ? `Text Output #${pid}` : "Text Output";
             updateView();
         },
-        destroy
+        destroy: () => overlay.destroy()
     };
 }

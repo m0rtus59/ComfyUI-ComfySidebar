@@ -1,6 +1,6 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
-import { State, promptStates, pruneHistory, cardElements, saveStatesToLocalStorage } from "./state.js";
+import { State, promptStates, pruneHistory, cardElements, scheduleStateSave } from "./state.js";
 import { findImagesInOutputs, findTextsInOutputs, parseWorkflow, getPrimaryOutputImages } from "./utils.js";
 
 export let renderDOMFn = () => {};
@@ -38,10 +38,10 @@ export async function syncQueue() {
             if (pid) {
                 pendingIds.add(pid);
                 if (!promptStates.has(pid)) {
-                    State.globalOrderCounter++;
+                    State.sequenceNumber++;
                     promptStates.set(pid, {
                         pid: pid, status: "pending", images: [], progress: 0, queueNumber: number,
-                        progressText: `Pending... (#${number})`, timestamp: State.globalOrderCounter,
+                        progressText: `Pending... (#${number})`, timestamp: State.sequenceNumber,
                         workflow: app.graph.serialize() 
                     });
                 } else {
@@ -108,20 +108,19 @@ const concludeRun = async (pid, statusStr) => {
     }
     
     pruneHistory(app);
-    saveStatesToLocalStorage();
+    scheduleStateSave();
     syncQueue();
 };
 
 export function setupApiListeners() {
-    api.addEventListener("status", syncQueue);
-    
-    api.addEventListener("reconnected", async () => {
+    const onStatus = () => syncQueue();
+    const onReconnected = async () => {
         console.log("Comfy Sidebar: Server reconnected, syncing state and history");
         await initSessionAndHistory();
         await syncQueue();
-    });
-    
-    api.addEventListener("execution_start", (e) => {
+    };
+
+    const onExecutionStart = (e) => {
         if (app.ui.settings.getSettingValue("Comfy Sidebar.Auto Clear Interrupted") ?? false) {
             const toDelete = [];
             for (const [p, s] of promptStates.entries()) {
@@ -132,7 +131,7 @@ export function setupApiListeners() {
             }
             if (toDelete.length > 0) {
                 api.fetchApi("/history", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ delete: toDelete }) }).catch(()=>{});
-                saveStatesToLocalStorage();
+                scheduleStateSave();
             }
         }
 
@@ -145,18 +144,18 @@ export function setupApiListeners() {
             st.status = "active"; st.progressText = "Sampling..."; st.workflow = activeWorkspaceWorkflow;
             st.rendered = false; st.startTime = Date.now(); st.duration = null;
         } else {
-            State.globalOrderCounter++;
+            State.sequenceNumber++;
             promptStates.set(pid, {
                 pid: pid, status: "active", images: [], progress: 0,
-                progressText: "Sampling...", timestamp: State.globalOrderCounter,
+                progressText: "Sampling...", timestamp: State.sequenceNumber,
                 workflow: activeWorkspaceWorkflow, startTime: Date.now(), duration: null
             });
         }
         renderDOMFn();
         syncQueue();
-    });
+    };
 
-    api.addEventListener("progress", (e) => {
+    const onProgress = (e) => {
         const pid = e.detail.prompt_id ? String(e.detail.prompt_id) : null;
         if (pid && promptStates.has(pid)) {
             const st = promptStates.get(pid);
@@ -173,9 +172,9 @@ export function setupApiListeners() {
                 renderDOMFn();
             }
         }
-    });
+    };
 
-    api.addEventListener("executing", (e) => {
+    const onExecuting = (e) => {
         const nodeId = e.detail;
         const showWorkingNode = app.ui.settings.getSettingValue("Comfy Sidebar.Show Working Node Name") ?? true;
         
@@ -189,9 +188,9 @@ export function setupApiListeners() {
             }
             renderDOMFn();
         }
-    });
+    };
 
-    api.addEventListener("b_preview", (e) => {
+    const onBPreview = (e) => {
         const activeTasks = Array.from(promptStates.values()).filter(t => t.status === "active");
         if (activeTasks.length > 0) {
             const st = activeTasks[0];
@@ -202,9 +201,9 @@ export function setupApiListeners() {
             st.images = [{ url: newBlobUrl }];
             renderDOMFn();
         }
-    });
+    };
 
-    api.addEventListener("executed", (e) => {
+    const onExecuted = (e) => {
         const pid = e.detail.prompt_id ? String(e.detail.prompt_id) : null;
         if (pid && promptStates.has(pid)) {
             const st = promptStates.get(pid);
@@ -222,14 +221,39 @@ export function setupApiListeners() {
 
             renderDOMFn();
         }
-    });
+    };
 
-    api.addEventListener("execution_success", (e) => concludeRun(e.detail.prompt_id, "completed"));
-    api.addEventListener("execution_error", (e) => concludeRun(e.detail.prompt_id, "error"));
-    api.addEventListener("execution_interrupted", () => {
+    const onExecutionSuccess = (e) => concludeRun(e.detail.prompt_id, "completed");
+    const onExecutionError = (e) => concludeRun(e.detail.prompt_id, "error");
+    const onExecutionInterrupted = () => {
         Array.from(promptStates.values()).filter(t => t.status === "active").forEach(t => concludeRun(t.pid, "cancelled"));
         syncQueue();
-    });
+    };
+
+    api.addEventListener("status", onStatus);
+    api.addEventListener("reconnected", onReconnected);
+    api.addEventListener("execution_start", onExecutionStart);
+    api.addEventListener("progress", onProgress);
+    api.addEventListener("executing", onExecuting);
+    api.addEventListener("b_preview", onBPreview);
+    api.addEventListener("executed", onExecuted);
+    api.addEventListener("execution_success", onExecutionSuccess);
+    api.addEventListener("execution_error", onExecutionError);
+    api.addEventListener("execution_interrupted", onExecutionInterrupted);
+
+    // Return cleanup function to unhook listeners when destroyed
+    return () => {
+        api.removeEventListener("status", onStatus);
+        api.removeEventListener("reconnected", onReconnected);
+        api.removeEventListener("execution_start", onExecutionStart);
+        api.removeEventListener("progress", onProgress);
+        api.removeEventListener("executing", onExecuting);
+        api.removeEventListener("b_preview", onBPreview);
+        api.removeEventListener("executed", onExecuted);
+        api.removeEventListener("execution_success", onExecutionSuccess);
+        api.removeEventListener("execution_error", onExecutionError);
+        api.removeEventListener("execution_interrupted", onExecutionInterrupted);
+    };
 }
 
 export async function initSessionAndHistory() {
@@ -269,10 +293,9 @@ export async function initSessionAndHistory() {
             const status = (statusStr === "success" || statusStr === "completed") ? "completed" : 
                            (statusStr === "error" ? "error" : "cancelled");
 
-            // Filter out empty records from history so dummy "No Outputs" cards don't pollute queue
             if (images.length === 0 && texts.length === 0 && status === "completed") return;
 
-            State.globalOrderCounter++;
+            State.sequenceNumber++;
             promptStates.set(pid, {
                 pid: pid, 
                 status: status, 
@@ -281,13 +304,13 @@ export async function initSessionAndHistory() {
                 nodeOutputs: outputs,
                 workflow: workflow,
                 progressText: "", 
-                timestamp: State.globalOrderCounter, 
+                timestamp: State.sequenceNumber, 
                 rendered: true
             });
         });
 
         pruneHistory(app);
-        saveStatesToLocalStorage();
+        scheduleStateSave();
         await syncQueue();
     } catch (err) {
         console.error("Comfy Sidebar: Failed to initialize history from server API", err);

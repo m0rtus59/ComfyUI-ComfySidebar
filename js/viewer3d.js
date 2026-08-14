@@ -1,17 +1,14 @@
 import { is3DFormat } from "./utils.js";
-import { State } from "./state.js";
+import { SidebarOverlay } from "./overlay.js";
 
-let globalKeydownHandler = null;
 let cachedThreeLibs = null;
 
 async function getThreeLibs() {
     if (cachedThreeLibs) return cachedThreeLibs;
-
     if (window.THREE && window.THREE.GLTFLoader && window.THREE.OrbitControls) {
         cachedThreeLibs = window.THREE;
         return cachedThreeLibs;
     }
-
     try {
         const [three, controls, gltf, obj, stl, ply] = await Promise.all([
             import("https://esm.sh/three@0.170.0"),
@@ -38,54 +35,10 @@ async function getThreeLibs() {
 }
 
 export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = () => {}) {
-    if (globalKeydownHandler) {
-        document.removeEventListener("keydown", globalKeydownHandler);
-        globalKeydownHandler = null;
-    }
-
-    const container = document.createElement("div");
-    container.className = "comfy-sidebar-comparison-overlay comfy-sidebar-3d-overlay-root";
-    Object.assign(container.style, {
-        position: "fixed", top: "0", left: "0", width: "100vw", height: "100vh",
-        background: "rgba(10, 10, 10, 0.95)", display: "flex", flexDirection: "column",
-        zIndex: "1000", boxSizing: "border-box", overflow: "hidden",
-        pointerEvents: "auto", userSelect: "none", "-webkit-user-select": "none"
+    const overlay = new SidebarOverlay({
+        className: "comfy-sidebar-3d-overlay-root",
+        onDestroy
     });
-
-    const updateOverlayBounds = () => {
-        const sidebarEl = State.sidebarContainer?.closest('.comfyui-sidebar, .comfy-sidebar, .p-sidebar, [class*="sidebar"]') || State.sidebarContainer;
-        if (sidebarEl && sidebarEl.offsetWidth > 0 && sidebarEl.isConnected) {
-            const rect = sidebarEl.getBoundingClientRect();
-            if (rect.left < window.innerWidth / 2) {
-                const leftOffset = Math.max(0, rect.right);
-                container.style.left = `${leftOffset}px`;
-                container.style.width = `calc(100vw - ${leftOffset}px)`;
-                container.style.right = "0px";
-            } else {
-                const rightOffset = Math.max(0, window.innerWidth - rect.left);
-                container.style.left = "0px";
-                container.style.width = `calc(100vw - ${rightOffset}px)`;
-                container.style.right = `${rightOffset}px`;
-            }
-            container.style.top = `${Math.max(0, rect.top)}px`;
-            container.style.height = `calc(100vh - ${Math.max(0, rect.top)}px)`;
-        } else {
-            container.style.left = "0px";
-            container.style.width = "100vw";
-            container.style.top = "0px";
-            container.style.height = "100vh";
-        }
-    };
-
-    updateOverlayBounds();
-    window.addEventListener("resize", updateOverlayBounds);
-
-    let resizeObserver = null;
-    const sidebarEl = State.sidebarContainer?.closest('.comfyui-sidebar, .comfy-sidebar, .p-sidebar, [class*="sidebar"]') || State.sidebarContainer;
-    if (sidebarEl && window.ResizeObserver) {
-        resizeObserver = new ResizeObserver(() => updateOverlayBounds());
-        resizeObserver.observe(sidebarEl);
-    }
 
     const header = document.createElement("div");
     Object.assign(header.style, {
@@ -98,26 +51,14 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
     const titleText = document.createElement("span");
     titleText.textContent = baseSrc.split("/").pop().split("?")[0] || "3D Model";
     header.appendChild(titleText);
-    container.appendChild(header);
-
-    const closeBtn = document.createElement("span");
-    closeBtn.className = "pi pi-times";
-    closeBtn.title = "Close (Esc)";
-    Object.assign(closeBtn.style, {
-        position: "absolute", top: "16px", right: "24px", zIndex: "30",
-        cursor: "pointer", fontSize: "20px", color: "#aaa", transition: "color 0.15s ease",
-        background: "rgba(10,10,10,0.6)", borderRadius: "50%", padding: "4px"
-    });
-    closeBtn.onmouseenter = () => closeBtn.style.color = "#fff";
-    closeBtn.onmouseleave = () => closeBtn.style.color = "#aaa";
-    container.appendChild(closeBtn);
+    overlay.container.appendChild(header);
 
     const canvasContainer = document.createElement("div");
     Object.assign(canvasContainer.style, {
         width: "100%", height: "100%", position: "relative",
         display: "flex", alignItems: "center", justifyContent: "center"
     });
-    container.appendChild(canvasContainer);
+    overlay.container.appendChild(canvasContainer);
 
     const loadingSpinner = document.createElement("div");
     Object.assign(loadingSpinner.style, {
@@ -127,7 +68,7 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
         display: "flex", alignItems: "center", gap: "10px"
     });
     loadingSpinner.innerHTML = `<span class="pi pi-spin pi-spinner" style="font-size: 18px;"></span> Loading 3D Asset...`;
-    container.appendChild(loadingSpinner);
+    overlay.container.appendChild(loadingSpinner);
 
     const settingsPanel = document.createElement("div");
     Object.assign(settingsPanel.style, {
@@ -298,30 +239,7 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
         }
     };
 
-    const destroy = () => {
-        window.removeEventListener("resize", updateOverlayBounds);
-        if (resizeObserver) resizeObserver.disconnect();
-        if (globalKeydownHandler) {
-            document.removeEventListener("keydown", globalKeydownHandler);
-            globalKeydownHandler = null;
-        }
-        cleanup3D();
-        container.remove();
-        onDestroy();
-    };
-
-    closeBtn.onclick = destroy;
-    container.onclick = (e) => {
-        if (e.target === container || e.target === canvasContainer) destroy();
-    };
-
-    const handleKeys = (e) => {
-        if (e.key === "Escape") destroy();
-    };
-    globalKeydownHandler = handleKeys;
-    document.addEventListener("keydown", globalKeydownHandler);
-
-    document.body.appendChild(container);
+    overlay.addCleanup(cleanup3D);
 
     const initSceneAndLoad = async (srcUrl) => {
         loadingSpinner.style.display = "flex";
@@ -405,11 +323,9 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
                 const prevPos = camera.position.clone();
                 const prevTarget = controls.target.clone();
 
-                if (val === "orthographic") {
-                    camera = cameraOrtho;
-                } else {
-                    camera = cameraPersp;
-                }
+                if (val === "orthographic") camera = cameraOrtho;
+                else camera = cameraPersp;
+
                 camera.position.copy(prevPos);
                 controls.object = camera;
                 controls.target.copy(prevTarget);
@@ -455,7 +371,7 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
                 createFormGroup("FOV", fovContainer),
                 createFormGroup("Light Intensity", lightContainer)
             );
-            container.appendChild(settingsPanel);
+            overlay.container.appendChild(settingsPanel);
 
             const btnGrid = createToolbarBtn("pi pi-table", "Grid", true, (v) => { gridHelper.visible = v; });
             const btnRotate = createToolbarBtn("pi pi-sync", "Auto-Rotate", false, (v) => { autoRotate = v; });
@@ -496,7 +412,7 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
             exportSelect.style.color = "#93c5fd";
 
             toolbar.append(btnGrid, btnWire, btnRotate, btnResetCam, btnSettings, exportSelect);
-            container.appendChild(toolbar);
+            overlay.container.appendChild(toolbar);
 
             const onResize = () => {
                 if (!canvasContainer || !renderer || !cameraPersp || !cameraOrtho) return;
@@ -517,6 +433,7 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
                 renderer.setSize(width, height);
             };
             window.addEventListener("resize", onResize);
+            overlay.addCleanup(() => window.removeEventListener("resize", onResize));
 
             const animate = () => {
                 animId = requestAnimationFrame(animate);
@@ -557,16 +474,11 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
 
             if (loadedObj) {
                 currentModel = loadedObj;
-
                 currentModel.traverse((child) => {
-                    if (child.isMesh && child.material) {
-                        child._originalMaterial = child.material;
-                    }
+                    if (child.isMesh && child.material) child._originalMaterial = child.material;
                 });
-
                 applyMaterialMode();
                 applyUpDirection();
-
                 scene.add(currentModel);
                 fitCameraToObject(camera, currentModel, controls, THREE);
                 gridHelper.position.y = new THREE.Box3().setFromObject(currentModel).min.y;
@@ -605,12 +517,12 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
         is3D: true,
         loadTarget(targetSrc) {
             if (!is3DFormat(targetSrc)) {
-                destroy();
+                overlay.destroy();
                 onSwitchMedia(targetSrc);
                 return;
             }
             initSceneAndLoad(targetSrc);
         },
-        destroy
+        destroy: () => overlay.destroy()
     };
 }

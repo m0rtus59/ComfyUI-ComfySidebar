@@ -3,14 +3,23 @@ export const cardElements = new Map();
 
 export const State = {
     currentSearchQuery: "",
-    globalOrderCounter: 0,
+    sequenceNumber: 0,
     sidebarContainer: null,
-    cardStack: null,                  // Main queue scroll container
-    submenuStack: null,               // Submenu scroll container
+    cardStack: null,
+    submenuStack: null,
     currentlyActivePromptId: null,
-    activeSubmenuPromptId: null,      // Active run/outputs explorer pointer
-    activeSubmenuBatchImages: null    // Active batch images explorer pointer
+    activeSubmenuPromptId: null,
+    activeSubmenuBatchImages: null
 };
+
+let saveTimer = null;
+export function scheduleStateSave(delay = 250) {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+        saveTimer = null;
+        saveStatesToLocalStorage();
+    }, delay);
+}
 
 export function deletePromptState(pid) {
     const key = String(pid);
@@ -32,7 +41,7 @@ export function pruneHistory(app) {
     const tasks = Array.from(promptStates.entries())
         .filter(([pid, state]) => state.status !== "pending" && state.status !== "active");
     
-    tasks.sort((a, b) => a[1].timestamp - b[1].timestamp);
+    tasks.sort((a, b) => (a[1].timestamp || 0) - (b[1].timestamp || 0));
     
     if (tasks.length > maxItems) {
         const deleteCount = tasks.length - maxItems;
@@ -52,8 +61,6 @@ export function saveStatesToLocalStorage() {
                 return img;
             }).filter(Boolean);
 
-            // Include workflow JSON ONLY for image-less / unfinished / failed tasks
-            // so users can load or save their workflows even after browser reloads!
             const includeWorkflow = cleanedImages.length === 0 || state.status !== "completed";
 
             serializable.push({
@@ -105,7 +112,7 @@ export function loadStatesFromLocalStorage() {
             list.forEach(state => {
                 const key = String(state.pid);
                 promptStates.set(key, state);
-                if (state.timestamp > State.globalOrderCounter) State.globalOrderCounter = state.timestamp;
+                if (state.timestamp > State.sequenceNumber) State.sequenceNumber = state.timestamp;
             });
         }
     } catch (e) {}
