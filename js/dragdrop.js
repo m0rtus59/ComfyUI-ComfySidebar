@@ -40,7 +40,7 @@ export function setupDragAndDrop() {
         const canvas = app.canvas;
         if (!canvas || !canvas.graph) return;
 
-        // 1. Check for workflow JSON drop (text-only and unfinished cards)
+        // 1. Check for workflow JSON drop
         const jsonStr = e.dataTransfer.getData("application/json");
         if (jsonStr) {
             try {
@@ -59,7 +59,7 @@ export function setupDragAndDrop() {
             } catch (err) {}
         }
 
-        // 2. Check for image / video / 3D URL drop
+        // 2. Check for image / video / 3D / audio URL drop
         const url = e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain");
         if (url) {
             try {
@@ -82,9 +82,11 @@ export function setupDragAndDrop() {
                             targetNode = canvas.graph.getNodeOnPos((e.clientX - rect.left - canvas.ds.offset[0]) / canvas.ds.scale, (e.clientY - rect.top - canvas.ds.offset[1]) / canvas.ds.scale);
                         }
 
-                        // Check if dropped on a LoadImage, LoadVideo, Load3D, VHS_LoadVideo, or image/video/3D widget node
+                        // Check if dropped on a LoadImage, LoadVideo, Load3D, LoadAudio, or widget node
                         const widget = targetNode?.widgets?.find(w => 
-                            w.name === "image" || w.name === "video" || w.name === "file" || w.name === "video_path" || w.name === "model_file" || w.name === "3d_file" || w.type === "image" || w.type === "customtext"
+                            w.name === "image" || w.name === "video" || w.name === "audio" || w.name === "audio_file" ||
+                            w.name === "file" || w.name === "video_path" || w.name === "model_file" || w.name === "3d_file" ||
+                            w.type === "image" || w.type === "customtext"
                         );
 
                         const isLoadNode = targetNode && (
@@ -94,6 +96,9 @@ export function setupDragAndDrop() {
                             targetNode.type?.includes("VHS_LoadVideo") || 
                             targetNode.type?.includes("Load3D") || 
                             targetNode.type?.includes("Load 3D") || 
+                            targetNode.type?.includes("LoadAudio") || 
+                            targetNode.type?.includes("Load Audio") || 
+                            targetNode.type?.includes("VHS_LoadAudio") || 
                             targetNode.type?.includes("Preview3D")
                         );
 
@@ -115,7 +120,7 @@ export function setupDragAndDrop() {
                                 }
                             }
                         } else {
-                            // Dropped on empty canvas area: fetch file and load embedded workflow metadata
+                            // Dropped on empty canvas area
                             const src = `/view?filename=${encodeURIComponent(filename)}&type=${type}&subfolder=${encodeURIComponent(subfolder)}`;
                             const res = await fetch(src);
                             if (res.ok) {

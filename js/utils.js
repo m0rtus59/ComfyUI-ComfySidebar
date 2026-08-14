@@ -14,6 +14,28 @@ export const is3DFormat = (url) => {
            s.includes(".spz") || s.includes(".ksplat") || s.includes(".fbx");
 };
 
+export const isAudioFormat = (url) => {
+    if (!url) return false;
+    const s = String(url).toLowerCase();
+    return s.includes(".wav") || s.includes(".mp3") || s.includes(".ogg") || 
+           s.includes(".flac") || s.includes(".m4a") || s.includes(".aac") || 
+           s.includes(".opus");
+};
+
+export function getFilenameFromUrl(url) {
+    if (!url) return "";
+    try {
+        const u = new URL(url, window.location.origin);
+        if (u.searchParams && u.searchParams.get("filename")) {
+            return u.searchParams.get("filename");
+        }
+        const pathname = u.pathname || "";
+        return pathname.split("/").pop() || "";
+    } catch (e) {
+        return String(url).split("?")[0].split("/").pop() || "";
+    }
+}
+
 export function parseWorkflow(workflow) {
     if (!workflow) return null;
     if (typeof workflow === "object") return workflow;

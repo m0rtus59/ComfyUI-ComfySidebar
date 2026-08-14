@@ -72,11 +72,11 @@ export function injectStyles() {
             display: inline-flex;
             align-items: center !important;
             justify-content: center !important;
-            width: 32px !important;
-            height: 32px !important;
+            width: 30px !important;
+            height: 30px !important;
             background-color: rgba(0, 0, 0, 0.75) !important;
             color: #e2e8f0 !important;
-            font-size: 14px !important;
+            font-size: 13px !important;
             border-radius: 6px !important;
             cursor: pointer !important;
             transition: all 0.15s ease !important;
@@ -129,8 +129,8 @@ export function injectStyles() {
         /* Scroll To Top Floating Button */
         .comfy-sidebar-scroll-top-btn {
             position: absolute;
-            bottom: 12px;
-            right: 12px;
+            bottom: 14px;
+            right: 28px;
             width: 32px;
             height: 32px;
             border-radius: 50%;
@@ -248,6 +248,106 @@ export function injectStyles() {
             border-radius: 3px;
             backdrop-filter: blur(2px);
             z-index: 3;
+        }
+
+        /* Audio Preview Cards */
+        .comfy-sidebar-audio-wrapper {
+            width: 100%;
+            min-height: 110px;
+            background: linear-gradient(135deg, #1e1333 0%, #0f172a 100%);
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 10px 12px 12px 12px;
+            box-sizing: border-box;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            transition: all 0.2s ease-in-out;
+            user-select: none;
+            cursor: pointer;
+        }
+
+        .comfy-sidebar-audio-wrapper:hover {
+            border-color: #a855f7;
+            box-shadow: 0 0 12px rgba(168, 85, 247, 0.35);
+        }
+
+        .comfy-sidebar-audio-badge {
+            background: rgba(168, 85, 247, 0.9);
+            color: #fff;
+            font-size: 9px;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 3px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+            z-index: 3;
+        }
+
+        .comfy-sidebar-audio-title {
+            font-size: 10px;
+            color: #f1f5f9;
+            font-family: monospace;
+            max-width: 65%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            z-index: 3;
+        }
+
+        .comfy-sidebar-soundwave-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            height: 36px;
+            margin: 4px 0;
+        }
+
+        .comfy-sidebar-soundwave-bar {
+            width: 3px;
+            background: #a855f7;
+            border-radius: 2px;
+            height: 8px;
+            transition: height 0.1s ease, background-color 0.2s ease;
+        }
+
+        .comfy-sidebar-audio-wrapper.playing .comfy-sidebar-soundwave-bar {
+            background: #c084fc;
+            animation: comfySidebarWave 1s ease-in-out infinite alternate;
+        }
+
+        @keyframes comfySidebarWave {
+            0% { transform: scaleY(0.4); }
+            100% { transform: scaleY(1.3); }
+        }
+
+        /* Text Output Card Clamping */
+        .comfy-sidebar-text-clamp {
+            font-size: 11px;
+            line-height: 1.45;
+            color: #cbd5e1;
+            max-height: 84px;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 4;
+            -webkit-box-orient: vertical;
+            cursor: pointer;
+            padding: 8px 10px;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            margin-top: 18px;
+            word-break: break-word;
+            transition: all 0.15s ease-in-out;
+        }
+
+        .comfy-sidebar-text-clamp:hover {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.08);
         }
     `;
     document.head.appendChild(style);

@@ -9,7 +9,6 @@ let isInitialized = false;
 let activeKeydownHandler = null;
 let nodeDOMObserver = null;
 
-// Helper to scan node container for the exact text element rendering the title (Vue Mode)
 function findHeaderByText(parent, text) {
     if (!text) return null;
     const cleanText = text.trim();
@@ -26,7 +25,6 @@ function findHeaderByText(parent, text) {
 }
 
 function syncNodeVueBadge(node, isIgnored) {
-    // Robust multi-selector search for Vue node containers across different frontend versions
     const nodeEl = document.querySelector(
         `.comfy-node[data-node-id="${node.id}"], ` +
         `[data-node-id="${node.id}"], ` +
@@ -175,7 +173,6 @@ app.registerExtension({
     
     init() {
         app.ui.settings.addSetting({ id: "Comfy Sidebar.Grid Columns Threshold", name: "Width Threshold for Queue Columns (px)", type: "number", defaultValue: 350 });
-        app.ui.settings.addSetting({ id: "Comfy Sidebar.Keep Object Aspect Ratio", name: "If disabled, cards in the queue will be cropped to the same size.", type: "boolean", defaultValue: true });
         app.ui.settings.addSetting({ id: "Comfy Sidebar.Show Pending Count Only", name: "If disabled, each queued job will have a separate individual card", type: "boolean", defaultValue: true });
         app.ui.settings.addSetting({ id: "Comfy Sidebar.Show Working Node Name", name: "Shows the name of the node which is currently in the process", type: "boolean", defaultValue: true });
         app.ui.settings.addSetting({ id: "Comfy Sidebar.Auto Clear Interrupted", name: "Auto-clear cancelled & failed jobs on new generation", type: "boolean", defaultValue: false });
@@ -283,16 +280,13 @@ app.registerExtension({
         
         await initSessionAndHistory();
 
-        // Watch for Vue DOM node mounting events (e.g. LiteGraph ↔ Vue mode switches)
         setupVueNodeObserver();
 
-        // Remove any existing keydown listener from previous hot-reload
         if (activeKeydownHandler) {
             document.removeEventListener("keydown", activeKeydownHandler, true);
             activeKeydownHandler = null;
         }
 
-        // Clean, direct keyboard listener
         activeKeydownHandler = (e) => {
             const activeEl = document.activeElement;
             if (activeEl && (
@@ -302,7 +296,6 @@ app.registerExtension({
                 activeEl.tagName === "SELECT"
             )) return;
             
-            // Toggle sidebar with Q
             if (e.key.toLowerCase() === "q" && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -310,7 +303,6 @@ app.registerExtension({
                 if (ourBtn) ourBtn.click();
             }
 
-            // Toggle ignore node with Ctrl+Q or Cmd+Q (Mac)
             if (e.key.toLowerCase() === "q" && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -320,7 +312,6 @@ app.registerExtension({
 
         document.addEventListener("keydown", activeKeydownHandler, true);
 
-        // Apply sidebar override when initializing
         applySidebarOverride();
 
         app.extensionManager.registerSidebarTab({ 

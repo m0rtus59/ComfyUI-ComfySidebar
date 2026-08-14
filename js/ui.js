@@ -1,11 +1,22 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 import { State, promptStates, cardElements, saveStatesToLocalStorage, deletePromptState } from "./state.js";
-import { isVideoFormat, is3DFormat, matchesFilter, getRunOutputs } from "./utils.js";
-import { showFullscreenPreview } from "./comparison.js";
+import { isVideoFormat, is3DFormat, isAudioFormat, getFilenameFromUrl, matchesFilter, getRunOutputs } from "./utils.js";
+import { showFullscreenPreview, isAudioViewerOpen } from "./comparison.js";
 
 export let syncQueueFn = async () => {};
 export function setSyncQueue(fn) { syncQueueFn = fn; }
+
+// Global audio playback manager: ensures only 1 audio stream plays at a time
+let currentlyPlayingAudio = null;
+export function stopAllAudioPlayback() {
+    if (currentlyPlayingAudio) {
+        currentlyPlayingAudio.pause();
+        currentlyPlayingAudio.currentTime = 0;
+        if (currentlyPlayingAudio._onResetUI) currentlyPlayingAudio._onResetUI();
+        currentlyPlayingAudio = null;
+    }
+}
 
 function resetAllCardHoverStates() {
     for (const cardObj of cardElements.values()) {
@@ -63,20 +74,6 @@ function findNodeIdForImage(state, img) {
                 return nodeId;
             }
         }
-    }
-    return null;
-}
-
-function findNodeIdFor3DAsset(state, img) {
-    const exactNodeId = findNodeIdForImage(state, img);
-    if (exactNodeId) return exactNodeId;
-
-    if (app.graph && app.graph._nodes) {
-        const node = app.graph._nodes.find(n => 
-            n.type?.includes("Preview3D") || n.type?.includes("Load3D") || 
-            n.type?.includes("SaveGLB") || n.type?.includes("Save 3D")
-        );
-        if (node) return String(node.id);
     }
     return null;
 }
@@ -407,8 +404,7 @@ function render3DCardPreview(cardObj, wrapper, src, img, state) {
     let preview3D = wrapper.querySelector(".comfy-sidebar-3d-wrapper");
     const fullUrl = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}`;
 
-    // Find the LAST 2D image generated in the same prompt run to use as background thumbnail
-    const imageAssets = state?.images?.filter(i => !is3DFormat(i.filename || i.url) && !isVideoFormat(i.filename || i.url)) || [];
+    const imageAssets = state?.images?.filter(i => !is3DFormat(i.filename || i.url) && !isVideoFormat(i.filename || i.url) && !isAudioFormat(i.filename || i.url)) || [];
     const lastImageAsset = imageAssets.length > 0 ? imageAssets[imageAssets.length - 1] : null;
     const bgImgSrc = lastImageAsset
         ? (lastImageAsset.url || window.location.origin + `/view?filename=${encodeURIComponent(lastImageAsset.filename)}&type=${lastImageAsset.type || 'output'}&subfolder=${encodeURIComponent(lastImageAsset.subfolder || '')}`)
@@ -464,29 +460,9 @@ function render3DCardPreview(cardObj, wrapper, src, img, state) {
 
     preview3D.onclick = (ev) => {
         ev.stopPropagation();
-        
-        // 1. Try Native Frontend 3D Viewer if available
-        if (window.app?.ui?.show3DViewer) {
-            window.app.ui.show3DViewer(fullUrl);
-            return;
-        }
-
-        // 2. Focus and select 3D node on workflow canvas
-        const nodeId = findNodeIdFor3DAsset(state, img);
-        if (nodeId && app.graph && app.canvas) {
-            const node = app.graph.getNodeById(Number(nodeId));
-            if (node) {
-                app.canvas.centerOnNode(node);
-                app.canvas.selectNode(node);
-                return;
-            }
-        }
-
-        // 3. Fallback to comparison/fullscreen modal handler
         showFullscreenPreview([fullUrl], ev.shiftKey);
     };
 
-    // Configure drag & drop for 3D files
     preview3D.setAttribute("draggable", "true");
     preview3D.ondragstart = (e) => {
         e.stopPropagation();
@@ -505,7 +481,195 @@ function render3DCardPreview(cardObj, wrapper, src, img, state) {
     };
 }
 
-function renderCardImages(cardObj, state, keepAspect) {
+function renderAudioCardPreview(cardObj, wrapper, src, img, state) {
+    let previewAudio = wrapper.querySelector(".comfy-sidebar-audio-wrapper");
+    const fullUrl = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}`;
+    const filename = img.filename || getFilenameFromUrl(src) || "audio.wav";
+    const ext = filename.split('.').pop().toUpperCase();
+
+    // Solid white SVGs for exact video card style consistency
+    const playIconSvg = `<svg viewBox="0 0 24 24" width="14" height="14" style="margin-left: 2px; pointer-events: none;"><polygon points="6,4 20,12 6,20" fill="#ffffff"/></svg>`;
+    const stopIconSvg = `<svg viewBox="0 0 24 24" width="12" height="12" style="pointer-events: none;"><rect x="5" y="5" width="14" height="14" rx="2" fill="#ffffff"/></svg>`;
+
+    if (!previewAudio) {
+        wrapper.innerHTML = "";
+        previewAudio = document.createElement("div");
+        previewAudio.className = "comfy-sidebar-audio-wrapper";
+
+        const topRow = document.createElement("div");
+        Object.assign(topRow.style, { display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", paddingLeft: "42px" });
+
+        const title = document.createElement("span");
+        title.className = "comfy-sidebar-audio-title";
+        title.textContent = filename;
+
+        const badge = document.createElement("span");
+        badge.className = "comfy-sidebar-audio-badge";
+        badge.textContent = ext || "AUDIO";
+
+        topRow.append(title, badge);
+
+        // Center Area: Waveform + Centered Play Button
+        const centerArea = document.createElement("div");
+        Object.assign(centerArea.style, { position: "relative", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", margin: "6px 0" });
+
+        const soundwave = document.createElement("div");
+        soundwave.className = "comfy-sidebar-soundwave-container";
+        soundwave.style.width = "100%";
+        const barHeights = [10, 16, 24, 18, 30, 22, 14, 28, 34, 20, 12, 26, 32, 18, 14, 22, 30, 16, 12];
+        barHeights.forEach((h, i) => {
+            const bar = document.createElement("div");
+            bar.className = "comfy-sidebar-soundwave-bar";
+            bar.style.height = `${h}px`;
+            bar.style.animationDelay = `${(i * 0.08).toFixed(2)}s`;
+            soundwave.appendChild(bar);
+        });
+
+        const playBtn = document.createElement("button");
+        Object.assign(playBtn.style, {
+            position: "absolute", width: "36px", height: "36px", borderRadius: "50%",
+            background: "rgba(22, 22, 30, 0.88)", border: "1px solid rgba(255, 255, 255, 0.25)",
+            color: "#ffffff", cursor: "pointer", display: "flex", alignItems: "center",
+            justifyContent: "center", boxShadow: "0 4px 12px rgba(0, 0, 0, 0.65)", zIndex: "5",
+            transition: "all 0.15s ease", outline: "none"
+        });
+        playBtn.innerHTML = playIconSvg;
+
+        centerArea.append(soundwave, playBtn);
+
+        // Bottom Row: Scrubber + Centered Time Label (with side padding so corner hover buttons don't block controls)
+        const bottomRow = document.createElement("div");
+        Object.assign(bottomRow.style, { display: "flex", flexDirection: "column", gap: "4px", width: "100%", padding: "0 34px", boxSizing: "border-box" });
+
+        const scrubber = document.createElement("div");
+        Object.assign(scrubber.style, {
+            width: "100%", height: "4px", background: "#334155", borderRadius: "2px",
+            position: "relative", cursor: "pointer"
+        });
+        const scrubberFill = document.createElement("div");
+        Object.assign(scrubberFill.style, {
+            width: "0%", height: "100%", background: "#c084fc", borderRadius: "2px"
+        });
+        scrubber.appendChild(scrubberFill);
+
+        const timeLabel = document.createElement("div");
+        Object.assign(timeLabel.style, { fontSize: "9px", fontFamily: "monospace", color: "#94a3b8", textAlign: "center" });
+        timeLabel.textContent = "0:00 / 0:00";
+
+        bottomRow.append(scrubber, timeLabel);
+
+        const audioEl = document.createElement("audio");
+        audioEl.src = fullUrl;
+        audioEl.preload = "metadata";
+
+        const formatTime = (t) => {
+            const m = Math.floor(t / 60);
+            const s = Math.floor(t % 60);
+            return `${m}:${s < 10 ? '0' : ''}${s}`;
+        };
+
+        const resetAudioUI = () => {
+            playBtn.innerHTML = playIconSvg;
+            previewAudio.classList.remove("playing");
+            scrubberFill.style.width = "0%";
+            timeLabel.textContent = `0:00 / ${formatTime(audioEl.duration || 0)}`;
+        };
+
+        audioEl._onResetUI = resetAudioUI;
+
+        audioEl.onloadedmetadata = () => {
+            timeLabel.textContent = `0:00 / ${formatTime(audioEl.duration || 0)}`;
+        };
+
+        audioEl.ontimeupdate = () => {
+            if (audioEl.duration > 0) {
+                const percent = (audioEl.currentTime / audioEl.duration) * 100;
+                scrubberFill.style.width = `${percent}%`;
+                timeLabel.textContent = `${formatTime(audioEl.currentTime)} / ${formatTime(audioEl.duration)}`;
+            }
+        };
+
+        audioEl.onended = () => {
+            resetAudioUI();
+            if (currentlyPlayingAudio === audioEl) currentlyPlayingAudio = null;
+        };
+
+        const togglePlay = (e) => {
+            e.stopPropagation();
+
+            // If the fullscreen audio player is open, switch the modal player to this track
+            if (isAudioViewerOpen()) {
+                stopAllAudioPlayback();
+                showFullscreenPreview([fullUrl]);
+                return;
+            }
+
+            if (audioEl.paused) {
+                stopAllAudioPlayback();
+                currentlyPlayingAudio = audioEl;
+                audioEl.play().catch(()=>{});
+                playBtn.innerHTML = stopIconSvg;
+                previewAudio.classList.add("playing");
+            } else {
+                audioEl.pause();
+                audioEl.currentTime = 0;
+                resetAudioUI();
+                if (currentlyPlayingAudio === audioEl) currentlyPlayingAudio = null;
+            }
+        };
+
+        playBtn.onclick = togglePlay;
+
+        playBtn.onmouseenter = () => {
+            playBtn.style.background = "#9333ea";
+            playBtn.style.borderColor = "#c084fc";
+            playBtn.style.transform = "scale(1.08)";
+        };
+        playBtn.onmouseleave = () => {
+            playBtn.style.background = previewAudio.classList.contains("playing") ? "rgba(147, 51, 234, 0.85)" : "rgba(22, 22, 30, 0.88)";
+            playBtn.style.borderColor = "rgba(255, 255, 255, 0.25)";
+            playBtn.style.transform = "scale(1.0)";
+        };
+
+        scrubber.onclick = (e) => {
+            e.stopPropagation();
+            const rect = scrubber.getBoundingClientRect();
+            const pos = (e.clientX - rect.left) / rect.width;
+            if (audioEl.duration > 0) {
+                audioEl.currentTime = pos * audioEl.duration;
+            }
+        };
+
+        previewAudio.append(topRow, centerArea, bottomRow, audioEl);
+        wrapper.appendChild(previewAudio);
+
+        // Clicking the card stops any other audio and launches the fullscreen player
+        previewAudio.onclick = (e) => {
+            if (e.target.closest('button, input') || e.target === scrubber || e.target === scrubberFill) return;
+            stopAllAudioPlayback();
+            showFullscreenPreview([fullUrl]);
+        };
+    }
+
+    cardObj.firstImgElement = previewAudio;
+
+    previewAudio.setAttribute("draggable", "true");
+    previewAudio.ondragstart = (e) => {
+        e.stopPropagation();
+        const mimeType = "audio/wav";
+        try {
+            e.dataTransfer.setData("text/uri-list", fullUrl);
+            e.dataTransfer.setData("text/plain", fullUrl);
+            e.dataTransfer.setData("DownloadURL", `${mimeType}:${filename}:${fullUrl}`);
+            if (state && state.workflow) {
+                e.dataTransfer.setData("application/json", JSON.stringify(state.workflow));
+            }
+        } catch (err) {}
+        e.dataTransfer.effectAllowed = "copy";
+    };
+}
+
+function renderCardImages(cardObj, state) {
     cardObj.currentImageIndex = cardObj.currentImageIndex || 0;
     if (cardObj.currentImageIndex >= state.images.length) {
         cardObj.currentImageIndex = 0;
@@ -523,6 +687,7 @@ function renderCardImages(cardObj, state, keepAspect) {
     const src = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}`;
     const isVideo = isVideoFormat(src);
     const is3D = is3DFormat(src) || is3DFormat(img.filename);
+    const isAudio = isAudioFormat(src) || isAudioFormat(img.filename);
 
     let wrapper = cardObj.grid.querySelector(".comfy-sidebar-media-wrapper");
     if (!wrapper) {
@@ -535,6 +700,11 @@ function renderCardImages(cardObj, state, keepAspect) {
 
     if (is3D) {
         render3DCardPreview(cardObj, wrapper, src, img, state);
+        return;
+    }
+
+    if (isAudio) {
+        renderAudioCardPreview(cardObj, wrapper, src, img, state);
         return;
     }
 
@@ -562,9 +732,8 @@ function renderCardImages(cardObj, state, keepAspect) {
         showFullscreenPreview([src], ev.shiftKey); 
     };
 
-    // Auto-prune card ONLY if file returns 404 Not Found from server
     mediaEl.onerror = async () => {
-        if (src && !src.startsWith("blob:") && !is3D) {
+        if (src && !src.startsWith("blob:") && !is3D && !isAudio) {
             try {
                 const res = await fetch(src, { method: "HEAD" });
                 if (res.status === 404) {
@@ -573,9 +742,7 @@ function renderCardImages(cardObj, state, keepAspect) {
                     if (cardObj.element) cardObj.element.remove();
                     return;
                 }
-            } catch (e) {
-                // Ignore network error - keep card
-            }
+            } catch (e) {}
             if (cardObj.placeholder) {
                 cardObj.placeholder.textContent = "Error loading media preview";
                 cardObj.placeholder.style.display = "block";
@@ -584,9 +751,6 @@ function renderCardImages(cardObj, state, keepAspect) {
     };
 
     const applyDimensions = (width, height) => {
-        if (keepAspect && width && height) {
-            mediaEl.style.aspectRatio = `${width} / ${height}`;
-        }
         if (cardObj.dimEl && width && height) {
             cardObj.dimEl.textContent = `${width}x${height}`;
             cardObj.dimEl.style.display = "block";
@@ -728,7 +892,7 @@ function renderCardImages(cardObj, state, keepAspect) {
             prevBtn.onclick = (ev) => {
                 ev.stopPropagation();
                 cardObj.currentImageIndex = (cardObj.currentImageIndex - 1 + state.images.length) % state.images.length;
-                renderCardImages(cardObj, state, keepAspect);
+                renderCardImages(cardObj, state);
             };
 
             const label = document.createElement("span");
@@ -759,7 +923,7 @@ function renderCardImages(cardObj, state, keepAspect) {
             nextBtn.onclick = (ev) => {
                 ev.stopPropagation();
                 cardObj.currentImageIndex = (cardObj.currentImageIndex + 1) % state.images.length;
-                renderCardImages(cardObj, state, keepAspect);
+                renderCardImages(cardObj, state);
             };
 
             navBar.append(prevBtn, label, nextBtn);
@@ -783,7 +947,7 @@ const handleGlobalClick = (e) => {
     }
     const sidebar = State.sidebarContainer;
     const clickedInsideSidebar = sidebar && sidebar.contains(e.target);
-    const clickedFullscreenOverlay = e.target.closest('div[style*="zIndex: 999"]');
+    const clickedFullscreenOverlay = e.target.closest('div[style*="zIndex: 999"], .comfy-sidebar-comparison-overlay');
     
     if (!clickedInsideSidebar && !clickedFullscreenOverlay) {
         State.activeSubmenuPromptId = null;
@@ -800,7 +964,6 @@ export function renderDOM() {
     if (renderTimeout) cancelAnimationFrame(renderTimeout);
     renderTimeout = requestAnimationFrame(() => {
         const showPendingSummary = app.ui.settings.getSettingValue("Comfy Sidebar.Show Pending Count Only") ?? true;
-        const keepAspect = app.ui.settings.getSettingValue("Comfy Sidebar.Keep Object Aspect Ratio") ?? true;
         const showWorkingNode = app.ui.settings.getSettingValue("Comfy Sidebar.Show Working Node Name") ?? true;
 
         const headerTitle = State.sidebarContainer.querySelector("h3");
@@ -858,9 +1021,7 @@ export function renderDOM() {
                     grid.style.display = "flex"; grid.style.flexDirection = "column"; grid.style.gap = "6px";
 
                     const p = document.createElement("div");
-                    Object.assign(p.style, {
-                        fontSize: "11px", opacity: "0.5", textAlign: "center", padding: "12px", marginTop: "12px", userSelect: "none"
-                    });
+                    p.className = "comfy-sidebar-text-clamp";
 
                     const hoverPanel = document.createElement("div");
                     hoverPanel.className = "comfy-sidebar-hover-panel";
@@ -896,9 +1057,7 @@ export function renderDOM() {
                 }
 
                 cardObj.placeholder.style.display = "none";
-
-                renderCardImages(cardObj, { pid: batchInfo.pid, status: "completed", images: [img], workflow: batchInfo.workflow, nodeOutputs: batchInfo.nodeOutputs }, keepAspect);
-
+                renderCardImages(cardObj, { pid: batchInfo.pid, status: "completed", images: [img], workflow: batchInfo.workflow, nodeOutputs: batchInfo.nodeOutputs });
                 targetElements.push(cardObj.element);
             });
 
@@ -969,9 +1128,7 @@ export function renderDOM() {
                     grid.style.display = "flex"; grid.style.flexDirection = "column"; grid.style.gap = "6px";
                     
                     const p = document.createElement("div"); 
-                    Object.assign(p.style, { 
-                        fontSize: "11px", opacity: "0.5", textAlign: "center", padding: "12px", marginTop: "12px", userSelect: "none"
-                    });
+                    p.className = "comfy-sidebar-text-clamp";
 
                     const hoverPanel = document.createElement("div");
                     hoverPanel.className = "comfy-sidebar-hover-panel";
@@ -1008,7 +1165,7 @@ export function renderDOM() {
 
                 if (out.images && out.images.length > 0) {
                     cardObj.placeholder.style.display = "none";
-                    renderCardImages(cardObj, { pid: st.pid, status: "completed", images: out.images, workflow: st.workflow, nodeOutputs: st.nodeOutputs }, keepAspect);
+                    renderCardImages(cardObj, { pid: st.pid, status: "completed", images: out.images, workflow: st.workflow, nodeOutputs: st.nodeOutputs });
                 } else {
                     cardObj.placeholder.style.display = "block";
                     cardObj.placeholder.textContent = "No Outputs";
@@ -1067,11 +1224,10 @@ export function renderDOM() {
                 const sBadge = document.createElement("div");
                 Object.assign(sBadge.style, { position: "absolute", top: "6px", right: "8px", fontSize: "9px", fontWeight: "bold", padding: "2px 6px", borderRadius: "2px", textTransform: "uppercase", display: "none", pointerEvents: "none", zIndex: "10" });
                 const grid = document.createElement("div"); grid.style.display = "flex"; grid.style.flexDirection = "column"; grid.style.gap = "6px";
+                
                 const p = document.createElement("div"); 
-                Object.assign(p.style, { 
-                    fontSize: "11px", opacity: "0.5", textAlign: "center", padding: "12px", marginTop: "12px", userSelect: "none",
-                    display: "-webkit-box", WebkitLineClamp: "15", WebkitBoxOrient: "vertical", overflow: "hidden", wordBreak: "break-word"
-                });
+                p.className = "comfy-sidebar-text-clamp";
+
                 const pt = document.createElement("div"); Object.assign(pt.style, { width: "100%", height: "4px", background: "#333", borderRadius: "2px", marginTop: "8px", overflow: "hidden", display: "none" });
                 const pb = document.createElement("div"); Object.assign(pb.style, { width: `0%`, height: "100%", background: "#3b82f6", transition: "width 0.1s linear" });
                 pt.appendChild(pb);
@@ -1209,16 +1365,31 @@ export function renderDOM() {
                     cardObj.grid.innerHTML = ""; cardObj.firstImgElement = null; cardObj.placeholder.style.display = "block";
                 } else {
                     cardObj.placeholder.style.display = "none";
-                    renderCardImages(cardObj, state, keepAspect);
+                    renderCardImages(cardObj, state);
                 }
                 cardObj.lastImagesSignature = currentImagesSignature;
             }
 
             if (state.images.length === 0) {
                 if (state.texts && state.texts.length > 0) {
-                    cardObj.placeholder.textContent = state.texts.join("\n"); Object.assign(cardObj.placeholder.style, { whiteSpace: "pre-wrap", textAlign: "left" });
+                    const fullText = state.texts.join("\n\n");
+                    cardObj.placeholder.textContent = fullText;
+                    cardObj.placeholder.title = "Click to read full text";
+                    cardObj.placeholder.className = "comfy-sidebar-text-clamp";
+                    cardObj.placeholder.style.display = "-webkit-box";
+                    cardObj.placeholder.onclick = (e) => {
+                        e.stopPropagation();
+                        stopAllAudioPlayback();
+                        showFullscreenPreview([{ text: fullText, pid: state.pid }]);
+                    };
                 } else {
-                    cardObj.placeholder.textContent = state.progressText || "No Outputs"; Object.assign(cardObj.placeholder.style, { whiteSpace: "normal", textAlign: "center" });
+                    cardObj.placeholder.textContent = state.progressText || "No Outputs";
+                    cardObj.placeholder.className = "";
+                    Object.assign(cardObj.placeholder.style, {
+                        fontSize: "11px", opacity: "0.5", textAlign: "center", padding: "12px", marginTop: "12px",
+                        userSelect: "none", whiteSpace: "normal", maxHeight: "none", display: "block", cursor: "default"
+                    });
+                    cardObj.placeholder.onclick = null;
                 }
             }
 
