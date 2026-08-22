@@ -391,17 +391,6 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
     });
     scrollContainer.appendChild(wrapper);
 
-    const hintPrompt = document.createElement("div");
-    Object.assign(hintPrompt.style, {
-        position: "absolute", bottom: "16px", left: "50%", transform: "translateX(-50%)",
-        zIndex: "30", color: "#888", fontSize: "12px", fontFamily: "sans-serif",
-        pointerEvents: "none", background: "rgba(10,10,10,0.75)", padding: "4px 10px",
-        borderRadius: "4px", backdropFilter: "blur(4px)", boxShadow: "0 2px 6px rgba(0,0,0,0.4)"
-    });
-    hintPrompt.innerHTML = 'Tip: Hold <span style="color:#aaa;font-weight:bold;">Shift</span> while clicking sidebar cards to compare outputs side-by-side.';
-    if (isBaseVideo) hintPrompt.style.display = "none";
-    overlay.container.appendChild(hintPrompt);
-
     let mediaA = createMediaElement(baseSrc, false);
     wrapper.appendChild(mediaA);
     let isZoomed = false;
@@ -529,17 +518,15 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
             wrapper.style.maxHeight = "85%";
             wrapper.style.width = "auto";
             wrapper.style.height = "auto";
-            wrapper.style.aspectRatio = `${maxW} / ${maxH}`;
             wrapper.style.cursor = "zoom-in";
 
             [mediaA, mediaB].forEach(el => {
                 if (el) {
                     el.style.maxWidth = "100%";
                     el.style.maxHeight = "80vh";
-                    el.style.width = "100%";
-                    el.style.height = "100%";
-                    el.style.objectFit = "fill";
-                    el.style.aspectRatio = `${maxW} / ${maxH}`;
+                    el.style.width = "auto";
+                    el.style.height = "auto";
+                    el.style.objectFit = "contain";
                 }
             });
         }
