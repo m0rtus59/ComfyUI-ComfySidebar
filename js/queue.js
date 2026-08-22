@@ -141,13 +141,13 @@ export function setupApiListeners() {
 
         if (promptStates.has(pid)) {
             const st = promptStates.get(pid);
-            st.status = "active"; st.progressText = "Sampling..."; st.workflow = activeWorkspaceWorkflow;
+            st.status = "active"; st.progressText = "Processing..."; st.workflow = activeWorkspaceWorkflow;
             st.rendered = false; st.startTime = Date.now(); st.duration = null;
         } else {
             State.sequenceNumber++;
             promptStates.set(pid, {
                 pid: pid, status: "active", images: [], progress: 0,
-                progressText: "Sampling...", timestamp: State.sequenceNumber,
+                progressText: "Processing...", timestamp: State.sequenceNumber,
                 workflow: activeWorkspaceWorkflow, startTime: Date.now(), duration: null
             });
         }
@@ -165,7 +165,7 @@ export function setupApiListeners() {
             if (cardObj && cardObj.progressBar) {
                 cardObj.progressBar.style.width = `${st.progress}%`;
                 if (cardObj.statusText && cardObj.statusText.style.display !== "none") {
-                    const nodeName = st.activeNodeName ? (st.activeNodeName === "Finishing..." ? "Finishing..." : `[${st.activeNodeName}]`) : "Sampling...";
+                    const nodeName = st.activeNodeName ? (st.activeNodeName === "Finishing..." ? "Finishing..." : `[${st.activeNodeName}]`) : "Processing...";
                     cardObj.statusText.textContent = `${nodeName} ${st.progress}%`;
                 }
             } else {

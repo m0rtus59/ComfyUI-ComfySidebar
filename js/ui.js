@@ -1386,6 +1386,7 @@ export function renderDOM() {
                     cardObj.placeholder.textContent = fullText;
                     cardObj.placeholder.title = "Click to read full text";
                     cardObj.placeholder.className = "comfy-sidebar-text-clamp";
+                    cardObj.placeholder.style.cssText = "";
                     cardObj.placeholder.style.display = "-webkit-box";
                     cardObj.placeholder.onclick = (e) => {
                         e.stopPropagation();
@@ -1406,7 +1407,7 @@ export function renderDOM() {
             if (state.status === "active") {
                 if (showWorkingNode) {
                     cardObj.statusText.style.display = "block";
-                    cardObj.statusText.textContent = state.activeNodeName ? (state.activeNodeName === "Finishing..." ? "Finishing..." : `[${state.activeNodeName}]${state.progress ? ` ${state.progress}%` : ""}`) : `Sampling...${state.progress ? ` ${state.progress}%` : ""}`;
+                    cardObj.statusText.textContent = state.activeNodeName ? (state.activeNodeName === "Finishing..." ? "Finishing..." : `[${state.activeNodeName}]${state.progress ? ` ${state.progress}%` : ""}`) : `Processing...${state.progress ? ` ${state.progress}%` : ""}`;
                 } else cardObj.statusText.style.display = "none";
                 cardObj.progressContainer.style.display = "block"; cardObj.progressBar.style.width = `${state.progress || 0}%`;
             } else { cardObj.statusText.style.display = "none"; cardObj.progressContainer.style.display = "none"; }
