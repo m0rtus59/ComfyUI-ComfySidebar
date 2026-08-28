@@ -17,6 +17,8 @@ A compact sidebar for ComfyUI that replaces the stock queue/history UI with a fa
 * Optionally replace the stock Job History sidebar.
 * Optional unified top bar for workflow tabs and controls.
 * Exclude selected nodes from sidebar results with `Ctrl+Q`.
+* [NEW] Ctrl-clicking the sidebar cards opens their file location or the menu for alternative actions.
+* [NEW] Ctrl-clicking the delete button places the generated file to the recycle bin.
 
 <img width="385" height="336" alt="image" src="https://github.com/user-attachments/assets/743fbf85-9281-4561-9dd0-cd9af4d8c0e4" />
 
@@ -52,9 +54,10 @@ Open **Settings → Comfy Sidebar** to configure:
 | Shortcut      | Action                                             |
 | ------------- | -------------------------------------------------- |
 | `Q`           | Toggle ComfySidebar                                |
-| `Ctrl+Q`      | Toggle sidebar output filtering for selected nodes |
+| `Ctrl+Q`      | Exclude the selected node from the sidebar outputs |
 | `Click`       | Open result preview                                |
 | `Shift+Click` | Compare another result                             |
+| `Ctrl+Click`  | Open file location/alternative action              |
 
 ## 📝 Notes
 

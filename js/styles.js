@@ -105,6 +105,88 @@ export function injectStyles() {
             box-shadow: 0 0 8px rgba(220, 53, 69, 0.6) !important;
         }
 
+        /* Disk Delete Confirmation */
+        .comfy-sidebar-card-action-btn.confirm-delete-disk,
+        .comfy-sidebar-card-action-btn.confirm-delete-disk:hover {
+            background-color: #7f1d1d !important;
+            color: #ffc9c9 !important;
+            box-shadow: 0 0 10px rgba(220, 38, 38, 0.85) !important;
+            border: 1px solid #ef4444 !important;
+        }
+
+        /* Dynamic Ctrl Key Hover State */
+        .comfy-sidebar-del-label {
+            display: none;
+            margin-left: 5px;
+            font-size: 10px;
+            font-weight: bold;
+            white-space: nowrap;
+            font-family: sans-serif;
+            letter-spacing: 0.3px;
+        }
+
+        body.comfy-sidebar-ctrl-active .comfy-sidebar-card-action-btn:not(.comfy-sidebar-btn-del) {
+            display: none !important;
+        }
+
+        body.comfy-sidebar-ctrl-active .comfy-sidebar-left-hover-panel {
+            display: none !important;
+        }
+
+        body.comfy-sidebar-ctrl-active .comfy-sidebar-btn-del {
+            background-color: #991b1b !important;
+            color: #ffffff !important;
+            border: 1px solid #ef4444 !important;
+            width: auto !important;
+            padding: 0 8px !important;
+            border-radius: 6px !important;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.6) !important;
+        }
+
+        body.comfy-sidebar-ctrl-active .comfy-sidebar-btn-del .comfy-sidebar-del-label {
+            display: inline;
+        }
+
+        /* Translucent Folder Indicator on Ctrl Press */
+        .comfy-sidebar-ctrl-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(2px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            color: #38bdf8;
+            z-index: 15;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s ease;
+            border-radius: 4px;
+        }
+
+        .comfy-sidebar-ctrl-overlay i {
+            font-size: 26px;
+            filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
+        }
+
+        .comfy-sidebar-ctrl-overlay span {
+            font-size: 11px;
+            font-weight: bold;
+            color: #f1f5f9;
+            font-family: sans-serif;
+            letter-spacing: 0.5px;
+            text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        body.comfy-sidebar-ctrl-active .comfy-sidebar-card:not(.pending):not(.active):hover .comfy-sidebar-ctrl-overlay {
+            opacity: 1;
+        }
+
         .comfy-sidebar-header-btn {
             background: transparent;
             color: var(--desc-color, #aaa);

@@ -87,6 +87,26 @@ const scrollListener = () => {
     }
 };
 
+const handleGlobalKeyDown = (e) => {
+    if (e.key === "Control" || e.key === "Meta") {
+        document.body.classList.add("comfy-sidebar-ctrl-active");
+    }
+};
+
+const handleGlobalKeyUp = (e) => {
+    if (e.key === "Control" || e.key === "Meta") {
+        document.body.classList.remove("comfy-sidebar-ctrl-active");
+    }
+};
+
+const handleGlobalBlur = () => {
+    document.body.classList.remove("comfy-sidebar-ctrl-active");
+};
+
+window.addEventListener("keydown", handleGlobalKeyDown);
+window.addEventListener("keyup", handleGlobalKeyUp);
+window.addEventListener("blur", handleGlobalBlur);
+
 export function setupScrollListener() {
     document.addEventListener("scroll", scrollListener, { capture: true, passive: true });
     return () => {
@@ -510,6 +530,10 @@ function render3DCardPreview(cardObj, wrapper, src, img, state) {
 
     preview3D.onclick = (ev) => {
         ev.stopPropagation();
+        if (ev.ctrlKey || ev.metaKey) {
+            openFileOrFolder(img);
+            return;
+        }
         showFullscreenPreview([fullUrl], ev.shiftKey);
     };
 
@@ -688,6 +712,10 @@ function renderAudioCardPreview(cardObj, wrapper, src, img, state) {
         previewAudio.onclick = (e) => {
             if (e.target.closest('button, input') || e.target === scrubber || e.target === scrubberFill) return;
             stopAllAudioPlayback();
+            if (e.ctrlKey || e.metaKey) {
+                openFileOrFolder(img);
+                return;
+            }
             showFullscreenPreview([fullUrl]);
         };
     }
@@ -821,6 +849,14 @@ function renderCardImages(cardObj, state) {
         cardObj.grid.appendChild(wrapper);
     }
 
+    let ctrlOverlay = wrapper.querySelector(".comfy-sidebar-ctrl-overlay");
+    if (!ctrlOverlay) {
+        ctrlOverlay = document.createElement("div");
+        ctrlOverlay.className = "comfy-sidebar-ctrl-overlay";
+        ctrlOverlay.innerHTML = `<i class="pi pi-folder-open"></i><span>Open Location</span>`;
+        wrapper.appendChild(ctrlOverlay);
+    }
+
     if (is3D) {
         render3DCardPreview(cardObj, wrapper, src, img, state);
         return;
@@ -857,6 +893,10 @@ function renderCardImages(cardObj, state) {
 
     mediaEl.onclick = (ev) => { 
         ev.stopPropagation(); 
+        if (ev.ctrlKey || ev.metaKey) {
+            openFileOrFolder(img);
+            return;
+        }
         showFullscreenPreview([src], ev.shiftKey); 
     };
 
@@ -1364,7 +1404,13 @@ export function renderDOM() {
 
                 const btnImg = document.createElement("span"); btnImg.className = "pi pi-image comfy-sidebar-card-action-btn"; btnImg.title = "Download Object";
                 const btnJson = document.createElement("span"); btnJson.className = "pi pi-file comfy-sidebar-card-action-btn"; btnJson.title = "Download JSON";
-                const btnDel = document.createElement("span"); btnDel.className = "pi pi-trash comfy-sidebar-card-action-btn"; btnDel.title = "Delete Card";
+                const btnDel = document.createElement("span"); 
+                btnDel.className = "pi pi-trash comfy-sidebar-card-action-btn comfy-sidebar-btn-del"; 
+                btnDel.title = "Delete Card (Hold Ctrl to delete file from disk)";
+                const btnDelLabel = document.createElement("span");
+                btnDelLabel.className = "comfy-sidebar-del-label";
+                btnDelLabel.textContent = "Delete File";
+                btnDel.appendChild(btnDelLabel);
 
                 const leftHoverPanel = document.createElement("div"); 
                 leftHoverPanel.className = "comfy-sidebar-left-hover-panel";
@@ -1457,23 +1503,50 @@ export function renderDOM() {
                 cardObj.cancelBtn.style.display = "none";
             }
 
-            let deleteTimeout = null, isDeletePending = false;
+            let deleteTimeout = null, isDeletePending = false, isDiskDelete = false;
             const resetDeleteBtn = () => { 
                 isDeletePending = false; 
-                cardObj.btnDel.classList.remove("confirm-delete");
-                cardObj.btnDel.title = "Delete Card"; 
+                isDiskDelete = false;
+                cardObj.btnDel.classList.remove("confirm-delete", "confirm-delete-disk");
+                cardObj.btnDel.title = "Delete Card (Ctrl+Click to delete from disk)"; 
                 if (deleteTimeout) { clearTimeout(deleteTimeout); deleteTimeout = null; } 
             };
             
             cardObj.btnDel.onclick = async (ev) => {
                 ev.stopPropagation();
+                const wantsDiskDelete = ev.ctrlKey || ev.metaKey;
+
                 if (!isDeletePending) {
-                    isDeletePending = true; 
-                    cardObj.btnDel.classList.add("confirm-delete");
-                    cardObj.btnDel.title = "Click again to confirm deletion";
-                    deleteTimeout = setTimeout(resetDeleteBtn, 1500);
+                    isDeletePending = true;
+                    isDiskDelete = wantsDiskDelete;
+                    cardObj.btnDel.classList.add(wantsDiskDelete ? "confirm-delete-disk" : "confirm-delete");
+                    cardObj.btnDel.title = wantsDiskDelete 
+                        ? "Ctrl+Click again to delete file from DISK / TRASH" 
+                        : "Click again to confirm removing card";
+                    deleteTimeout = setTimeout(resetDeleteBtn, 2000);
                 } else {
+                    const shouldDeleteFromDisk = isDiskDelete || wantsDiskDelete;
                     resetDeleteBtn(); 
+
+                    // Delete files from disk if confirmed with Ctrl
+                    if (shouldDeleteFromDisk && state.images && state.images.length > 0) {
+                        for (const imgItem of state.images) {
+                            if (imgItem && imgItem.filename) {
+                                try {
+                                    await fetch("/comfy-sidebar/delete-file", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({
+                                            filename: imgItem.filename,
+                                            subfolder: imgItem.subfolder || "",
+                                            type: imgItem.type || "output"
+                                        })
+                                    });
+                                } catch (e) {}
+                            }
+                        }
+                    }
+
                     promptStates.delete(state.pid); 
                     await api.fetchApi("/history", { method: "POST", body: JSON.stringify({ delete: [state.pid] }) }); 
                     scheduleStateSave();
