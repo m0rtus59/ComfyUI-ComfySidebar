@@ -152,10 +152,24 @@ export function setupDragAndDrop() {
             return;
         }
 
+        const url = e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain");
+        const jsonStr = e.dataTransfer.getData("application/json");
+
+        const isOurMedia = url && url.includes("/view?");
+        const isOurWorkflow = jsonStr && jsonStr.includes('"nodes"');
+
+        // If it's an external file drop from outside the browser, let ComfyUI handle it natively
+        if (!isOurMedia && !isOurWorkflow) {
+            return;
+        }
+
+        // Synchronously stop ComfyUI core drop listeners from double-handling
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+
         for (const handler of dropHandlers) {
             if (await handler(e)) {
-                e.preventDefault();
-                e.stopPropagation();
                 return;
             }
         }

@@ -234,9 +234,16 @@ const createMediaElement = (src, muted = false) => {
         el.controls = false; 
     }
     Object.assign(el.style, {
-        gridArea: "1 / 1", maxWidth: "100%", maxHeight: "80vh",
-        width: "auto", height: "auto", objectFit: "contain",
-        pointerEvents: "none", userSelect: "none", webkitUserSelect: "none"
+        gridArea: "1 / 1",
+        maxWidth: "calc(100vw - 120px)",
+        maxHeight: "calc(100vh - 120px)",
+        width: "auto",
+        height: "auto",
+        objectFit: "contain",
+        pointerEvents: "none",
+        userSelect: "none",
+        webkitUserSelect: "none",
+        display: "block"
     });
     el.src = isVideo ? src + "#t=0.001" : src;
     return el;
@@ -363,7 +370,7 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
     Object.assign(scrollContainer.style, {
         position: "absolute", top: "0", left: "0", width: "100%", height: "100%",
         display: "flex", overflow: "auto", boxSizing: "border-box",
-        padding: "54px 28px 48px 28px", scrollbarWidth: "thin",
+        padding: "48px 24px", scrollbarWidth: "thin",
         scrollbarColor: "#555 rgba(0, 0, 0, 0.3)", zIndex: "15"
     });
     overlay.container.appendChild(scrollContainer);
@@ -386,8 +393,8 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
     const wrapper = document.createElement("div");
     Object.assign(wrapper.style, {
         position: "relative", display: "grid", placeItems: "center",
-        maxWidth: "85%", maxHeight: "85%", margin: "auto",
-        flexShrink: "0", cursor: isBaseVideo ? "default" : "zoom-in"
+        margin: "auto", flexShrink: "0",
+        cursor: isBaseVideo ? "default" : "zoom-in"
     });
     scrollContainer.appendChild(wrapper);
 
@@ -449,13 +456,13 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
                 mediaA.style.height = "100%";
                 mediaA.style.objectFit = "fill";
             } else {
-                wrapper.style.maxWidth = "85%";
-                wrapper.style.maxHeight = "85%";
+                wrapper.style.maxWidth = "none";
+                wrapper.style.maxHeight = "none";
                 wrapper.style.width = "auto";
                 wrapper.style.height = "auto";
                 wrapper.style.cursor = isBaseVideo ? "default" : "zoom-in";
-                mediaA.style.maxWidth = "100%";
-                mediaA.style.maxHeight = "80vh";
+                mediaA.style.maxWidth = "calc(100vw - 120px)";
+                mediaA.style.maxHeight = "calc(100vh - 120px)";
                 mediaA.style.width = "auto";
                 mediaA.style.height = "auto";
                 mediaA.style.objectFit = "contain";
@@ -514,16 +521,16 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
                 }
             });
         } else {
-            wrapper.style.maxWidth = "85%";
-            wrapper.style.maxHeight = "85%";
+            wrapper.style.maxWidth = "none";
+            wrapper.style.maxHeight = "none";
             wrapper.style.width = "auto";
             wrapper.style.height = "auto";
             wrapper.style.cursor = "zoom-in";
 
             [mediaA, mediaB].forEach(el => {
                 if (el) {
-                    el.style.maxWidth = "100%";
-                    el.style.maxHeight = "80vh";
+                    el.style.maxWidth = "calc(100vw - 120px)";
+                    el.style.maxHeight = "calc(100vh - 120px)";
                     el.style.width = "auto";
                     el.style.height = "auto";
                     el.style.objectFit = "contain";

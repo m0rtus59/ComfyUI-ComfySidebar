@@ -17,7 +17,64 @@ export async function syncQueue() {
         const runningList = q.Running || q.queue_running || [];
         const pendingList = q.Pending || q.queue_pending || [];
         const pendingIds = new Set();
+        const runningIds = new Set();
         
+        runningList.forEach(p => {
+            let pid = null;
+            let pWorkflow = null;
+            let pOutputs = {};
+
+            if (Array.isArray(p)) {
+                pid = p[1] ? String(p[1]) : null;
+                const extraData = p[3] || {};
+                pWorkflow = parseWorkflow(extraData.extra_pnginfo?.workflow || extraData.workflow);
+                pOutputs = p[4] || {};
+            } else if (p && typeof p === "object") {
+                pid = (p.prompt_id || p.id || p.uuid) ? String(p.prompt_id || p.id || p.uuid) : null;
+                const extraData = p.extra_data || {};
+                pWorkflow = parseWorkflow(extraData.extra_pnginfo?.workflow || extraData.workflow);
+                pOutputs = p.outputs || {};
+            }
+
+            if (pid) {
+                runningIds.add(pid);
+                State.currentlyActivePromptId = pid;
+
+                // Restore active card if refreshed mid-generation
+                if (!promptStates.has(pid)) {
+                    State.sequenceNumber++;
+                    const activeWorkflow = pWorkflow || app.graph?.serialize?.() || null;
+                    const images = getPrimaryOutputImages(pOutputs, activeWorkflow);
+                    const texts = findTextsInOutputs(pOutputs, activeWorkflow);
+
+                    promptStates.set(pid, {
+                        pid: pid,
+                        status: "active",
+                        images: images,
+                        texts: texts,
+                        nodeOutputs: pOutputs,
+                        progress: 0,
+                        progressText: "Processing...",
+                        timestamp: State.sequenceNumber,
+                        workflow: activeWorkflow,
+                        startTime: Date.now(),
+                        duration: null
+                    });
+                } else {
+                    const st = promptStates.get(pid);
+                    if (st.status !== "active") {
+                        st.status = "active";
+                        st.progressText = "Processing...";
+                        st.rendered = false;
+                        if (!st.startTime) st.startTime = Date.now();
+                    }
+                    if (!st.workflow && pWorkflow) {
+                        st.workflow = pWorkflow;
+                    }
+                }
+            }
+        });
+
         const normalizedPending = pendingList.map((p, idx) => {
             let pid = null, seq = idx; 
             if (Array.isArray(p)) {
@@ -55,10 +112,14 @@ export async function syncQueue() {
         });
 
         for (const [pid, state] of promptStates.entries()) {
-            if (state.status === "pending" && !pendingIds.has(pid)) promptStates.delete(pid);
+            if (state.status === "pending" && !pendingIds.has(pid)) {
+                promptStates.delete(pid);
+            } else if (state.status === "active" && !runningIds.has(pid)) {
+                concludeRun(pid, "cancelled");
+            }
         }
 
-        updateSidebarBadgeFn(pendingIds.size + (runningList.length > 0 ? 1 : 0));
+        updateSidebarBadgeFn(pendingIds.size + (runningIds.size > 0 ? 1 : 0));
         renderDOMFn();
     } catch (err) {
         console.error("Comfy Sidebar: Failed to sync queue state", err);
@@ -96,6 +157,19 @@ const concludeRun = async (pid, statusStr) => {
                 st.workflow = parseWorkflow(rawWf) || st.workflow;
                 st.nodeOutputs = hItem[key].outputs;
                 
+                const serverStatus = hItem[key].status?.status_str;
+                const isInterrupted = statusStr === "cancelled" || 
+                                      serverStatus === "interrupted" || 
+                                      (hItem[key].status?.messages && JSON.stringify(hItem[key].status.messages).toLowerCase().includes("interrupted"));
+
+                if (serverStatus === "success" || serverStatus === "completed") {
+                    st.status = "completed";
+                } else if (isInterrupted) {
+                    st.status = "cancelled";
+                } else if (serverStatus === "error") {
+                    st.status = "error";
+                }
+
                 const primaryImgs = getPrimaryOutputImages(hItem[key].outputs, st.workflow);
                 if (primaryImgs.length > 0) st.images = primaryImgs;
                 
@@ -171,6 +245,8 @@ export function setupApiListeners() {
             } else {
                 renderDOMFn();
             }
+        } else if (pid && !promptStates.has(pid)) {
+            syncQueue();
         }
     };
 
@@ -181,7 +257,7 @@ export function setupApiListeners() {
         if (showWorkingNode && State.currentlyActivePromptId && promptStates.has(State.currentlyActivePromptId)) {
             const st = promptStates.get(State.currentlyActivePromptId);
             if (nodeId) {
-                const node = app.graph.getNodeById(nodeId);
+                const node = app.graph?.getNodeById ? app.graph.getNodeById(nodeId) : null;
                 st.activeNodeName = node ? (node.title || node.type) : `Node #${nodeId}`;
             } else {
                 st.activeNodeName = "Finishing...";
@@ -241,7 +317,6 @@ export function setupApiListeners() {
     api.addEventListener("execution_error", onExecutionError);
     api.addEventListener("execution_interrupted", onExecutionInterrupted);
 
-    // Return cleanup function to unhook listeners when destroyed
     return () => {
         api.removeEventListener("status", onStatus);
         api.removeEventListener("reconnected", onReconnected);
@@ -280,8 +355,6 @@ export async function initSessionAndHistory() {
         });
 
         rawItems.forEach(({ pid, data }) => {
-            if (promptStates.has(pid)) return;
-
             const extraData = data.extra_data || data.prompt?.[3] || {};
             const workflow = parseWorkflow(extraData.extra_pnginfo?.workflow || extraData.workflow);
             const outputs = data.outputs || {};
@@ -290,10 +363,27 @@ export async function initSessionAndHistory() {
             const texts = findTextsInOutputs(outputs, workflow);
             
             const statusStr = data.status?.status_str || "completed";
+            const isInterrupted = statusStr === "interrupted" || 
+                                  (data.status?.messages && JSON.stringify(data.status.messages).toLowerCase().includes("interrupted"));
+
             const status = (statusStr === "success" || statusStr === "completed") ? "completed" : 
-                           (statusStr === "error" ? "error" : "cancelled");
+                           (isInterrupted ? "cancelled" : (statusStr === "error" ? "error" : "cancelled"));
 
             if (images.length === 0 && texts.length === 0 && status === "completed") return;
+
+            if (promptStates.has(pid)) {
+                const st = promptStates.get(pid);
+                if (st.status === "active" || st.status === "pending") {
+                    st.status = status;
+                    st.images = images;
+                    st.texts = texts;
+                    st.nodeOutputs = outputs;
+                    st.workflow = workflow || st.workflow;
+                    st.progressText = "";
+                    st.rendered = false;
+                }
+                return;
+            }
 
             State.sequenceNumber++;
             promptStates.set(pid, {
