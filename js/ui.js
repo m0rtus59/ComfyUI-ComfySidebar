@@ -17,6 +17,37 @@ export function stopAllAudioPlayback() {
     }
 }
 
+function removeImageFromNodeOutputs(nodeOutputs, targetImg) {
+    if (!nodeOutputs || !targetImg || !targetImg.filename) return;
+
+    const scanAndRemove = (obj) => {
+        if (!obj || typeof obj !== "object") return;
+        for (const key in obj) {
+            const val = obj[key];
+            if (Array.isArray(val)) {
+                for (let i = val.length - 1; i >= 0; i--) {
+                    const item = val[i];
+                    if (item && typeof item === "object") {
+                        if (item.filename === targetImg.filename && (item.subfolder || "") === (targetImg.subfolder || "")) {
+                            val.splice(i, 1);
+                        } else {
+                            scanAndRemove(item);
+                        }
+                    } else if (typeof item === "string" && (item === targetImg.filename || item.endsWith("/" + targetImg.filename))) {
+                        val.splice(i, 1);
+                    }
+                }
+            } else if (typeof val === "object") {
+                scanAndRemove(val);
+            }
+        }
+    };
+
+    for (const nodeId in nodeOutputs) {
+        scanAndRemove(nodeOutputs[nodeId]);
+    }
+}
+
 async function openFileOrFolder(img) {
     if (!img) return;
 
@@ -451,7 +482,21 @@ function syncCardButtonVisibility(cardObj, state) {
 
     if (cardObj.leftHoverBtn) {
         const outputs = getRunOutputs(state.nodeOutputs, state.workflow);
-        if (outputs.length > 1) {
+
+        // Gather all unique files across all output nodes
+        const allUniqueFiles = new Set();
+        for (const out of outputs) {
+            for (const img of (out.images || [])) {
+                if (img && img.filename) {
+                    allUniqueFiles.add(`${img.subfolder || ""}/${img.filename}`);
+                }
+            }
+        }
+
+        // Show intermediate button if there are multiple output nodes AND more than 1 distinct file
+        const hasIntermediates = outputs.length > 1 && allUniqueFiles.size > 1;
+
+        if (hasIntermediates) {
             cardObj.leftHoverBtn.style.removeProperty("display");
             cardObj.leftHoverBtn.style.display = "inline-flex";
             cardObj.leftHoverBtn.onclick = (ev) => {
@@ -1197,7 +1242,93 @@ export function renderDOM() {
                     const btnImg = document.createElement("span");
                     btnImg.className = "pi pi-image comfy-sidebar-card-action-btn";
                     btnImg.title = "Download Object";
-                    hoverPanel.appendChild(btnImg);
+
+                    const btnDel = document.createElement("span");
+                    btnDel.className = "pi pi-trash comfy-sidebar-card-action-btn comfy-sidebar-btn-del";
+                    btnDel.title = "Remove from batch (Hold Ctrl to delete file from disk)";
+                    const btnDelLabel = document.createElement("span");
+                    btnDelLabel.className = "comfy-sidebar-del-label";
+                    btnDelLabel.textContent = "Delete File";
+                    btnDel.appendChild(btnDelLabel);
+
+                    let isDeletePending = false, isDiskDelete = false, deleteTimeout = null;
+                    const resetDelete = () => {
+                        isDeletePending = false;
+                        isDiskDelete = false;
+                        btnDel.classList.remove("confirm-delete", "confirm-delete-disk");
+                        btnDel.title = "Remove from batch (Hold Ctrl to delete file from disk)";
+                        if (deleteTimeout) { clearTimeout(deleteTimeout); deleteTimeout = null; }
+                    };
+
+                    btnDel.onclick = async (ev) => {
+                        ev.stopPropagation();
+                        const wantsDiskDelete = ev.ctrlKey || ev.metaKey;
+
+                        if (!isDeletePending) {
+                            isDeletePending = true;
+                            isDiskDelete = wantsDiskDelete;
+                            btnDel.classList.add(wantsDiskDelete ? "confirm-delete-disk" : "confirm-delete");
+                            btnDel.title = wantsDiskDelete
+                                ? "Ctrl+Click again to delete file from DISK / TRASH"
+                                : "Click again to confirm removing from batch";
+                            deleteTimeout = setTimeout(resetDelete, 2000);
+                        } else {
+                            const shouldDeleteFromDisk = isDiskDelete || wantsDiskDelete;
+                            resetDelete();
+
+                            // 1. Delete only this single file from disk
+                            if (shouldDeleteFromDisk && img && img.filename) {
+                                try {
+                                    await fetch("/comfy-sidebar/delete-file", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({
+                                            filename: img.filename,
+                                            subfolder: img.subfolder || "",
+                                            type: img.type || "output"
+                                        })
+                                    });
+                                } catch (e) {}
+                            }
+
+                            // 2. Remove this image from batch list, prompt state, and nodeOutputs
+                            const pid = batchInfo.pid;
+                            const state = promptStates.get(pid);
+                            const imgIdx = batchInfo.images.indexOf(img);
+                            if (imgIdx > -1) batchInfo.images.splice(imgIdx, 1);
+
+                            if (state) {
+                                if (Array.isArray(state.images)) {
+                                    const stIdx = state.images.findIndex(i => i.filename === img.filename && (i.subfolder || "") === (img.subfolder || ""));
+                                    if (stIdx > -1) state.images.splice(stIdx, 1);
+                                }
+
+                                // Sync nodeOutputs so the Intermediate Outputs submenu stays updated
+                                if (state.nodeOutputs) {
+                                    removeImageFromNodeOutputs(state.nodeOutputs, img);
+                                }
+
+                                state.rendered = false;
+                            }
+
+                            // Invalidate main card's cached index & signature
+                            const mainCardObj = cardElements.get(pid);
+                            if (mainCardObj) {
+                                mainCardObj.currentImageIndex = 0;
+                                mainCardObj.lastImagesSignature = "";
+                            }
+
+                            // If batch is now empty, return to main queue
+                            if (batchInfo.images.length === 0) {
+                                State.activeSubmenuBatchImages = null;
+                            }
+
+                            scheduleStateSave();
+                            renderDOM();
+                        }
+                    };
+
+                    hoverPanel.append(btnImg, btnDel);
 
                     const leftHoverPanel = document.createElement("div");
                     leftHoverPanel.className = "comfy-sidebar-left-hover-panel";
@@ -1303,7 +1434,79 @@ export function renderDOM() {
                     const btnImg = document.createElement("span");
                     btnImg.className = "pi pi-image comfy-sidebar-card-action-btn";
                     btnImg.title = "Download Object";
-                    hoverPanel.appendChild(btnImg);
+
+                    const btnDel = document.createElement("span");
+                    btnDel.className = "pi pi-trash comfy-sidebar-card-action-btn comfy-sidebar-btn-del";
+                    btnDel.title = "Delete node output (Hold Ctrl to delete file from disk)";
+                    const btnDelLabel = document.createElement("span");
+                    btnDelLabel.className = "comfy-sidebar-del-label";
+                    btnDelLabel.textContent = "Delete File";
+                    btnDel.appendChild(btnDelLabel);
+
+                    let isDeletePending = false, isDiskDelete = false, deleteTimeout = null;
+                    const resetDelete = () => {
+                        isDeletePending = false;
+                        isDiskDelete = false;
+                        btnDel.classList.remove("confirm-delete", "confirm-delete-disk");
+                        btnDel.title = "Delete node output (Hold Ctrl to delete file from disk)";
+                        if (deleteTimeout) { clearTimeout(deleteTimeout); deleteTimeout = null; }
+                    };
+
+                    btnDel.onclick = async (ev) => {
+                        ev.stopPropagation();
+                        const wantsDiskDelete = ev.ctrlKey || ev.metaKey;
+
+                        if (!isDeletePending) {
+                            isDeletePending = true;
+                            isDiskDelete = wantsDiskDelete;
+                            btnDel.classList.add(wantsDiskDelete ? "confirm-delete-disk" : "confirm-delete");
+                            btnDel.title = wantsDiskDelete
+                                ? "Ctrl+Click again to delete this node's files from DISK / TRASH"
+                                : "Click again to confirm removing output";
+                            deleteTimeout = setTimeout(resetDelete, 2000);
+                        } else {
+                            const shouldDeleteFromDisk = isDiskDelete || wantsDiskDelete;
+                            resetDelete();
+
+                            // 1. Delete files belonging only to this specific node
+                            if (shouldDeleteFromDisk && out.images) {
+                                for (const imgItem of out.images) {
+                                    if (imgItem && imgItem.filename) {
+                                        try {
+                                            await fetch("/comfy-sidebar/delete-file", {
+                                                method: "POST",
+                                                headers: { "Content-Type": "application/json" },
+                                                body: JSON.stringify({
+                                                    filename: imgItem.filename,
+                                                    subfolder: imgItem.subfolder || "",
+                                                    type: imgItem.type || "output"
+                                                })
+                                            });
+                                        } catch (e) {}
+                                    }
+                                }
+                            }
+
+                            // 2. Remove node from state.nodeOutputs
+                            if (st.nodeOutputs && st.nodeOutputs[out.nodeId]) {
+                                delete st.nodeOutputs[out.nodeId];
+                            }
+
+                            // 3. Update primary images if needed
+                            const remainingOutputs = getRunOutputs(st.nodeOutputs, st.workflow);
+                            if (remainingOutputs.length > 0) {
+                                st.images = remainingOutputs[remainingOutputs.length - 1].images || [];
+                            } else {
+                                st.images = [];
+                                State.activeSubmenuPromptId = null;
+                            }
+
+                            scheduleStateSave();
+                            renderDOM();
+                        }
+                    };
+
+                    hoverPanel.append(btnImg, btnDel);
 
                     const leftHoverPanel = document.createElement("div");
                     leftHoverPanel.className = "comfy-sidebar-left-hover-panel";
@@ -1367,6 +1570,20 @@ export function renderDOM() {
             let cardObj = cardElements.get(state.pid);
             const isFinalStatus = state.status === "completed" || state.status === "cancelled" || state.status === "error";
             if (cardObj && isFinalStatus && state.rendered) {
+                // Ensure image changes (e.g. deletions from batch submenu) update the preview immediately
+                const currentImagesSignature = `${state.status || ""}:${state.images ? state.images.map(img => img.url || img.filename).join("|") : ""}`;
+                if (cardObj.lastImagesSignature !== currentImagesSignature) {
+                    cardObj.currentImageIndex = Math.min(cardObj.currentImageIndex || 0, Math.max(0, (state.images?.length || 1) - 1));
+                    if (!state.images || state.images.length === 0) {
+                        cardObj.grid.innerHTML = "";
+                        cardObj.firstImgElement = null;
+                        cardObj.placeholder.style.display = "block";
+                    } else {
+                        cardObj.placeholder.style.display = "none";
+                        renderCardImages(cardObj, state);
+                    }
+                    cardObj.lastImagesSignature = currentImagesSignature;
+                }
                 syncCardButtonVisibility(cardObj, state);
                 return cardObj.element;
             }
@@ -1528,22 +1745,41 @@ export function renderDOM() {
                     const shouldDeleteFromDisk = isDiskDelete || wantsDiskDelete;
                     resetDeleteBtn(); 
 
-                    // Delete files from disk if confirmed with Ctrl
-                    if (shouldDeleteFromDisk && state.images && state.images.length > 0) {
-                        for (const imgItem of state.images) {
-                            if (imgItem && imgItem.filename) {
-                                try {
-                                    await fetch("/comfy-sidebar/delete-file", {
-                                        method: "POST",
-                                        headers: { "Content-Type": "application/json" },
-                                        body: JSON.stringify({
-                                            filename: imgItem.filename,
-                                            subfolder: imgItem.subfolder || "",
-                                            type: imgItem.type || "output"
-                                        })
-                                    });
-                                } catch (e) {}
+                    // Delete all files from disk across ALL nodes in this run
+                    if (shouldDeleteFromDisk) {
+                        const filesToDelete = [];
+                        const seen = new Set();
+
+                        const addFile = (item) => {
+                            if (item && item.filename) {
+                                const key = `${item.type || ""}/${item.subfolder || ""}/${item.filename}`;
+                                if (!seen.has(key)) {
+                                    seen.add(key);
+                                    filesToDelete.push(item);
+                                }
                             }
+                        };
+
+                        // 1. Primary card images/files
+                        (state.images || []).forEach(addFile);
+
+                        // 2. All intermediate node outputs
+                        const allOutputs = getRunOutputs(state.nodeOutputs, state.workflow);
+                        allOutputs.forEach(out => (out.images || []).forEach(addFile));
+
+                        // 3. Delete each file from disk / trash
+                        for (const fileItem of filesToDelete) {
+                            try {
+                                await fetch("/comfy-sidebar/delete-file", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                        filename: fileItem.filename,
+                                        subfolder: fileItem.subfolder || "",
+                                        type: fileItem.type || "output"
+                                    })
+                                });
+                            } catch (e) {}
                         }
                     }
 

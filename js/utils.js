@@ -67,16 +67,40 @@ function isNodeIgnored(nodeId, rawWorkflow) {
 }
 
 function extractFileCandidate(val, subfolder = "", type = "output") {
-    if (!val) return null;
-    if (typeof val === "string") {
-        const trimmed = val.trim();
-        if (FILE_EXT_REGEX.test(trimmed) || (trimmed.includes(".") && trimmed.length < 180 && !trimmed.includes("\n"))) {
-            return {
-                filename: trimmed.split("/").pop()?.split("\\").pop() || trimmed,
-                subfolder: subfolder || (trimmed.includes("/") ? trimmed.substring(0, trimmed.lastIndexOf("/")) : ""),
-                type: type || "output"
-            };
-        }
+    if (!val || typeof val !== "string") return null;
+    const trimmed = val.trim();
+
+    // 1. Ignore directory dots, floats/numbers, and empty strings
+    if (trimmed === "." || trimmed === ".." || trimmed === "./" || trimmed === "../" || trimmed === "") {
+        return null;
+    }
+    if (!isNaN(Number(trimmed))) {
+        return null;
+    }
+
+    // 2. Extract base file name
+    const cleanName = trimmed.split("/").pop()?.split("\\").pop()?.trim() || "";
+    if (!cleanName || cleanName === "." || cleanName === "..") return null;
+
+    // 3. Must have a dot with real name before and after (e.g. "model.safetensors")
+    const dotIndex = cleanName.lastIndexOf(".");
+    if (dotIndex <= 0 || dotIndex === cleanName.length - 1) {
+        return null;
+    }
+
+    const ext = cleanName.substring(dotIndex + 1).toLowerCase();
+    const base = cleanName.substring(0, dotIndex).trim();
+    if (!base || !ext) return null;
+
+    // 4. Must match a known extension or a valid 1-8 char alphanumeric extension without whitespace
+    const isValidExt = FILE_EXT_REGEX.test("." + ext) || (/^[a-z0-9]{1,8}$/i.test(ext) && !trimmed.includes(" ") && trimmed.length < 100);
+
+    if (isValidExt) {
+        return {
+            filename: cleanName,
+            subfolder: subfolder || (trimmed.includes("/") ? trimmed.substring(0, trimmed.lastIndexOf("/")) : ""),
+            type: type || "output"
+        };
     }
     return null;
 }
@@ -136,13 +160,22 @@ export function findImagesInOutputs(outputs, rawWorkflow) {
         }
     }
 
-    // Fallback: Check workflow nodes for model/LoRA/file save nodes if no outputs were parsed
-    if (list.length === 0 && workflow && Array.isArray(workflow.nodes)) {
+    if (list.length > 0) return list;
+
+    // Fallback: If scanning a specific node ID, only look at that matching node in the workflow
+    if (workflow && Array.isArray(workflow.nodes)) {
+        const targetNodeIds = outputs ? Object.keys(outputs).map(String) : null;
+
         for (const node of workflow.nodes) {
             if (node && !node.properties?.ignoreInQueue) {
+                if (targetNodeIds && !targetNodeIds.includes(String(node.id))) {
+                    continue;
+                }
+
                 const typeStr = (node.type || "").toLowerCase();
-                const isSaveNode = typeStr.includes("save") || typeStr.includes("extract") || 
-                                   typeStr.includes("export") || typeStr.includes("writer");
+                const isLoaderNode = typeStr.includes("load") || typeStr.includes("loader") || typeStr.includes("input");
+                const isSaveNode = !isLoaderNode && (typeStr.includes("save") || typeStr.includes("extract") || 
+                                   typeStr.includes("export") || typeStr.includes("writer"));
                 
                 if (isSaveNode && Array.isArray(node.widgets_values)) {
                     for (const val of node.widgets_values) {
@@ -198,7 +231,12 @@ export function getRunOutputs(nodeOutputs, rawWorkflow) {
     const list = [];
     if (!nodeOutputs) return list;
     for (const nodeId in nodeOutputs) {
-        const imgs = findImagesInOutputs({ [nodeId]: nodeOutputs[nodeId] }, workflow);
+        const nodeOut = nodeOutputs[nodeId];
+        // Ignore empty node outputs
+        if (!nodeOut || (typeof nodeOut === "object" && Object.keys(nodeOut).length === 0)) {
+            continue;
+        }
+        const imgs = findImagesInOutputs({ [nodeId]: nodeOut }, workflow);
         if (imgs.length > 0) {
             list.push({ nodeId, images: imgs });
         }
