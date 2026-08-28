@@ -1,7 +1,7 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 import { State, promptStates, cardElements, scheduleStateSave, deletePromptState } from "./state.js";
-import { isVideoFormat, is3DFormat, isAudioFormat, getFilenameFromUrl, matchesFilter, getRunOutputs } from "./utils.js";
+import { isImageFormat, isVideoFormat, is3DFormat, isAudioFormat, getFilenameFromUrl, matchesFilter, getRunOutputs } from "./utils.js";
 import { showFullscreenPreview, isAudioViewerOpen } from "./comparison.js";
 
 export let syncQueueFn = async () => {};
@@ -15,6 +15,34 @@ export function stopAllAudioPlayback() {
         if (currentlyPlayingAudio._onResetUI) currentlyPlayingAudio._onResetUI();
         currentlyPlayingAudio = null;
     }
+}
+
+async function openFileOrFolder(img) {
+    if (!img) return;
+
+    // 1. Try server-side open-folder endpoint if backend endpoint exists
+    try {
+        const res = await fetch("/comfy-sidebar/open-folder", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                filename: img.filename,
+                subfolder: img.subfolder || "",
+                type: img.type || "output"
+            })
+        });
+        if (res.ok) return;
+    } catch (e) {}
+
+    // 2. Fallback: open / view / download the file
+    const src = img.url || `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}`;
+    const a = document.createElement("a");
+    a.href = src;
+    a.target = "_blank";
+    a.download = img.filename || "file";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
 }
 
 function resetAllCardHoverStates() {
@@ -426,7 +454,7 @@ function render3DCardPreview(cardObj, wrapper, src, img, state) {
     let preview3D = wrapper.querySelector(".comfy-sidebar-3d-wrapper");
     const fullUrl = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}`;
 
-    const imageAssets = state?.images?.filter(i => !is3DFormat(i.filename || i.url) && !isVideoFormat(i.filename || i.url) && !isAudioFormat(i.filename || i.url)) || [];
+    const imageAssets = state?.images?.filter(i => isImageFormat(i.filename || i.url)) || [];
     const lastImageAsset = imageAssets.length > 0 ? imageAssets[imageAssets.length - 1] : null;
     const bgImgSrc = lastImageAsset
         ? (lastImageAsset.url || window.location.origin + `/view?filename=${encodeURIComponent(lastImageAsset.filename)}&type=${lastImageAsset.type || 'output'}&subfolder=${encodeURIComponent(lastImageAsset.subfolder || '')}`)
@@ -682,6 +710,87 @@ function renderAudioCardPreview(cardObj, wrapper, src, img, state) {
     };
 }
 
+function renderGenericFileCardPreview(cardObj, wrapper, src, img, state) {
+    let previewFile = wrapper.querySelector(".comfy-sidebar-file-wrapper");
+    const fullUrl = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}`;
+    const filename = img.filename || getFilenameFromUrl(src) || "output_file";
+    const ext = (filename.split('.').pop() || "FILE").toUpperCase();
+    const folderName = img.subfolder ? `${img.subfolder}/` : (img.type || "output");
+
+    if (!previewFile) {
+        wrapper.innerHTML = "";
+        previewFile = document.createElement("div");
+        previewFile.className = "comfy-sidebar-file-wrapper";
+
+        // Top Row: Right-aligned badge
+        const topRow = document.createElement("div");
+        Object.assign(topRow.style, { display: "flex", justifyContent: "flex-end", width: "100%", minHeight: "18px" });
+
+        const badge = document.createElement("span");
+        badge.className = "comfy-sidebar-file-badge";
+        badge.textContent = ext;
+        topRow.appendChild(badge);
+
+        // Center Area: Inline icon + file name
+        const centerArea = document.createElement("div");
+        Object.assign(centerArea.style, { display: "flex", alignItems: "center", gap: "8px", width: "100%", margin: "2px 0 6px 0" });
+
+        const icon = document.createElement("span");
+        icon.className = "pi pi-file comfy-sidebar-file-icon";
+
+        const title = document.createElement("span");
+        title.className = "comfy-sidebar-file-title";
+        title.textContent = filename;
+        title.title = filename;
+
+        centerArea.append(icon, title);
+
+        // Bottom Row: Folder location + open action
+        const bottomRow = document.createElement("div");
+        Object.assign(bottomRow.style, { display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" });
+
+        const folderInfo = document.createElement("div");
+        folderInfo.className = "comfy-sidebar-file-subtext";
+        folderInfo.innerHTML = `<i class="pi pi-folder" style="font-size: 10px;"></i><span>${folderName}</span>`;
+
+        const openHint = document.createElement("div");
+        openHint.className = "comfy-sidebar-file-subtext";
+        openHint.innerHTML = `<i class="pi pi-external-link" style="font-size: 9px;"></i><span>Open Folder</span>`;
+
+        bottomRow.append(folderInfo, openHint);
+
+        previewFile.append(topRow, centerArea, bottomRow);
+        wrapper.appendChild(previewFile);
+    } else {
+        const title = previewFile.querySelector(".comfy-sidebar-file-title");
+        if (title) { title.textContent = filename; title.title = filename; }
+        const badge = previewFile.querySelector(".comfy-sidebar-file-badge");
+        if (badge) badge.textContent = ext;
+    }
+
+    cardObj.firstImgElement = previewFile;
+
+    previewFile.onclick = (ev) => {
+        ev.stopPropagation();
+        openFileOrFolder(img);
+    };
+
+    previewFile.setAttribute("draggable", "true");
+    previewFile.ondragstart = (e) => {
+        e.stopPropagation();
+        const mimeType = "application/octet-stream";
+        try {
+            e.dataTransfer.setData("text/uri-list", fullUrl);
+            e.dataTransfer.setData("text/plain", fullUrl);
+            e.dataTransfer.setData("DownloadURL", `${mimeType}:${filename}:${fullUrl}`);
+            if (state && state.workflow) {
+                e.dataTransfer.setData("application/json", JSON.stringify(state.workflow));
+            }
+        } catch (err) {}
+        e.dataTransfer.effectAllowed = "copy";
+    };
+}
+
 function renderCardImages(cardObj, state) {
     cardObj.currentImageIndex = cardObj.currentImageIndex || 0;
     if (cardObj.currentImageIndex >= state.images.length) {
@@ -701,6 +810,7 @@ function renderCardImages(cardObj, state) {
     const isVideo = isVideoFormat(src);
     const is3D = is3DFormat(src) || is3DFormat(img.filename);
     const isAudio = isAudioFormat(src) || isAudioFormat(img.filename);
+    const isImage = isImageFormat(src) || isImageFormat(img.filename) || (!isVideo && !is3D && !isAudio && !img.filename?.includes("."));
 
     let wrapper = cardObj.grid.querySelector(".comfy-sidebar-media-wrapper");
     if (!wrapper) {
@@ -718,6 +828,11 @@ function renderCardImages(cardObj, state) {
 
     if (isAudio) {
         renderAudioCardPreview(cardObj, wrapper, src, img, state);
+        return;
+    }
+
+    if (!isImage && !isVideo) {
+        renderGenericFileCardPreview(cardObj, wrapper, src, img, state);
         return;
     }
 
@@ -756,10 +871,7 @@ function renderCardImages(cardObj, state) {
                     return;
                 }
             } catch (e) {}
-            if (cardObj.placeholder) {
-                cardObj.placeholder.textContent = "Error loading media preview";
-                cardObj.placeholder.style.display = "block";
-            }
+            renderGenericFileCardPreview(cardObj, wrapper, src, img, state);
         }
     };
 

@@ -64,7 +64,6 @@ export function injectStyles() {
             color: #ffffff !important;
         }
 
-        /* Hover Panels CSS Hover Control for Completed / Cancelled / Error cards */
         .comfy-sidebar-hover-panel,
         .comfy-sidebar-left-hover-panel {
             display: none !important;
@@ -106,7 +105,6 @@ export function injectStyles() {
             box-shadow: 0 0 8px rgba(220, 53, 69, 0.6) !important;
         }
 
-        /* Header Icons & Header Action Buttons */
         .comfy-sidebar-header-btn {
             background: transparent;
             color: var(--desc-color, #aaa);
@@ -134,7 +132,6 @@ export function injectStyles() {
             opacity: 1;
         }
 
-        /* Scroll To Top Floating Button */
         .comfy-sidebar-scroll-top-btn {
             position: absolute;
             bottom: 14px;
@@ -333,7 +330,83 @@ export function injectStyles() {
             100% { transform: scaleY(1.3); }
         }
 
-        /* Text Output Card Clamping */
+        /* Generic / Unknown File Preview Cards (LoRA, Checkpoint, Latent, etc.) */
+        .comfy-sidebar-file-wrapper {
+            width: 100%;
+            min-height: 88px;
+            background: linear-gradient(135deg, #131d2e 0%, #0b1120 100%);
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 8px 10px;
+            box-sizing: border-box;
+            position: relative;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            transition: all 0.2s ease-in-out;
+            user-select: none;
+            cursor: pointer;
+            gap: 8px;
+        }
+
+        .comfy-sidebar-file-wrapper:hover {
+            border-color: #0ea5e9;
+            box-shadow: 0 0 14px rgba(14, 165, 233, 0.35);
+            transform: translateY(-1px);
+        }
+
+        .comfy-sidebar-file-badge {
+            background: rgba(14, 165, 233, 0.9);
+            color: #fff;
+            font-size: 9px;
+            font-weight: bold;
+            padding: 0 6px;
+            height: 18px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            border-radius: 3px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+
+        .comfy-sidebar-file-title {
+            font-size: 11px;
+            color: #f1f5f9;
+            font-family: monospace;
+            font-weight: 600;
+            word-break: break-all;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .comfy-sidebar-file-icon {
+            font-size: 14px;
+            color: #38bdf8;
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transform: translateY(-3px);
+        }
+
+        .comfy-sidebar-file-subtext {
+            font-size: 9px;
+            color: #94a3b8;
+            font-family: sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            opacity: 0.9;
+        }
+
         .comfy-sidebar-text-clamp {
             font-size: 11px;
             line-height: 1.45;
