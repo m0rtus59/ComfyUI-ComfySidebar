@@ -58,6 +58,14 @@ export function parseWorkflow(workflow) {
 }
 
 function isNodeIgnored(nodeId, rawWorkflow) {
+    // 1. Check live canvas node property first
+    if (app.graph) {
+        const canvasNode = app.graph.getNodeById ? (app.graph.getNodeById(Number(nodeId)) || app.graph.getNodeById(String(nodeId))) : null;
+        if (canvasNode?.properties?.ignoreInQueue !== undefined) {
+            return !!canvasNode.properties.ignoreInQueue;
+        }
+    }
+    // 2. Fallback to historical workflow snapshot
     const workflow = parseWorkflow(rawWorkflow);
     if (!workflow || !Array.isArray(workflow.nodes)) {
         return false;
@@ -275,4 +283,44 @@ export function matchesFilter(state, query) {
         }
     }
     return false;
+}
+
+export async function extractWorkflowFromPng(imageUrl) {
+    try {
+        const res = await fetch(imageUrl);
+        const buffer = await res.arrayBuffer();
+        const view = new DataView(buffer);
+
+        // Verify PNG signature (89 50 4E 47 0D 0A 1A 0A)
+        if (view.getUint32(0) !== 0x89504E47 || view.getUint32(4) !== 0x0D0A1A0A) {
+            return null;
+        }
+
+        let offset = 8;
+        const utf8Decoder = new TextDecoder("utf-8");
+
+        while (offset < buffer.byteLength) {
+            const length = view.getUint32(offset);
+            const type = utf8Decoder.decode(new Uint8Array(buffer, offset + 4, 4));
+
+            if (type === "tEXt") {
+                const chunkData = new Uint8Array(buffer, offset + 8, length);
+                const nullIdx = chunkData.indexOf(0);
+                if (nullIdx !== -1) {
+                    const keyword = utf8Decoder.decode(chunkData.subarray(0, nullIdx));
+                    if (keyword === "workflow") {
+                        const text = utf8Decoder.decode(chunkData.subarray(nullIdx + 1));
+                        return JSON.parse(text);
+                    }
+                }
+            } else if (type === "IEND") {
+                break;
+            }
+
+            offset += 12 + length; // 4 (length) + 4 (type) + length (data) + 4 (crc)
+        }
+    } catch (e) {
+        console.warn("Comfy Sidebar: Could not extract workflow from PNG", e);
+    }
+    return null;
 }

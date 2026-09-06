@@ -165,8 +165,13 @@ function toggleIgnoreActiveNode() {
         syncNodeVueBadge(node, isIgnored);
     });
     
-    if (app.graph) app.graph.setDirtyCanvas(true, true);
+    if (app.graph) {
+        if (app.graph.change) app.graph.change(); // Marks workflow as modified so ComfyUI autosaves it
+        app.graph.setDirtyCanvas(true, true);
+    }
     if (app.canvas) app.canvas.setDirty(true, true);
+
+    renderDOM(); // Immediately update sidebar buttons without needing a reload
 }
 
 app.registerExtension({
@@ -251,7 +256,10 @@ app.registerExtension({
     },
 
     afterConfigureGraph() {
-        requestAnimationFrame(() => syncAllNodeBadges());
+        requestAnimationFrame(() => {
+            syncAllNodeBadges();
+            renderDOM();
+        });
     },
 
     async setup() {

@@ -262,7 +262,10 @@ export function setupApiListeners() {
             } else {
                 st.activeNodeName = "Finishing...";
             }
-            renderDOMFn();
+            // Don't re-render if user is currently browsing an intermediate/batch submenu
+            if (!State.activeSubmenuPromptId && !State.activeSubmenuBatchImages) {
+                renderDOMFn();
+            }
         }
     };
 
@@ -275,7 +278,10 @@ export function setupApiListeners() {
             st._oldPreviewBlobUrl = st._previewBlobUrl;
             st._previewBlobUrl = newBlobUrl;
             st.images = [{ url: newBlobUrl }];
-            renderDOMFn();
+            // Keep preview updated in memory, but don't kick the user out of an active submenu
+            if (!State.activeSubmenuPromptId && !State.activeSubmenuBatchImages) {
+                renderDOMFn();
+            }
         }
     };
 
@@ -381,6 +387,20 @@ export async function initSessionAndHistory() {
                     st.workflow = workflow || st.workflow;
                     st.progressText = "";
                     st.rendered = false;
+                } else {
+                    // Restore workflow & outputs from server history on startup
+                    if (!st.workflow && workflow) {
+                        st.workflow = workflow;
+                    }
+                    if ((!st.images || st.images.length === 0) && images.length > 0) {
+                        st.images = images;
+                    }
+                    if ((!st.nodeOutputs || Object.keys(st.nodeOutputs).length === 0) && outputs && Object.keys(outputs).length > 0) {
+                        st.nodeOutputs = outputs;
+                    }
+                    if ((!st.texts || st.texts.length === 0) && texts && texts.length > 0) {
+                        st.texts = texts;
+                    }
                 }
                 return;
             }

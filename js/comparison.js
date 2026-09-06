@@ -240,11 +240,13 @@ const createMediaElement = (src, muted = false) => {
         width: "auto",
         height: "auto",
         objectFit: "contain",
-        pointerEvents: "none",
+        pointerEvents: isVideo ? "none" : "auto",
         userSelect: "none",
         webkitUserSelect: "none",
         display: "block"
     });
+    el.draggable = false;
+    el.ondragstart = (e) => e.preventDefault();
     el.src = isVideo ? src + "#t=0.001" : src;
     return el;
 };
@@ -444,6 +446,7 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
 
         if (!mediaB) {
             slider.style.display = "none";
+            if (mediaA) mediaA.style.pointerEvents = isBaseVideo ? "none" : "auto";
             if (isZoomed && wA && hA) {
                 wrapper.style.maxWidth = "none";
                 wrapper.style.maxHeight = "none";
@@ -497,8 +500,10 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
         }
 
         slider.style.display = "block";
+        if (mediaA) mediaA.style.pointerEvents = "none";
+        if (mediaB) mediaB.style.pointerEvents = "none";
         infoText.style.color = "#aaa";
-        infoText.textContent = "Drag slider to compare. Click image to zoom (100%/Fit) | Shift+Click another card | Esc to close.";
+        infoText.textContent = "Drag slider to compare. Click image to zoom (100%/Fit) | Shift+Click another card to compare | Esc to close.";
         updateSliderPosition(50);
 
         const maxW = Math.max(wA, wB);

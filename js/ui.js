@@ -1,8 +1,30 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 import { State, promptStates, cardElements, scheduleStateSave, deletePromptState } from "./state.js";
-import { isImageFormat, isVideoFormat, is3DFormat, isAudioFormat, getFilenameFromUrl, matchesFilter, getRunOutputs } from "./utils.js";
+import { isImageFormat, isVideoFormat, is3DFormat, isAudioFormat, getFilenameFromUrl, matchesFilter, getRunOutputs, extractWorkflowFromPng } from "./utils.js";
 import { showFullscreenPreview, isAudioViewerOpen } from "./comparison.js";
+
+async function copyImageToClipboard(src) {
+    try {
+        const res = await fetch(src);
+        let blob = await res.blob();
+        if (blob.type !== "image/png") {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = src; });
+            const canvas = document.createElement("canvas");
+            canvas.width = img.naturalWidth || img.width;
+            canvas.height = img.naturalHeight || img.height;
+            canvas.getContext("2d").drawImage(img, 0, 0);
+            blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+        }
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+        return true;
+    } catch (err) {
+        console.error("Comfy Sidebar: Failed to copy image to clipboard", err);
+        return false;
+    }
+}
 
 export let syncQueueFn = async () => {};
 export function setSyncQueue(fn) { syncQueueFn = fn; }
@@ -418,6 +440,8 @@ function syncCardButtonVisibility(cardObj, state) {
 
     const isCompleted = state.status === "completed";
     const hasRealImages = isCompleted && state.images && state.images.length > 0 && !state.images.some(img => img.url && img.url.startsWith("blob:"));
+    const currentImg = hasRealImages ? state.images[cardObj.currentImageIndex || 0] : null;
+    const isPng = currentImg && (currentImg.filename || "").toLowerCase().endsWith(".png");
 
     if (cardObj.btnImg) {
         if (hasRealImages) {
@@ -437,19 +461,51 @@ function syncCardButtonVisibility(cardObj, state) {
         }
     }
 
+    if (cardObj.btnCopy) {
+        if (hasRealImages && currentImg) {
+            cardObj.btnCopy.style.removeProperty("display");
+            cardObj.btnCopy.style.display = "inline-flex";
+            cardObj.btnCopy.onclick = async (ev) => {
+                ev.stopPropagation();
+                const src = currentImg.url ? currentImg.url : `/view?filename=${encodeURIComponent(currentImg.filename)}&type=${currentImg.type || 'output'}&subfolder=${encodeURIComponent(currentImg.subfolder || '')}`;
+                const success = await copyImageToClipboard(src);
+                if (success) {
+                    cardObj.btnCopy.className = "pi pi-check comfy-sidebar-card-action-btn";
+                    cardObj.btnCopy.style.color = "#4ade80";
+                    setTimeout(() => {
+                        cardObj.btnCopy.className = "pi pi-copy comfy-sidebar-card-action-btn";
+                        cardObj.btnCopy.style.color = "";
+                    }, 1500);
+                }
+            };
+        } else {
+            cardObj.btnCopy.style.setProperty("display", "none", "important");
+        }
+    }
+
     if (cardObj.btnJson) {
-        if (state.workflow) {
+        if (state.workflow || isPng) {
             cardObj.btnJson.style.removeProperty("display");
             cardObj.btnJson.style.display = "inline-flex";
-            cardObj.btnJson.onclick = (ev) => {
+            cardObj.btnJson.onclick = async (ev) => {
                 ev.stopPropagation();
-                const blob = new Blob([JSON.stringify(state.workflow, null, 2)], { type: "application/json" });
+                let wf = state.workflow;
+                if (!wf && currentImg) {
+                    const src = currentImg.url ? currentImg.url : `/view?filename=${encodeURIComponent(currentImg.filename)}&type=${currentImg.type || 'output'}&subfolder=${encodeURIComponent(currentImg.subfolder || '')}`;
+                    wf = await extractWorkflowFromPng(src);
+                    if (wf) state.workflow = wf;
+                }
+                if (!wf) {
+                    alert("No workflow metadata found in this file.");
+                    return;
+                }
+                const blob = new Blob([JSON.stringify(wf, null, 2)], { type: "application/json" });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
-                a.download = `workflow_${state.pid}.json`;
+                a.download = `workflow_${state.pid || "comfy"}.json`;
                 a.click();
-                URL.revokeObjectURL(url);
+                setTimeout(() => URL.revokeObjectURL(url), 1500);
             };
         } else {
             cardObj.btnJson.style.setProperty("display", "none", "important");
@@ -462,7 +518,6 @@ function syncCardButtonVisibility(cardObj, state) {
     }
 
     if (cardObj.btnFocus) {
-        const currentImg = hasRealImages ? state.images[cardObj.currentImageIndex || 0] : null;
         const nodeId = currentImg ? findNodeIdForImage(state, currentImg) : null;
         if (nodeId) {
             cardObj.btnFocus.style.removeProperty("display");
@@ -482,19 +537,21 @@ function syncCardButtonVisibility(cardObj, state) {
 
     if (cardObj.leftHoverBtn) {
         const outputs = getRunOutputs(state.nodeOutputs, state.workflow);
+        const validOutputs = outputs.filter(o => o.images && o.images.length > 0);
 
-        // Gather all unique files across all output nodes
-        const allUniqueFiles = new Set();
-        for (const out of outputs) {
-            for (const img of (out.images || [])) {
-                if (img && img.filename) {
-                    allUniqueFiles.add(`${img.subfolder || ""}/${img.filename}`);
-                }
+        // Signatures of images already showing on the primary card
+        const primarySignatures = new Set((state.images || []).map(i => `${i.subfolder || ""}/${i.filename}`));
+        const distinctOutputs = [];
+
+        for (const out of validOutputs) {
+            const hasNewImage = out.images.some(img => !primarySignatures.has(`${img.subfolder || ""}/${img.filename}`));
+            if (hasNewImage) {
+                distinctOutputs.push(out);
             }
         }
 
-        // Show intermediate button if there are multiple output nodes AND more than 1 distinct file
-        const hasIntermediates = outputs.length > 1 && allUniqueFiles.size > 1;
+        // Show intermediate button ONLY if there are genuine distinct/extra outputs
+        const hasIntermediates = validOutputs.length > 1 && distinctOutputs.length > 0;
 
         if (hasIntermediates) {
             cardObj.leftHoverBtn.style.removeProperty("display");
@@ -1391,7 +1448,23 @@ export function renderDOM() {
                 globalClickRegistered = true;
             }
 
-            const outputs = getRunOutputs(st.nodeOutputs, st.workflow);
+            const rawOutputs = getRunOutputs(st.nodeOutputs, st.workflow);
+            const seenFiles = new Set();
+            const outputs = [];
+
+            // Deduplicate across nodes so two nodes producing the exact same image don't duplicate cards
+            rawOutputs.forEach(out => {
+                const uniqueImgs = (out.images || []).filter(img => {
+                    const key = `${img.subfolder || ""}/${img.filename}`;
+                    if (seenFiles.has(key)) return false;
+                    seenFiles.add(key);
+                    return true;
+                });
+                if (uniqueImgs.length > 0) {
+                    outputs.push({ nodeId: out.nodeId, images: uniqueImgs });
+                }
+            });
+
             const targetElements = [];
 
             outputs.forEach((out) => {
@@ -1543,8 +1616,6 @@ export function renderDOM() {
             targetElements.forEach((el, index) => { if (State.cardStack.children[index] !== el) State.cardStack.insertBefore(el, State.cardStack.children[index] || null); });
             while (State.cardStack.children.length > targetElements.length) State.cardStack.removeChild(State.cardStack.lastChild);
 
-            const scrollEl = getScrollContainer();
-            if (scrollEl) scrollEl.scrollTop = 0;
             updateScrollTopBtnVisibility();
             return;
         }
@@ -1620,6 +1691,11 @@ export function renderDOM() {
                 });
 
                 const btnImg = document.createElement("span"); btnImg.className = "pi pi-image comfy-sidebar-card-action-btn"; btnImg.title = "Download Object";
+                
+                const btnCopy = document.createElement("span");
+                btnCopy.className = "pi pi-copy comfy-sidebar-card-action-btn";
+                btnCopy.title = "Copy Image to Clipboard";
+
                 const btnJson = document.createElement("span"); btnJson.className = "pi pi-file comfy-sidebar-card-action-btn"; btnJson.title = "Download JSON";
                 const btnDel = document.createElement("span"); 
                 btnDel.className = "pi pi-trash comfy-sidebar-card-action-btn comfy-sidebar-btn-del"; 
@@ -1645,11 +1721,11 @@ export function renderDOM() {
                 leftHoverBtn.title = "View all intermediate outputs";
 
                 hoverPanel.append(btnImg, btnJson, btnDel);
-                leftHoverPanel.append(btnFocus, leftHoverBtn);
+                leftHoverPanel.append(btnCopy, btnFocus, leftHoverBtn);
 
                 card.append(timerEl, cancelX, sBadge, grid, p, pt, statusText, hoverPanel, leftHoverPanel);
                 
-                cardObj = { element: card, timerEl, statusBadge: sBadge, grid, placeholder: p, progressContainer: pt, progressBar: pb, cancelBtn: cancelX, hoverPanel, leftHoverPanel, btnFocus, leftHoverBtn, btnImg, btnJson, btnDel, statusText, firstImgElement: null, lastImagesSignature: "" };
+                cardObj = { element: card, timerEl, statusBadge: sBadge, grid, placeholder: p, progressContainer: pt, progressBar: pb, cancelBtn: cancelX, hoverPanel, leftHoverPanel, btnFocus, leftHoverBtn, btnImg, btnCopy, btnJson, btnDel, statusText, firstImgElement: null, lastImagesSignature: "" };
                 
                 card.addEventListener("mouseenter", () => { 
                     syncCardButtonVisibility(cardObj, state);

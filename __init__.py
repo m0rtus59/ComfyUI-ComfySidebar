@@ -89,7 +89,8 @@ def open_file_in_os(target_path):
         if not os.path.exists(norm_path):
             raise FileNotFoundError(f"Path not found: {norm_path}")
         if os.path.isfile(norm_path):
-            subprocess.Popen(["explorer", "/select,", norm_path])
+            # Passed as a single argument so Windows Explorer highlights the file properly
+            subprocess.Popen(["explorer", f"/select,{norm_path}"])
         else:
             os.startfile(norm_path)
 
@@ -106,7 +107,7 @@ def open_file_in_os(target_path):
         if not os.path.exists(folder):
             raise FileNotFoundError(f"Path not found: {folder}")
         if "DISPLAY" in os.environ or "WAYLAND_DISPLAY" in os.environ:
-            subprocess.Popen(["xdg-open", folder])
+            subprocess.Popen(["xdg-open", folder], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         else:
             raise RuntimeError("Headless Linux server detected (no desktop GUI available).")
 
@@ -162,16 +163,20 @@ async def promote_output_handler(request):
     try:
         import shutil
         data = await request.json()
-        filename = data.get("filename", "")
-        subfolder = data.get("subfolder", "")
-        folder_type = data.get("type", "output")
+        raw_filename = (data.get("filename") or "").strip()
+        filename = os.path.basename(raw_filename)
+        subfolder = (data.get("subfolder") or "").strip()
+        folder_type = (data.get("type") or "output").strip()
 
-        target_file, root = resolve_existing_path(filename, subfolder, folder_type)
+        target_file, root = resolve_existing_path(raw_filename, subfolder, folder_type)
         if not target_file or not os.path.isfile(target_file):
             return web.json_response({"error": "File not found"}, status=404)
 
         input_dir = folder_paths.get_input_directory()
         dest_path = os.path.join(input_dir, filename)
+        if not is_path_safe(input_dir, dest_path):
+            return web.json_response({"error": "Unsafe destination path"}, status=403)
+
         shutil.copy2(target_file, dest_path)
         return web.json_response({"name": filename})
     except Exception as e:
