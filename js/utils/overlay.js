@@ -1,4 +1,4 @@
-import { State } from "./state.js";
+import { store } from "../core/store.js";
 
 export class SidebarOverlay {
     constructor(options = {}) {
@@ -10,7 +10,9 @@ export class SidebarOverlay {
         this.container.className = `comfy-sidebar-comparison-overlay ${options.className || ""}`;
         Object.assign(this.container.style, {
             position: "fixed", top: "0", left: "0", width: "100vw", height: "100vh",
-            background: options.background || "rgba(10, 10, 10, 0.95)",
+            background: options.background || "color-mix(in srgb, var(--comfy-menu-bg, #121212) 95%, transparent)",
+            backdropFilter: "blur(8px)",
+            color: "var(--fg-color, #eee)",
             display: "flex", flexDirection: "column", alignItems: "center",
             justifyContent: "center", zIndex: "1000", boxSizing: "border-box",
             overflow: "hidden", pointerEvents: "auto", userSelect: "none"
@@ -22,11 +24,22 @@ export class SidebarOverlay {
         this.closeBtn.title = "Close (Esc)";
         Object.assign(this.closeBtn.style, {
             position: "absolute", top: "16px", right: "24px", zIndex: "30",
-            cursor: "pointer", fontSize: "20px", color: "#aaa", transition: "color 0.15s ease",
-            background: "rgba(10,10,10,0.6)", borderRadius: "50%", padding: "4px"
+            cursor: "pointer", fontSize: "18px", 
+            color: "var(--desc-color, #aaa)", 
+            transition: "all 0.15s ease",
+            background: "var(--comfy-input-bg, rgba(20, 20, 20, 0.6))", 
+            border: "1px solid var(--border-color, rgba(255, 255, 255, 0.1))",
+            borderRadius: "50%", padding: "6px"
         });
-        this.closeBtn.onmouseenter = () => this.closeBtn.style.color = "#fff";
-        this.closeBtn.onmouseleave = () => this.closeBtn.style.color = "#aaa";
+        this.closeBtn.onmouseenter = () => {
+            this.closeBtn.style.color = "var(--fg-color, #fff)";
+            this.closeBtn.style.borderColor = "var(--fg-color, #fff)";
+        };
+        this.closeBtn.onmouseleave = () => {
+            this.closeBtn.style.color = "var(--desc-color, #aaa)";
+            this.closeBtn.style.borderColor = "var(--border-color, rgba(255, 255, 255, 0.1))";
+        };
+
         this.closeBtn.onclick = () => this.destroy();
         this.container.appendChild(this.closeBtn);
 
@@ -41,7 +54,7 @@ export class SidebarOverlay {
         window.addEventListener("resize", this.updateOverlayBounds);
         this.cleanupFns.push(() => window.removeEventListener("resize", this.updateOverlayBounds));
 
-        const sidebarEl = State.sidebarContainer?.closest('.comfyui-sidebar, .comfy-sidebar, .p-sidebar, [class*="sidebar"]') || State.sidebarContainer;
+        const sidebarEl = store.ui.sidebarContainer?.closest('.comfyui-sidebar, .comfy-sidebar, .p-sidebar, [class*="sidebar"]') || store.ui.sidebarContainer;
         if (sidebarEl && window.ResizeObserver) {
             const ro = new ResizeObserver(this.updateOverlayBounds);
             ro.observe(sidebarEl);
@@ -63,7 +76,7 @@ export class SidebarOverlay {
     }
 
     updateOverlayBounds() {
-        const sidebarEl = State.sidebarContainer?.closest('.comfyui-sidebar, .comfy-sidebar, .p-sidebar, [class*="sidebar"]') || State.sidebarContainer;
+        const sidebarEl = store.ui.sidebarContainer?.closest('.comfyui-sidebar, .comfy-sidebar, .p-sidebar, [class*="sidebar"]') || store.ui.sidebarContainer;
         if (sidebarEl && sidebarEl.offsetWidth > 0 && sidebarEl.isConnected) {
             const rect = sidebarEl.getBoundingClientRect();
             if (rect.left < window.innerWidth / 2) {

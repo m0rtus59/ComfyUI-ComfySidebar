@@ -1,4 +1,12 @@
 import { app } from "/scripts/app.js";
+import {
+    findOriginalPropertiesButton,
+    findTopbarContainer,
+    isPropertiesPanelOpen,
+    findActiveQueueIndicator,
+    findNativeExtensionsPanel,
+    findGraphButton
+} from "./adapter.js";
 
 const STYLE_ID = "comfy-sidebar-classic-layout-override";
 
@@ -151,90 +159,6 @@ let savedButtonData = null;
 let domObserver = null;
 let syncScheduled = false;
 
-function findOriginalButton() {
-    const byTestId = document.querySelector('[data-testid="properties-panel-toggle"]');
-    if (byTestId && !byTestId.classList.contains("comfy-sidebar-custom-properties-toggle")) {
-        return byTestId;
-    }
-
-    const icons = document.querySelectorAll('[class*="lucide--panel-right"], [class*="lucide--panel-left"], [class*="lucide--panel-bottom"]');
-    for (const icon of icons) {
-        const btn = icon.closest('button, [role="button"], .comfyui-menu-item, .p-button');
-        if (btn && !btn.classList.contains("comfy-sidebar-custom-properties-toggle")) {
-            return btn;
-        }
-    }
-
-    const buttons = document.querySelectorAll('button, [role="button"], .p-button');
-    for (const btn of buttons) {
-        if (btn.classList.contains("comfy-sidebar-custom-properties-toggle")) continue;
-        const title = (btn.getAttribute("title") || btn.getAttribute("aria-label") || "").toLowerCase();
-        if (title.includes("workflow overview") || title.includes("properties") || title.includes("toggle panel")) {
-            return btn;
-        }
-    }
-    return null;
-}
-
-function findTopbarContainer() {
-    const container = document.querySelector('[data-testid="action-bar-buttons"], [class*="actionbar-buttons"], .actionbar-buttons, [class*="actionbar"]');
-    if (container) return container;
-    
-    const orig = findOriginalButton();
-    if (orig?.parentNode) return orig.parentNode;
-    
-    const buttons = document.querySelectorAll("button, .p-button");
-    for (const btn of buttons) {
-        if (btn.classList.contains("comfy-sidebar-custom-properties-toggle")) continue;
-        const title = (btn.getAttribute("title") || btn.getAttribute("aria-label") || "").toLowerCase();
-        if (title.includes("run") || title.includes("manager")) {
-            if (btn.parentNode) return btn.parentNode;
-        }
-    }
-    return null;
-}
-
-function isPropertiesPanelOpen() {
-    const panel = document.querySelector('[data-testid="properties-panel"]');
-    if (panel && panel.offsetWidth > 0 && panel.offsetHeight > 0) return true;
-
-    const headings = document.querySelectorAll('h1, h2, h3, h4');
-    for (const h of headings) {
-        if (h.textContent.trim() === "Workflow Overview" && h.offsetWidth > 0 && h.offsetHeight > 0) return true;
-    }
-
-    const origBtn = findOriginalButton();
-    if (origBtn) {
-        if (origBtn.classList.contains("p-button-active") || 
-            origBtn.classList.contains("active") || 
-            origBtn.getAttribute("aria-expanded") === "true" ||
-            origBtn.getAttribute("aria-pressed") === "true") {
-            return true;
-        }
-    }
-    return false;
-}
-
-function findActiveQueueIndicator() {
-    const container = findTopbarContainer();
-    if (!container) return null;
-    
-    const buttons = container.querySelectorAll("button, .p-button, .comfyui-menu-item");
-    for (const btn of buttons) {
-        if (btn.classList.contains("comfy-sidebar-custom-properties-toggle")) continue;
-        const text = (btn.textContent || "").toLowerCase();
-        if (text.includes("active") || text.includes("queued") || text.includes("running") || text.includes("pending")) {
-            return btn;
-        }
-    }
-    return null;
-}
-
-function findNativeExtensionsPanel() {
-    return Array.from(document.querySelectorAll('.shadow-interface:not(.actionbar-container)'))
-        .find(el => el.textContent.toLowerCase().includes('extensions') || el.querySelector('button')?.textContent.toLowerCase().includes('extensions'));
-}
-
 function updateSidebarTabsVisibility() {
     const sidebar = document.querySelector('.comfyui-sidebar, .comfy-sidebar, .sidebar, [class*="sidebar-nav"], [class*="sidebar"]');
     if (!sidebar) return;
@@ -271,24 +195,6 @@ function updateSidebarTabsVisibility() {
             if (historyBtn.style.display === "none") historyBtn.style.removeProperty("display");
         }
     }
-}
-
-function findGraphButton() {
-    const elements = document.querySelectorAll('.p-1.bg-base-background.rounded-lg, .bg-base-background.rounded-lg, .bg-secondary-background.rounded-lg.items-center.inline-flex.pointer-events-auto, [data-testid="graph-view-button"]');
-    for (const el of elements) {
-        if (el.closest('.p-dialog, .comfy-modal, [role="dialog"], .p-sidebar, .comfy-settings, .comfyui-sidebar, .comfy-sidebar')) continue;
-        return el.closest('.group, .p-1') || el;
-    }
-
-    const fallbacks = document.querySelectorAll('button, .bg-base-background, .bg-secondary-background');
-    for (const el of fallbacks) {
-        if (el.closest('.p-dialog, .comfy-modal, [role="dialog"], .p-sidebar, .comfy-settings, .comfyui-sidebar, .comfy-sidebar')) continue;
-        const text = (el.textContent || el.getAttribute("title") || el.getAttribute("aria-label") || "").toLowerCase();
-        if (text.includes("graph") || text.includes("workflow") || el.querySelector('[class*="sitemap"], [class*="workflow"]')) {
-            return el.closest('.group, .p-1, .bg-base-background, .bg-secondary-background') || el;
-        }
-    }
-    return null;
 }
 
 function syncErrorBadge(originalBtn, customBtn) {
@@ -352,7 +258,7 @@ export function syncClassicLayout() {
         }
 
         if (!isClassicLayoutEnabled) {
-            const originalBtn = findOriginalButton();
+            const originalBtn = findOriginalPropertiesButton();
             if (originalBtn?.classList.contains("comfy-sidebar-hide-original-properties-btn")) {
                 originalBtn.classList.remove("comfy-sidebar-hide-original-properties-btn");
             }
@@ -367,7 +273,7 @@ export function syncClassicLayout() {
             return;
         }
 
-        const originalBtn = findOriginalButton();
+        const originalBtn = findOriginalPropertiesButton();
         const container = findTopbarContainer();
         const openState = isPropertiesPanelOpen();
 
@@ -404,7 +310,7 @@ export function syncClassicLayout() {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                const nativeBtn = findOriginalButton();
+                const nativeBtn = findOriginalPropertiesButton();
                 if (nativeBtn) {
                     nativeBtn.click();
                     requestAnimationFrame(() => syncClassicLayout());

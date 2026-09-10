@@ -1,7 +1,7 @@
 import { isVideoFormat, is3DFormat, isAudioFormat, getFilenameFromUrl } from "./utils.js";
 import { create3DViewer } from "./viewer3d.js";
 import { createTextReader } from "./text_reader.js";
-import { stopAllAudioPlayback } from "./ui.js";
+import { stopAllAudioPlayback } from "../ui/audioController.js";
 import { SidebarOverlay } from "./overlay.js";
 
 let activeComparisonViewer = null;
@@ -264,10 +264,14 @@ const setupVideoPlayback = (vid, container) => {
     const controlBar = document.createElement("div");
     Object.assign(controlBar.style, {
         position: "absolute", bottom: "16px", left: "50%",
-        display: "flex", alignItems: "center", gap: "12px", background: "rgba(10,10,10,0.85)",
+        display: "flex", alignItems: "center", gap: "12px", 
+        background: "var(--comfy-input-bg, rgba(18, 18, 18, 0.9))",
+        border: "1px solid var(--border-color, rgba(255, 255, 255, 0.15))",
         padding: "8px 16px", borderRadius: "8px", zIndex: "40", fontSize: "11px",
-        fontFamily: "monospace", color: "#eee", width: "80%", maxWidth: "500px",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.5)", transform: "translate3d(-50%, 0, 0)",
+        fontFamily: "monospace", 
+        color: "var(--fg-color, #eee)", 
+        width: "80%", maxWidth: "500px",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.3)", transform: "translate3d(-50%, 0, 0)",
         pointerEvents: "auto"
     });
 
@@ -380,10 +384,14 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
     const header = document.createElement("div");
     Object.assign(header.style, {
         position: "absolute", top: "16px", left: "50%", transform: "translateX(-50%)",
-        display: "flex", gap: "16px", zIndex: "30", color: "#aaa", fontSize: "12px",
-        fontFamily: "sans-serif", pointerEvents: "none", background: "rgba(10,10,10,0.75)",
-        padding: "4px 10px", borderRadius: "4px", backdropFilter: "blur(4px)",
-        boxShadow: "0 2px 6px rgba(0,0,0,0.4)", maxWidth: "85%", textAlign: "center"
+        display: "flex", gap: "16px", zIndex: "30", 
+        color: "var(--desc-color, #aaa)", 
+        fontSize: "12px",
+        fontFamily: "sans-serif", pointerEvents: "none", 
+        background: "var(--comfy-input-bg, rgba(18, 18, 18, 0.85))",
+        border: "1px solid var(--border-color, rgba(255, 255, 255, 0.15))",
+        padding: "6px 14px", borderRadius: "6px", backdropFilter: "blur(6px)",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.3)", maxWidth: "85%", textAlign: "center"
     });
     const infoText = document.createElement("span");
     infoText.textContent = isBaseVideo 

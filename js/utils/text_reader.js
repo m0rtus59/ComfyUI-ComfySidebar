@@ -201,11 +201,14 @@ export function createTextReader(textData, onSwitchMedia = () => {}, onDestroy =
 
     const readerBox = document.createElement("div");
     Object.assign(readerBox.style, {
-        background: "rgba(18, 18, 24, 0.95)", backdropFilter: "blur(12px)",
-        border: "1px solid rgba(255, 255, 255, 0.15)", borderRadius: "12px",
+        background: "var(--comfy-menu-bg, rgba(18, 18, 24, 0.95))", 
+        backdropFilter: "blur(12px)",
+        border: "1px solid var(--border-color, rgba(255, 255, 255, 0.15))", 
+        borderRadius: "12px",
         padding: "20px 24px", width: "85%", maxWidth: "840px", height: "80vh",
-        boxShadow: "0 12px 40px rgba(0,0,0,0.8)", display: "flex",
-        flexDirection: "column", gap: "14px", zIndex: "20"
+        boxShadow: "0 12px 40px rgba(0,0,0,0.4)", display: "flex",
+        flexDirection: "column", gap: "14px", zIndex: "20",
+        color: "var(--fg-color, #eee)"
     });
 
     const headerRow = document.createElement("div");
@@ -258,10 +261,14 @@ export function createTextReader(textData, onSwitchMedia = () => {}, onDestroy =
     const textArea = document.createElement("div");
     Object.assign(textArea.style, {
         flex: "1", overflowY: "auto", fontSize: "13px",
-        lineHeight: "1.6", color: "#e2e8f0", wordBreak: "break-word",
-        userSelect: "text", "-webkit-user-select": "text", background: "rgba(0,0,0,0.35)",
-        padding: "16px 20px", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.06)",
-        scrollbarWidth: "thin", scrollbarColor: "#475569 rgba(0,0,0,0.2)"
+        lineHeight: "1.6", 
+        color: "var(--fg-color, #e2e8f0)", 
+        wordBreak: "break-word",
+        userSelect: "text", "-webkit-user-select": "text", 
+        background: "var(--comfy-input-bg, rgba(0, 0, 0, 0.2))",
+        padding: "16px 20px", borderRadius: "6px", 
+        border: "1px solid var(--border-color, rgba(255, 255, 255, 0.08))",
+        scrollbarWidth: "thin"
     });
 
     const updateView = () => {

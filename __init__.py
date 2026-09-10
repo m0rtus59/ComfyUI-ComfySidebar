@@ -181,3 +181,60 @@ async def promote_output_handler(request):
         return web.json_response({"name": filename})
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
+
+
+# ============================================================================
+# Local Three.js Proxy & Offline Cache (Bypasses CSP & --disable-api-nodes)
+# ============================================================================
+SIDEBAR_CACHE_DIR = os.path.join(os.path.dirname(__file__), "js", "vendor", "cache")
+
+@PromptServer.instance.routes.get("/comfy-sidebar/three-proxy/{path:.*}")
+async def three_proxy_handler(request):
+    raw_path = request.match_info.get("path", "").lstrip("/")
+    if not raw_path:
+        return web.Response(status=404)
+
+    query = request.query_string
+    full_req = f"{raw_path}?{query}" if query else raw_path
+    
+    os.makedirs(SIDEBAR_CACHE_DIR, exist_ok=True)
+    import re
+    safe_name = re.sub(r'[^a-zA-Z0-9_.-]', '_', full_req)
+    if not any(safe_name.endswith(ext) for ext in [".js", ".mjs", ".wasm", ".bin", ".json"]):
+        safe_name += ".js"
+    cache_file = os.path.join(SIDEBAR_CACHE_DIR, safe_name)
+
+    # 1. Serve immediately from disk cache if present
+    if os.path.isfile(cache_file) and os.path.getsize(cache_file) > 0:
+        content_type = "application/wasm" if raw_path.endswith(".wasm") else "application/javascript"
+        return web.FileResponse(cache_file, headers={"Content-Type": content_type})
+
+    # 2. Otherwise download via Python (not blocked by browser CSP)
+    url = f"https://esm.sh/{full_req}"
+    try:
+        import urllib.request
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            raw_data = resp.read()
+
+            if raw_path.endswith((".wasm", ".bin", ".png", ".jpg")):
+                with open(cache_file, "wb") as f:
+                    f.write(raw_data)
+                return web.Response(body=raw_data, content_type="application/octet-stream")
+
+            content = raw_data.decode("utf-8", errors="replace")
+            # Rewrite absolute esm.sh paths to route through our local 'self' proxy
+            content = content.replace("https://esm.sh/", "/comfy-sidebar/three-proxy/")
+            # Rewrite root-relative module paths (e.g. from "/v135/...")
+            content = re.sub(
+                r'((?:from|import)\s*["\'])/(v\d+|[a-zA-Z0-9@_.~-]+/)',
+                r'\1/comfy-sidebar/three-proxy/\2',
+                content
+            )
+
+            with open(cache_file, "w", encoding="utf-8") as f:
+                f.write(content)
+
+            return web.Response(text=content, content_type="application/javascript")
+    except Exception as e:
+        return web.Response(text=f"/* Proxy error fetching {url}: {e} */", status=502, content_type="application/javascript")

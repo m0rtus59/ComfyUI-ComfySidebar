@@ -1,35 +1,65 @@
-import { is3DFormat } from "./utils.js";
+import { is3DFormat, getFilenameFromUrl } from "./utils.js";
 import { SidebarOverlay } from "./overlay.js";
 
 let cachedThreeLibs = null;
 
 async function getThreeLibs() {
     if (cachedThreeLibs) return cachedThreeLibs;
-    if (window.THREE && window.THREE.GLTFLoader && window.THREE.OrbitControls) {
-        cachedThreeLibs = window.THREE;
-        return cachedThreeLibs;
-    }
-    try {
-        const [three, controls, gltf, obj, stl, ply] = await Promise.all([
-            import("https://esm.sh/three@0.170.0"),
-            import("https://esm.sh/three@0.170.0/examples/jsm/controls/OrbitControls.js"),
-            import("https://esm.sh/three@0.170.0/examples/jsm/loaders/GLTFLoader.js"),
-            import("https://esm.sh/three@0.170.0/examples/jsm/loaders/OBJLoader.js"),
-            import("https://esm.sh/three@0.170.0/examples/jsm/loaders/STLLoader.js"),
-            import("https://esm.sh/three@0.170.0/examples/jsm/loaders/PLYLoader.js")
-        ]);
 
+    // Check if Three.js was already loaded on window by another ComfyUI 3D node
+    if (window.THREE) {
+        const OrbitControls = window.THREE.OrbitControls || window.OrbitControls;
+        const GLTFLoader = window.THREE.GLTFLoader || window.GLTFLoader;
+        if (OrbitControls && GLTFLoader) {
+            cachedThreeLibs = {
+                ...window.THREE,
+                OrbitControls,
+                GLTFLoader,
+                OBJLoader: window.THREE.OBJLoader || window.OBJLoader,
+                STLLoader: window.THREE.STLLoader || window.STLLoader,
+                PLYLoader: window.THREE.PLYLoader || window.PLYLoader
+            };
+            return cachedThreeLibs;
+        }
+    }
+
+    const loadFromBase = async (base) => {
+        const [three, controls, gltf, obj, stl, ply] = await Promise.all([
+            import(`${base}three@0.170.0`),
+            import(`${base}three@0.170.0/examples/jsm/controls/OrbitControls.js`),
+            import(`${base}three@0.170.0/examples/jsm/loaders/GLTFLoader.js`),
+            import(`${base}three@0.170.0/examples/jsm/loaders/OBJLoader.js`).catch(() => null),
+            import(`${base}three@0.170.0/examples/jsm/loaders/STLLoader.js`).catch(() => null),
+            import(`${base}three@0.170.0/examples/jsm/loaders/PLYLoader.js`).catch(() => null)
+        ]);
+        return { three, controls, gltf, obj, stl, ply };
+    };
+
+    try {
+        let loaded = null;
+        // 1. Try local Python proxy on 'self' (bypasses CSP & --disable-api-nodes)
+        try {
+            loaded = await loadFromBase("/comfy-sidebar/three-proxy/");
+            window.__COMFY_SIDEBAR_THREE_BASE = "/comfy-sidebar/three-proxy/";
+        } catch (proxyErr) {
+            // 2. Fall back to direct CDN if proxy is unreachable
+            console.warn("Comfy Sidebar: Proxy unavailable, trying direct CDN...", proxyErr);
+            loaded = await loadFromBase("https://esm.sh/");
+            window.__COMFY_SIDEBAR_THREE_BASE = "https://esm.sh/";
+        }
+
+        const { three, controls, gltf, obj, stl, ply } = loaded;
         cachedThreeLibs = {
             ...three,
-            OrbitControls: controls.OrbitControls,
-            GLTFLoader: gltf.GLTFLoader,
-            OBJLoader: obj.OBJLoader,
-            STLLoader: stl.STLLoader,
-            PLYLoader: ply.PLYLoader
+            OrbitControls: controls.OrbitControls || controls.default || controls,
+            GLTFLoader: gltf.GLTFLoader || gltf.default || gltf,
+            OBJLoader: obj?.OBJLoader || obj?.default || obj,
+            STLLoader: stl?.STLLoader || stl?.default || stl,
+            PLYLoader: ply?.PLYLoader || ply?.default || ply
         };
         return cachedThreeLibs;
     } catch (err) {
-        console.error("Comfy Sidebar: Failed to load Three.js libraries", err);
+        console.error("Comfy Sidebar: Failed to load Three.js libraries:", err);
         return null;
     }
 }
@@ -49,7 +79,7 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
         boxShadow: "0 2px 6px rgba(0,0,0,0.4)", maxWidth: "85%", textAlign: "center"
     });
     const titleText = document.createElement("span");
-    titleText.textContent = baseSrc.split("/").pop().split("?")[0] || "3D Model";
+    titleText.textContent = getFilenameFromUrl(baseSrc) || "3D Model";
     header.appendChild(titleText);
     overlay.container.appendChild(header);
 
@@ -202,21 +232,25 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
             loadingSpinner.style.display = "flex";
             loadingSpinner.innerHTML = `<span class="pi pi-spin pi-spinner"></span> Exporting ${format}...`;
 
+            const base = window.__COMFY_SIDEBAR_THREE_BASE || "/comfy-sidebar/three-proxy/";
             if (format === "OBJ") {
-                const { OBJExporter } = await import("https://esm.sh/three@0.170.0/examples/jsm/exporters/OBJExporter.js");
+                const mod = await import(`${base}three@0.170.0/examples/jsm/exporters/OBJExporter.js`);
+                const OBJExporter = mod.OBJExporter || mod.default || mod;
                 const exporter = new OBJExporter();
                 const result = exporter.parse(currentModel);
                 const blob = new Blob([result], { type: "text/plain" });
                 downloadBlob(blob, `${baseName}.obj`);
             } else if (format === "GLB") {
-                const { GLTFExporter } = await import("https://esm.sh/three@0.170.0/examples/jsm/exporters/GLTFExporter.js");
+                const mod = await import(`${base}three@0.170.0/examples/jsm/exporters/GLTFExporter.js`);
+                const GLTFExporter = mod.GLTFExporter || mod.default || mod;
                 const exporter = new GLTFExporter();
                 exporter.parse(currentModel, (gltf) => {
                     const blob = new Blob([gltf], { type: "application/octet-stream" });
                     downloadBlob(blob, `${baseName}.glb`);
                 }, (err) => { console.error(err); }, { binary: true });
             } else if (format === "STL") {
-                const { STLExporter } = await import("https://esm.sh/three@0.170.0/examples/jsm/exporters/STLExporter.js");
+                const mod = await import(`${base}three@0.170.0/examples/jsm/exporters/STLExporter.js`);
+                const STLExporter = mod.STLExporter || mod.default || mod;
                 const exporter = new STLExporter();
                 const result = exporter.parse(currentModel, { binary: true });
                 const blob = new Blob([result], { type: "application/octet-stream" });
@@ -244,11 +278,16 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
     const initSceneAndLoad = async (srcUrl) => {
         loadingSpinner.style.display = "flex";
         loadingSpinner.innerHTML = `<span class="pi pi-spin pi-spinner" style="font-size: 18px;"></span> Loading 3D Asset...`;
-        titleText.textContent = srcUrl.split("/").pop().split("?")[0] || "3D Model";
+        titleText.textContent = getFilenameFromUrl(srcUrl) || "3D Model";
 
         THREE = await getThreeLibs();
         if (!THREE) {
-            loadingSpinner.textContent = "Failed to load 3D engine.";
+            loadingSpinner.innerHTML = `
+                <div style="text-align: center; max-width: 320px; line-height: 1.4;">
+                    <span style="color: #f87171; font-weight: bold;">Failed to load 3D engine.</span><br>
+                    <span style="font-size: 11px; color: #94a3b8;">Blocked by ComfyUI Content Security Policy (CSP). Check if <code>--disable-api-nodes</code> is enabled in your startup arguments, or vendor Three.js locally.</span>
+                </div>
+            `;
             return;
         }
 
@@ -450,7 +489,8 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
         }
 
         try {
-            const ext = (srcUrl.split("?")[0].split(".").pop() || "glb").toLowerCase();
+            const filename = getFilenameFromUrl(srcUrl);
+            const ext = (filename.split(".").pop() || "glb").toLowerCase();
             let loadedObj = null;
 
             if (ext === "obj" && THREE.OBJLoader) {

@@ -1,5 +1,5 @@
 import { app } from "/scripts/app.js";
-import { State } from "./state.js";
+import { store } from "../core/store.js";
 
 async function promoteOrUploadToInput(imageObj) {
     // 1. Try server-side promotion first (no browser RAM/re-upload overhead)
@@ -145,7 +145,7 @@ export function setupDragAndDrop() {
 
     const onDrop = async (e) => {
         const isSidebarDrop = e.target.closest('.comfyui-sidebar, .comfy-sidebar, [class*="sidebar"]') || 
-                              (State.sidebarContainer && State.sidebarContainer.contains(e.target));
+                              (store.ui.sidebarContainer && store.ui.sidebarContainer.contains(e.target));
         if (isSidebarDrop) {
             e.preventDefault();
             e.stopPropagation();
