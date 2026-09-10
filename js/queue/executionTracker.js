@@ -5,6 +5,7 @@ import { PromptStatus } from "../core/constants.js";
 import { createPromptState, activatePrompt, updatePromptProgress } from "../core/promptState.js";
 import { syncQueue, concludeRun, initSessionAndHistory, clearCancelledOrFailed } from "./queueService.js";
 import { findImagesInOutputs, findTextsInOutputs } from "../utils/utils.js";
+import { updateActiveComparisonPreview } from "../utils/comparison.js";
 
 export function setupExecutionTracker(onTargetedProgressUpdate) {
     const onStatus = () => syncQueue();
@@ -68,9 +69,10 @@ export function setupExecutionTracker(onTargetedProgressUpdate) {
         const showWorkingNode = app.ui?.settings?.getSettingValue?.("Comfy Sidebar.Show Working Node Name") ?? true;
         const activePid = store.ui.currentlyActivePromptId;
 
-        if (showWorkingNode && activePid && store.hasPrompt(activePid)) {
+        if (activePid && store.hasPrompt(activePid)) {
             const prompt = store.getPrompt(activePid);
             if (nodeId) {
+                prompt.activeNodeId = String(nodeId);
                 const node = app.graph?.getNodeById ? app.graph.getNodeById(nodeId) : null;
                 prompt.activeNodeName = node ? (node.title || node.type) : `Node #${nodeId}`;
             } else {
@@ -78,7 +80,7 @@ export function setupExecutionTracker(onTargetedProgressUpdate) {
             }
             store.updatePrompt(activePid, prompt);
 
-            if (typeof onTargetedProgressUpdate === "function") {
+            if (showWorkingNode && typeof onTargetedProgressUpdate === "function") {
                 onTargetedProgressUpdate(activePid, prompt.progress, prompt.activeNodeName);
             }
         }
@@ -94,6 +96,14 @@ export function setupExecutionTracker(onTargetedProgressUpdate) {
             prompt._previewBlobUrl = newBlobUrl;
             prompt.images = [{ url: newBlobUrl }];
             store.updatePrompt(prompt.pid, prompt);
+
+            // Update live fullscreen preview if currently open
+            updateActiveComparisonPreview(prompt.pid, newBlobUrl);
+
+            // Update the active card in the sidebar
+            if (typeof onTargetedProgressUpdate === "function") {
+                onTargetedProgressUpdate(prompt.pid, prompt.progress, prompt.activeNodeName);
+            }
         }
     };
 
@@ -102,8 +112,14 @@ export function setupExecutionTracker(onTargetedProgressUpdate) {
         if (pid && store.hasPrompt(pid)) {
             const prompt = store.getPrompt(pid);
             const nodeImgs = findImagesInOutputs({ [e.detail.node]: e.detail.output }, prompt.workflow);
-            if (nodeImgs.length > 0) {
+            // Only update prompt.images if this node actually produced real output images
+            const hasRealNewImgs = nodeImgs.some(img => !img.isFallback);
+            if (hasRealNewImgs) {
                 prompt.images = nodeImgs;
+                // If fullscreen is open, smoothly transition to the final saved image
+                const finalImg = nodeImgs[0];
+                const finalSrc = finalImg.url || (window.location.origin + `/view?filename=${encodeURIComponent(finalImg.filename)}&type=${finalImg.type || 'output'}&subfolder=${encodeURIComponent(finalImg.subfolder || '')}`);
+                updateActiveComparisonPreview(pid, finalSrc);
             }
             const nodeTexts = findTextsInOutputs({ [e.detail.node]: e.detail.output }, prompt.workflow);
             if (nodeTexts.length > 0) {
@@ -118,7 +134,16 @@ export function setupExecutionTracker(onTargetedProgressUpdate) {
     };
 
     const onExecutionSuccess = (e) => concludeRun(e.detail.prompt_id, PromptStatus.COMPLETED);
-    const onExecutionError = (e) => concludeRun(e.detail.prompt_id, PromptStatus.ERROR);
+    const onExecutionError = (e) => {
+        const pid = e.detail?.prompt_id;
+        const nodeId = e.detail?.node_id;
+        if (pid && nodeId && store.hasPrompt(String(pid))) {
+            const prompt = store.getPrompt(String(pid));
+            prompt.activeNodeId = String(nodeId);
+            store.updatePrompt(String(pid), prompt);
+        }
+        concludeRun(e.detail.prompt_id, PromptStatus.ERROR);
+    };
     const onExecutionInterrupted = () => {
         store.getAllPrompts()
             .filter(t => t.status === PromptStatus.ACTIVE)

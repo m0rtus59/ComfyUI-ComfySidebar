@@ -10,6 +10,12 @@ export function isAudioViewerOpen() {
     return !!(activeComparisonViewer && activeComparisonViewer.isAudio);
 }
 
+export function updateActiveComparisonPreview(pid, newSrc) {
+    if (activeComparisonViewer && activeComparisonViewer.targetPid === String(pid)) {
+        activeComparisonViewer.loadTarget(newSrc);
+    }
+}
+
 const getClientX = (e) => {
     if (e.touches && e.touches.length > 0) return e.touches[0].clientX;
     if (e.changedTouches && e.changedTouches.length > 0) return e.changedTouches[0].clientX;
@@ -675,7 +681,7 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
     };
 }
 
-export function showFullscreenPreview(imgSrcs, isShiftClick = false) {
+export function showFullscreenPreview(imgSrcs, isShiftClick = false, pid = null) {
     if (!imgSrcs || imgSrcs.length === 0) return;
 
     const item = imgSrcs[0];
@@ -751,4 +757,7 @@ export function showFullscreenPreview(imgSrcs, isShiftClick = false) {
         src, 
         () => { activeComparisonViewer = null; }
     );
+    if (activeComparisonViewer) {
+        activeComparisonViewer.targetPid = pid ? String(pid) : null;
+    }
 }

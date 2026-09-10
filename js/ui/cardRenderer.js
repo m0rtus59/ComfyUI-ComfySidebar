@@ -31,9 +31,9 @@ export function syncCardButtonVisibility(cardObj, state) {
         if (cardObj.leftHoverPanel) cardObj.leftHoverPanel.style.removeProperty("display");
     }
 
-    const isCompleted = state.status === PromptStatus.COMPLETED;
-    const hasRealDiskFiles = isCompleted && state.images && state.images.length > 0 && 
-        !state.images.every(img => img.isFallback || (img.url && img.url.startsWith("blob:")));
+    // Check if the card has an actual verified file saved on disk
+    const hasRealDiskFiles = state.images && state.images.length > 0 && 
+        state.images.some(img => img.filename && !img.isFallback && (!img.url || !img.url.startsWith("blob:")));
 
     const hasRealImages = hasRealDiskFiles && !state.images.some(img => img.url && img.url.startsWith("blob:"));
     const currentImg = hasRealImages ? state.images[cardObj.currentImageIndex || 0] : null;
@@ -110,26 +110,26 @@ export function syncCardButtonVisibility(cardObj, state) {
     }
 
     if (cardObj.btnDel) {
-        // Only show delete button if we have actual verified output files on disk to delete
-        if (hasRealDiskFiles) {
-            cardObj.btnDel.style.removeProperty("display");
-            cardObj.btnDel.style.display = "inline-flex";
-            cardObj.canDeleteFromDisk = true;
-            if (cardObj.btnDelLabel) {
-                cardObj.btnDelLabel.style.display = "";
-            }
-            cardObj.btnDel.title = "Delete Card (Hold Ctrl to delete file from disk)";
-        } else {
-            cardObj.btnDel.style.setProperty("display", "none", "important");
-            cardObj.canDeleteFromDisk = false;
+        // Always show the delete button so cards can be cleared from history
+        cardObj.btnDel.style.removeProperty("display");
+        cardObj.btnDel.style.display = "inline-flex";
+
+        cardObj.canDeleteFromDisk = hasRealDiskFiles;
+        if (cardObj.btnDelLabel) {
+            cardObj.btnDelLabel.style.display = hasRealDiskFiles ? "" : "none";
         }
+        cardObj.btnDel.title = hasRealDiskFiles 
+            ? "Delete Card (Hold Ctrl to delete file from disk)" 
+            : "Delete Card";
     }
 
     if (cardObj.btnFocus) {
-        const nodeId = currentImg ? findNodeIdForImage(state, currentImg) : null;
+        // Focus the image's node, or the node where the workflow stopped/errored
+        const nodeId = (currentImg ? findNodeIdForImage(state, currentImg) : null) || state.activeNodeId;
         if (nodeId) {
             cardObj.btnFocus.style.removeProperty("display");
             cardObj.btnFocus.style.display = "inline-flex";
+            cardObj.btnFocus.title = (!currentImg && state.activeNodeId) ? "Show Stopped/Failed Node" : "Show Node";
             cardObj.btnFocus.onclick = (ev) => {
                 ev.stopPropagation();
                 centerAndSelectCanvasNode(nodeId);
@@ -153,7 +153,9 @@ export function syncCardButtonVisibility(cardObj, state) {
             }
         }
 
-        const hasIntermediates = validOutputs.length > 1 && distinctOutputs.length > 0;
+        // Show intermediate button if run completed with multiple outputs, or if stopped with saved outputs
+        const hasIntermediates = (validOutputs.length > 1 && distinctOutputs.length > 0) || 
+            (state.status !== PromptStatus.COMPLETED && validOutputs.length > 0);
 
         if (hasIntermediates) {
             cardObj.leftHoverBtn.style.removeProperty("display");
@@ -174,7 +176,7 @@ export function syncCardButtonVisibility(cardObj, state) {
     }
 }
 
-export function updateCardProgressTargeted(cardObj, progress, activeNodeName, showWorkingNode = true) {
+export function updateCardProgressTargeted(cardObj, progress, activeNodeName, showWorkingNode = true, state = null) {
     if (!cardObj) return;
     if (cardObj.progressBar) {
         cardObj.progressBar.style.width = `${progress}%`;
@@ -183,6 +185,20 @@ export function updateCardProgressTargeted(cardObj, progress, activeNodeName, sh
         cardObj.statusText.style.display = "block";
         const nodeText = activeNodeName ? (activeNodeName === "Finishing..." ? "Finishing..." : `[${activeNodeName}]`) : "Processing...";
         cardObj.statusText.textContent = `${nodeText} ${progress}%`;
+    }
+
+    // Fast-path: update live preview image directly on active card
+    if (state && state.images && state.images.length > 0) {
+        const firstImg = state.images[0];
+        const previewUrl = firstImg.url || (firstImg.filename ? `/view?filename=${encodeURIComponent(firstImg.filename)}&type=${firstImg.type || 'output'}&subfolder=${encodeURIComponent(firstImg.subfolder || '')}` : null);
+        if (previewUrl && cardObj.firstImgElement && cardObj.firstImgElement.tagName === "IMG") {
+            const currentSrc = cardObj.firstImgElement.getAttribute("src") || cardObj.firstImgElement.src;
+            if (currentSrc !== previewUrl && !cardObj.firstImgElement.src.endsWith(previewUrl)) {
+                cardObj.firstImgElement.src = previewUrl;
+            }
+        } else {
+            updateCardDOM(cardObj, state, true, showWorkingNode);
+        }
     }
 }
 

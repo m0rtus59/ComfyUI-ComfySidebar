@@ -9,6 +9,7 @@ import { initSessionAndHistory, syncQueue } from "./queue/queueService.js";
 import { setupExecutionTracker } from "./queue/executionTracker.js";
 import { setupSidebarView, renderSidebar, teardownSidebarView } from "./ui/sidebarView.js";
 import { updateCardProgressTargeted, cardPool } from "./ui/cardRenderer.js";
+import { store } from "./core/store.js";
 
 let isInitialized = false;
 let activeKeydownHandler = null;
@@ -178,9 +179,10 @@ app.registerExtension({
         // Setup execution tracker with targeted fast-path update for active card
         cleanupFns.push(setupExecutionTracker((pid, progress, nodeName) => {
             const cardObj = cardPool.get(pid);
-            if (cardObj) {
+            const state = store.getPrompt(pid);
+            if (cardObj && state) {
                 const showWorkingNode = app.ui.settings.getSettingValue(SettingIds.SHOW_WORKING_NODE_NAME) ?? true;
-                updateCardProgressTargeted(cardObj, progress, nodeName, showWorkingNode);
+                updateCardProgressTargeted(cardObj, progress, nodeName, showWorkingNode, state);
             } else {
                 renderSidebar();
             }

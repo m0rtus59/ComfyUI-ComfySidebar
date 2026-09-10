@@ -339,6 +339,13 @@ export function getPrimaryOutputImages(nodeOutputs, rawWorkflow) {
     if (!nodeOutputs) return findImagesInOutputs(null, rawWorkflow);
     const runOutputs = getRunOutputs(nodeOutputs, rawWorkflow);
     if (runOutputs.length === 0) return findImagesInOutputs(nodeOutputs, rawWorkflow);
+    // Find the latest executed node that actually produced real output images
+    for (let i = runOutputs.length - 1; i >= 0; i--) {
+        const imgs = runOutputs[i].images || [];
+        if (imgs.some(img => !img.isFallback)) {
+            return imgs;
+        }
+    }
     return runOutputs[runOutputs.length - 1].images || [];
 }
 

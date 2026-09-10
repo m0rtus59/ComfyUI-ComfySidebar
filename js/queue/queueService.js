@@ -128,6 +128,10 @@ export async function concludeRun(pid, fallbackStatus = PromptStatus.CANCELLED) 
     const state = store.getPrompt(key);
     finalizePrompt(state, fallbackStatus);
 
+    // If cancelled while actively sampling, preserve the exact step preview where it was cancelled
+    const isCancelled = fallbackStatus === PromptStatus.CANCELLED || state.status === PromptStatus.CANCELLED;
+    const hasActivePreviewBlob = Boolean(state._previewBlobUrl || state.images?.some(img => img.url?.startsWith("blob:")));
+
     for (let attempt = 0; attempt < 3; attempt++) {
         try {
             const res = await fetch(`/history/${key}`);
@@ -144,7 +148,14 @@ export async function concludeRun(pid, fallbackStatus = PromptStatus.CANCELLED) 
                 Object.assign(state.nodeTitles, titles);
 
                 const primaryImgs = getPrimaryOutputImages(norm.outputs, state.workflow);
-                if (primaryImgs.length > 0) state.images = primaryImgs;
+                const hasActualSavedOutputs = primaryImgs.some(img => !img.isFallback);
+
+                // If cancelled while sampling, do NOT overwrite with older nodes; keep the exact step preview!
+                if (!isCancelled || !hasActivePreviewBlob) {
+                    if (hasActualSavedOutputs || (state.status === PromptStatus.COMPLETED && primaryImgs.length > 0)) {
+                        state.images = primaryImgs;
+                    }
+                }
 
                 const fetchedTexts = findTextsInOutputs(norm.outputs, state.workflow);
                 if (fetchedTexts.length > 0) state.texts = fetchedTexts;
@@ -152,6 +163,13 @@ export async function concludeRun(pid, fallbackStatus = PromptStatus.CANCELLED) 
             }
         } catch (err) {}
         await new Promise(r => setTimeout(r, 200));
+    }
+
+    // Ensure cancelled prompt keeps its preview blob if it had one
+    if (isCancelled && hasActivePreviewBlob) {
+        if (state._previewBlobUrl && (!state.images || state.images.length === 0 || !state.images[0].url?.startsWith("blob:"))) {
+            state.images = [{ url: state._previewBlobUrl }];
+        }
     }
 
     const maxItems = app.ui?.settings?.getSettingValue?.("Comfy.Queue.MaxHistoryItems") ?? 64;

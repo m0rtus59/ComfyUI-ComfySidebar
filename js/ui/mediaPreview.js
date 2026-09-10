@@ -427,7 +427,18 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
             openFileOrFolder(img);
             return;
         }
-        showFullscreenPreview([src], ev.shiftKey); 
+        let activeSrc = mediaEl.currentSrc || mediaEl.src || src;
+        // If it's a preview blob, snapshot the rendered pixels from the card so revoked blobs don't 404 in fullscreen
+        if (activeSrc && activeSrc.startsWith("blob:") && mediaEl.naturalWidth > 0) {
+            try {
+                const canvas = document.createElement("canvas");
+                canvas.width = mediaEl.naturalWidth;
+                canvas.height = mediaEl.naturalHeight;
+                canvas.getContext("2d").drawImage(mediaEl, 0, 0);
+                activeSrc = canvas.toDataURL("image/png");
+            } catch (_) {}
+        }
+        showFullscreenPreview([activeSrc], ev.shiftKey, state?.pid); 
     };
 
     mediaEl.onerror = async () => {
@@ -446,6 +457,11 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
 
     const applyDimensions = (width, height) => {
         if (cardObj.dimEl && width && height) {
+            // Don't show the dimension badge for active/running preview frames
+            if (state.status === "active") {
+                cardObj.dimEl.style.display = "none";
+                return;
+            }
             cardObj.dimEl.textContent = `${width}x${height}`;
             cardObj.dimEl.style.display = "block";
         }
