@@ -1,8 +1,9 @@
 import { isImageFormat, isVideoFormat, is3DFormat, isAudioFormat, getFilenameFromUrl } from "../utils/utils.js";
-import { openFileOrFolder } from "./mediaActions.js";
+import { openFileOrFolder, removeImageFromNodeOutputs } from "./mediaActions.js";
 import { stopAllAudioPlayback, isAudioViewerOpen, setCurrentlyPlayingAudio, getCurrentlyPlayingAudio } from "./audioController.js";
 import { showFullscreenPreview } from "../utils/comparison.js";
 import { store } from "../core/store.js";
+import { PromptStatus } from "../core/constants.js";
 
 export function render3DCardPreview(cardObj, wrapper, src, img, state) {
     let preview3D = wrapper.querySelector(".comfy-sidebar-3d-wrapper");
@@ -272,6 +273,9 @@ export function renderAudioCardPreview(cardObj, wrapper, src, img, state) {
 }
 
 export function renderGenericFileCardPreview(cardObj, wrapper, src, img, state) {
+    if (cardObj.dimEl) cardObj.dimEl.style.display = "none";
+    const playIcon = wrapper.querySelector(".comfy-sidebar-play-icon");
+    if (playIcon) playIcon.remove();
     let previewFile = wrapper.querySelector(".comfy-sidebar-file-wrapper");
     const fullUrl = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}`;
     const filename = img.filename || getFilenameFromUrl(src) || "output_file";
@@ -441,18 +445,87 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
         showFullscreenPreview([activeSrc], ev.shiftKey, state?.pid); 
     };
 
-    mediaEl.onerror = async () => {
-        if (src && !src.startsWith("blob:") && !is3D && !isAudio) {
-            try {
-                const res = await fetch(src, { method: "HEAD" });
-                if (res.status === 404) {
-                    store.deletePrompt(state.pid);
-                    if (cardObj.element) cardObj.element.remove();
-                    return;
+    mediaEl.onerror = () => {
+        mediaEl.onerror = null;
+        if ((src && src.startsWith("blob:")) || is3D || isAudio) return;
+
+        const cardId = cardObj.element?.id || "";
+
+        // 1. If an intermediate output item is missing, remove only this item
+        if (cardId.startsWith("card-submenu-")) {
+            const parentState = store.getPrompt(state.pid);
+            if (parentState && parentState.nodeOutputs) {
+                if (state.nodeId && parentState.nodeOutputs[state.nodeId]) {
+                    delete parentState.nodeOutputs[state.nodeId];
+                } else {
+                    removeImageFromNodeOutputs(parentState.nodeOutputs, img);
                 }
-            } catch (e) {}
-            renderGenericFileCardPreview(cardObj, wrapper, src, img, state);
+                store.updatePrompt(parentState.pid, parentState);
+            }
+            cardObj.element?.remove();
+            const remaining = store.ui.cardStack?.querySelectorAll('.comfy-sidebar-card');
+            if (!remaining || remaining.length === 0) {
+                store.closeSubmenu();
+            }
+            return;
         }
+
+        // 2. If a batch item is missing, remove only this item from the batch
+        if (cardId.startsWith("card-batch-")) {
+            const parentPid = state.parentPromptId || state.pid;
+            const parentState = store.getPrompt(parentPid);
+            if (parentState) {
+                if (Array.isArray(parentState.images)) {
+                    const idx = parentState.images.findIndex(i => i.filename === img.filename && (i.subfolder || "") === (img.subfolder || ""));
+                    if (idx > -1) parentState.images.splice(idx, 1);
+                }
+                if (parentState.nodeOutputs) {
+                    removeImageFromNodeOutputs(parentState.nodeOutputs, img);
+                }
+                store.updatePrompt(parentPid, parentState);
+            }
+            cardObj.element?.remove();
+            const remaining = store.ui.cardStack?.querySelectorAll('.comfy-sidebar-card');
+            if (!remaining || remaining.length === 0) {
+                store.closeSubmenu();
+            }
+            return;
+        }
+
+        // 3. Main card: if this file is gone, clean it up
+        const liveState = store.getPrompt(state.pid);
+        if (liveState) {
+            if (Array.isArray(liveState.images)) {
+                liveState.images = liveState.images.filter(i => 
+                    !(i.filename === img.filename && (i.subfolder || "") === (img.subfolder || ""))
+                );
+            }
+            if (liveState.nodeOutputs) {
+                removeImageFromNodeOutputs(liveState.nodeOutputs, img);
+            }
+
+            // If the card still has other images (e.g. from a batch), persist and switch to next image
+            if (liveState.images && liveState.images.length > 0) {
+                cardObj.currentImageIndex = 0;
+                cardObj.lastImagesSignature = "";
+                store.updatePrompt(liveState.pid, liveState);
+                return;
+            }
+
+            // If the card has text outputs or is still in progress, persist
+            if ((liveState.texts && liveState.texts.length > 0) || (liveState.status && liveState.status !== PromptStatus.COMPLETED)) {
+                cardObj.lastImagesSignature = "";
+                store.updatePrompt(liveState.pid, liveState);
+                return;
+            }
+
+            // Only delete the main card when all items belonging to it are gone
+            store.deletePrompt(liveState.pid);
+            cardObj.element?.remove();
+            return;
+        }
+
+        renderGenericFileCardPreview(cardObj, wrapper, src, img, state);
     };
 
     const applyDimensions = (width, height) => {

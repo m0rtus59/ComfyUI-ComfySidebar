@@ -2,7 +2,7 @@ import { app } from "/scripts/app.js";
 import { PromptStatus } from "../core/constants.js";
 import { store } from "../core/store.js";
 import { renderCardImages } from "./mediaPreview.js";
-import { copyImageToClipboard, openFileOrFolder, deleteFileOnServer, findNodeIdForImage } from "./mediaActions.js";
+import { copyImageToClipboard, openFileOrFolder, deleteFileOnServer, findNodeIdForImage, removeImageFromNodeOutputs } from "./mediaActions.js";
 import { centerAndSelectCanvasNode } from "../comfy/adapter.js";
 import { getRunOutputs, extractWorkflowFromPng, isImageFormat } from "../utils/utils.js";
 import { showFullscreenPreview } from "../utils/comparison.js";
@@ -158,17 +158,75 @@ export function syncCardButtonVisibility(cardObj, state) {
             (state.status !== PromptStatus.COMPLETED && validOutputs.length > 0);
 
         if (hasIntermediates) {
+            // Check if intermediate files still exist on disk
+            for (const out of distinctOutputs) {
+                for (const img of out.images) {
+                    const src = img.url ? img.url : `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}`;
+                    if (!src.startsWith("blob:")) {
+                        fetch(src, { method: "HEAD" }).then(res => {
+                            if (res.status === 404) {
+                                const liveState = store.getPrompt(state.pid);
+                                if (liveState && liveState.nodeOutputs) {
+                                    removeImageFromNodeOutputs(liveState.nodeOutputs, img);
+                                    store.updatePrompt(liveState.pid, liveState);
+                                    syncCardButtonVisibility(cardObj, liveState);
+                                }
+                            }
+                        }).catch(() => {});
+                    }
+                }
+            }
+
             cardObj.leftHoverBtn.style.removeProperty("display");
             cardObj.leftHoverBtn.style.display = "inline-flex";
-            cardObj.leftHoverBtn.onclick = (ev) => {
+
+            cardObj.leftHoverBtn.onclick = async (ev) => {
                 ev.stopPropagation();
+
+                // On click: verify distinct outputs still exist before opening
+                const liveState = store.getPrompt(state.pid) || state;
+                const curOutputs = getRunOutputs(liveState.nodeOutputs, liveState.workflow);
+                const primSigs = new Set((liveState.images || []).map(i => `${i.subfolder || ""}/${i.filename}`));
+                const curDistinct = curOutputs.filter(o => o.images && o.images.some(img => !primSigs.has(`${img.subfolder || ""}/${img.filename}`)));
+
+                if (curDistinct.length === 0) {
+                    cardObj.leftHoverBtn.style.setProperty("display", "none", "important");
+                    return;
+                }
+
+                let anyMissing = false;
+                for (const out of curDistinct) {
+                    for (const img of out.images) {
+                        const src = img.url ? img.url : `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}`;
+                        if (!src.startsWith("blob:")) {
+                            try {
+                                const res = await fetch(src, { method: "HEAD" });
+                                if (res.status === 404) {
+                                    removeImageFromNodeOutputs(liveState.nodeOutputs, img);
+                                    anyMissing = true;
+                                }
+                            } catch (e) {}
+                        }
+                    }
+                }
+
+                if (anyMissing) {
+                    store.updatePrompt(liveState.pid, liveState);
+                    syncCardButtonVisibility(cardObj, liveState);
+                    const remaining = getRunOutputs(liveState.nodeOutputs, liveState.workflow)
+                        .filter(o => o.images && o.images.some(img => !primSigs.has(`${img.subfolder || ""}/${img.filename}`)));
+                    if (remaining.length === 0) {
+                        return; // All intermediate outputs were wiped; button is now hidden
+                    }
+                }
+
                 const scrollEl = document.querySelector('.sidebar-content-container, [class*="sidebar-content-container"], [class*="overflow-y-auto"]') 
                     || store.ui.cardStack?.parentElement 
                     || store.ui.cardStack;
                 if (scrollEl) {
                     store.ui.mainQueueScrollTop = scrollEl.scrollTop;
                 }
-                store.openOutputsSubmenu(state.pid);
+                store.openOutputsSubmenu(liveState.pid);
             };
         } else {
             cardObj.leftHoverBtn.style.setProperty("display", "none", "important");

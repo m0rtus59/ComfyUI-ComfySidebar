@@ -749,6 +749,7 @@ export function renderSidebar() {
                         cardObj.placeholder.style.display = "none";
                         renderCardImages(cardObj, {
                             pid: st.pid,
+                            nodeId: out.nodeId,
                             status: PromptStatus.COMPLETED,
                             images: out.images,
                             workflow: st.workflow,
