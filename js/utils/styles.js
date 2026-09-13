@@ -6,7 +6,7 @@ export function injectStyles() {
         .comfy-sidebar-card {
             background: var(--comfy-input-bg, #181818);
             border-radius: 4px; padding: 8px; position: relative;
-            min-height: 80px; margin-bottom: 12px; break-inside: avoid;
+            min-height: 80px; margin-bottom: 0px; break-inside: avoid;
             user-select: none; -webkit-user-select: none;
             border: 2px solid var(--border-color, #333);
             color: var(--comfy-input-color, var(--fg-color, #eee));

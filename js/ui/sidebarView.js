@@ -12,6 +12,80 @@ let scrollToTopBtnEl = null;
 let globalClickRegistered = false;
 let renderAnimationFrameId = null;
 let activeTimerInterval = null;
+let currentColumnCount = 1;
+
+function mountCards(cardStack, fullWidthEls, cardEls, cols = 1) {
+    if (!cardStack) return;
+
+    // 1. Full-width container (for banners like Pending Queue summary)
+    let bannerContainer = cardStack.querySelector('.comfy-sidebar-banners');
+    if (!bannerContainer) {
+        bannerContainer = document.createElement('div');
+        bannerContainer.className = 'comfy-sidebar-banners';
+        Object.assign(bannerContainer.style, { display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' });
+        cardStack.insertBefore(bannerContainer, cardStack.firstChild);
+    }
+    fullWidthEls.forEach((el, i) => {
+        if (bannerContainer.children[i] !== el) {
+            bannerContainer.insertBefore(el, bannerContainer.children[i] || null);
+        }
+    });
+    while (bannerContainer.children.length > fullWidthEls.length) {
+        bannerContainer.removeChild(bannerContainer.lastChild);
+    }
+    bannerContainer.style.display = fullWidthEls.length > 0 ? 'flex' : 'none';
+    bannerContainer.style.marginBottom = fullWidthEls.length > 0 ? '12px' : '0';
+
+    // 2. Masonry Columns container
+    let columnsWrapper = cardStack.querySelector('.comfy-sidebar-masonry-wrapper');
+    if (!columnsWrapper) {
+        columnsWrapper = document.createElement('div');
+        columnsWrapper.className = 'comfy-sidebar-masonry-wrapper';
+        Object.assign(columnsWrapper.style, { display: 'flex', gap: '12px', alignItems: 'flex-start', width: '100%' });
+        cardStack.appendChild(columnsWrapper);
+    }
+
+    while (columnsWrapper.children.length < cols) {
+        const colDiv = document.createElement('div');
+        colDiv.className = 'comfy-sidebar-masonry-col';
+        Object.assign(colDiv.style, { flex: '1', display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '0' });
+        columnsWrapper.appendChild(colDiv);
+    }
+    while (columnsWrapper.children.length > cols) {
+        columnsWrapper.removeChild(columnsWrapper.lastChild);
+    }
+
+    // Distribute cards into the shortest column so short cards stack next to tall cards
+    const colBuckets = Array.from({ length: cols }, () => []);
+    const colHeights = new Array(cols).fill(0);
+
+    cardEls.forEach((cardEl) => {
+        let shortestCol = 0;
+        for (let c = 1; c < cols; c++) {
+            if (colHeights[c] < colHeights[shortestCol]) {
+                shortestCol = c;
+            }
+        }
+        colBuckets[shortestCol].push(cardEl);
+
+        const cardH = cardEl.offsetHeight > 0 ? cardEl.offsetHeight : (cardEl._cachedHeight || 160);
+        cardEl._cachedHeight = cardH;
+        colHeights[shortestCol] += cardH + 12;
+    });
+
+    for (let c = 0; c < cols; c++) {
+        const colDiv = columnsWrapper.children[c];
+        const bucket = colBuckets[c];
+        bucket.forEach((el, i) => {
+            if (colDiv.children[i] !== el) {
+                colDiv.insertBefore(el, colDiv.children[i] || null);
+            }
+        });
+        while (colDiv.children.length > bucket.length) {
+            colDiv.removeChild(colDiv.lastChild);
+        }
+    }
+}
 
 function getScrollContainer() {
     if (!store.ui.cardStack) return null;
@@ -213,7 +287,13 @@ export function setupSidebarView() {
 
     const cardStack = document.createElement("div");
     store.ui.cardStack = cardStack;
-    Object.assign(cardStack.style, { flex: "1", overflowY: "visible", display: "block", paddingBottom: "28px" });
+    Object.assign(cardStack.style, {
+        flex: "1",
+        overflowY: "visible",
+        display: "flex",
+        flexDirection: "column",
+        paddingBottom: "28px"
+    });
     container.appendChild(cardStack);
 
     scrollToTopBtnEl = document.createElement("button");
@@ -233,9 +313,9 @@ export function setupSidebarView() {
     new ResizeObserver((entries) => {
         const threshold = app.ui?.settings?.getSettingValue?.(SettingIds.GRID_COLUMNS_THRESHOLD) ?? 350;
         const cols = Math.max(1, Math.floor(entries[0].contentRect.width / (threshold / 2)));
-        if (store.ui.cardStack) {
-            store.ui.cardStack.style.columnCount = cols.toString();
-            store.ui.cardStack.style.columnGap = cols > 1 ? "12px" : "0";
+        if (cols !== currentColumnCount) {
+            currentColumnCount = cols;
+            renderSidebar();
         }
     }).observe(container);
 
@@ -504,14 +584,7 @@ export function renderSidebar() {
                 targetElements.push(cardObj.element);
             });
 
-            targetElements.forEach((el, index) => {
-                if (store.ui.cardStack.children[index] !== el) {
-                    store.ui.cardStack.insertBefore(el, store.ui.cardStack.children[index] || null);
-                }
-            });
-            while (store.ui.cardStack.children.length > targetElements.length) {
-                store.ui.cardStack.removeChild(store.ui.cardStack.lastChild);
-            }
+            mountCards(store.ui.cardStack, [], targetElements, currentColumnCount);
 
             const scrollEl = getScrollContainer();
             if (scrollEl) scrollEl.scrollTop = 0;
@@ -568,7 +641,8 @@ export function renderSidebar() {
                 const emptyCard = document.createElement("div");
                 emptyCard.className = "comfy-sidebar-card completed";
                 Object.assign(emptyCard.style, {
-                    padding: "16px", textAlign: "center", color: "var(--desc-color, #aaa)", fontSize: "12px"
+                    padding: "16px", textAlign: "center", color: "var(--desc-color, #aaa)", fontSize: "12px",
+                    gridColumn: "1 / -1"
                 });
                 emptyCard.textContent = "No separate intermediate outputs found.";
                 targetElements.push(emptyCard);
@@ -778,13 +852,10 @@ export function renderSidebar() {
                 });
             }
 
-            targetElements.forEach((el, index) => {
-                if (store.ui.cardStack.children[index] !== el) {
-                    store.ui.cardStack.insertBefore(el, store.ui.cardStack.children[index] || null);
-                }
-            });
-            while (store.ui.cardStack.children.length > targetElements.length) {
-                store.ui.cardStack.removeChild(store.ui.cardStack.lastChild);
+            if (outputs.length === 0) {
+                mountCards(store.ui.cardStack, targetElements, [], currentColumnCount);
+            } else {
+                mountCards(store.ui.cardStack, [], targetElements, currentColumnCount);
             }
 
             updateScrollTopBtnVisibility();
@@ -818,7 +889,8 @@ export function renderSidebar() {
             return updateCardDOM(cardObj, state, showPendingSummary, showWorkingNode);
         };
 
-        const targetElements = [];
+        const bannerElements = [];
+        const cardElements = [];
         const pendingCount = store.getAllPrompts().filter(t => t.status === PromptStatus.PENDING).length;
 
         if (pendingCount > 0) {
@@ -828,8 +900,8 @@ export function renderSidebar() {
                     const el = document.createElement("div");
                     Object.assign(el.style, {
                         background: "var(--comfy-input-bg, #181818)", border: "2px solid #6c757d", borderRadius: "4px", padding: "10px",
-                        marginBottom: "12px", textAlign: "center", fontSize: "12px", fontWeight: "bold",
-                        color: "var(--desc-color, #aaa)", breakInside: "avoid", display: "flex", flexDirection: "column", gap: "8px"
+                        textAlign: "center", fontSize: "12px", fontWeight: "bold",
+                        color: "var(--desc-color, #aaa)", display: "flex", flexDirection: "column", gap: "8px"
                     });
                     const textDiv = document.createElement("div");
                     el.appendChild(textDiv);
@@ -847,7 +919,7 @@ export function renderSidebar() {
                     cardPool.set("pending-summary-card", pCard);
                 }
                 pCard.textDiv.textContent = `Pending Queue: ${pendingCount} tasks`;
-                targetElements.push(pCard.element);
+                bannerElements.push(pCard.element);
             } else {
                 let btnCard = cardPool.get("pending-cancel-all-standalone");
                 if (!btnCard) {
@@ -855,7 +927,7 @@ export function renderSidebar() {
                     btn.textContent = "Cancel All Pending";
                     Object.assign(btn.style, {
                         background: "#dc3545", color: "white", border: "none", borderRadius: "3px", padding: "6px",
-                        cursor: "pointer", fontSize: "11px", fontWeight: "bold", width: "100%", marginBottom: "12px", breakInside: "avoid"
+                        cursor: "pointer", fontSize: "11px", fontWeight: "bold", width: "100%"
                     });
                     btn.onclick = async () => {
                         await cancelAllPending();
@@ -863,22 +935,21 @@ export function renderSidebar() {
                     btnCard = { element: btn };
                     cardPool.set("pending-cancel-all-standalone", btnCard);
                 }
-                targetElements.push(btnCard.element);
-                pendingTasks.forEach(st => targetElements.push(syncTaskCard(st)));
+                bannerElements.push(btnCard.element);
+                pendingTasks.forEach(st => cardElements.push(syncTaskCard(st)));
             }
         }
 
-        activeTasks.forEach(st => targetElements.push(syncTaskCard(st)));
-        completedTasks.forEach(st => targetElements.push(syncTaskCard(st)));
+        activeTasks.forEach(st => cardElements.push(syncTaskCard(st)));
+        completedTasks.forEach(st => cardElements.push(syncTaskCard(st)));
 
-        targetElements.forEach((el, index) => {
-            if (store.ui.cardStack.children[index] !== el) {
-                store.ui.cardStack.insertBefore(el, store.ui.cardStack.children[index] || null);
-            }
-        });
-        while (store.ui.cardStack.children.length > targetElements.length) {
-            store.ui.cardStack.removeChild(store.ui.cardStack.lastChild);
+        const threshold = app.ui?.settings?.getSettingValue?.(SettingIds.GRID_COLUMNS_THRESHOLD) ?? 350;
+        const containerWidth = store.ui.sidebarContainer?.clientWidth || 0;
+        if (containerWidth > 0) {
+            currentColumnCount = Math.max(1, Math.floor(containerWidth / (threshold / 2)));
         }
+
+        mountCards(store.ui.cardStack, bannerElements, cardElements, currentColumnCount);
 
         if (store.ui.mainQueueScrollTop !== null) {
             const restorePos = store.ui.mainQueueScrollTop;
