@@ -1,5 +1,6 @@
+import { isAudioViewerOpen as checkAudioViewerOpen } from "../utils/comparison.js";
+
 let currentlyPlayingAudio = null;
-let activeComparisonViewer = null;
 
 export function stopAllAudioPlayback() {
     if (currentlyPlayingAudio) {
@@ -21,14 +22,6 @@ export function getCurrentlyPlayingAudio() {
     return currentlyPlayingAudio;
 }
 
-export function setActiveComparisonViewer(viewer) {
-    activeComparisonViewer = viewer;
-}
-
-export function getActiveComparisonViewer() {
-    return activeComparisonViewer;
-}
-
 export function isAudioViewerOpen() {
-    return !!(activeComparisonViewer && activeComparisonViewer.isAudio);
+    return checkAudioViewerOpen();
 }

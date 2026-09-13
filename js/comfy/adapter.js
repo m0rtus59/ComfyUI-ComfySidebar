@@ -103,18 +103,30 @@ export function findGraphButton() {
 }
 
 export function findOurSidebarButton() {
+    const byTestId = document.querySelector('[data-testid="classic-comfy-sidebar-tab-button"]');
+    if (byTestId) return byTestId;
+
     const icon = document.querySelector('.pi-images');
     return icon ? icon.closest('.comfyui-sidebar-tab, button, [role="tab"]') : null;
 }
 
 export function findStandardQueueButton() {
-    for (const iconSelector of [".pi-history", ".pi-clock", ".pi-server", ".pi-list", ".pi-sliders-h"]) {
+    // 1. Try modern ComfyUI stable test-ids first
+    const byTestId = document.querySelector('[data-testid="queue-tab-button"], [data-testid="job-history-tab-button"]');
+    if (byTestId && !byTestId.id?.includes('classic-comfy-sidebar') && !byTestId.querySelector('.pi-images')) {
+        return byTestId;
+    }
+
+    // 2. Fallback to icon discovery
+    for (const iconSelector of [".pi-history", ".pi-clock", ".pi-server", ".pi-list", ".pi-sliders-h", '[class*="lucide--history"]']) {
         const icon = document.querySelector(iconSelector);
         if (icon) {
             const btn = icon.closest('.comfyui-sidebar-tab, button, [role="tab"]');
             if (btn && !btn.querySelector('.pi-images')) return btn;
         }
     }
+
+    // 3. Fallback to semantic labels
     const buttons = document.querySelectorAll('.comfyui-sidebar-tab, button, [role="tab"]');
     for (const btn of buttons) {
         const title = btn.title || btn.getAttribute('aria-label') || '';
@@ -128,29 +140,26 @@ export function findStandardQueueButton() {
 }
 
 export function updateSidebarBadge(count) {
-    const icons = document.querySelectorAll('.pi-images');
-    icons.forEach(icon => {
-        const btn = icon.closest('.comfyui-sidebar-tab, button, [role="tab"]');
-        if (btn) {
-            let badge = btn.querySelector('.comfy-sidebar-badge');
-            if (count > 0) {
-                if (!badge) {
-                    btn.style.position = 'relative';
-                    badge = document.createElement('div');
-                    badge.className = 'comfy-sidebar-badge';
-                    Object.assign(badge.style, {
-                        position: 'absolute', top: '2px', right: '2px', background: '#0ea5e9', color: '#fff',
-                        borderRadius: '50%', width: '16px', height: '16px', fontSize: '10px', display: 'flex',
-                        alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', pointerEvents: 'none'
-                    });
-                    btn.appendChild(badge);
-                }
-                badge.textContent = count > 99 ? '99+' : count;
-            } else if (badge) {
-                badge.remove();
+    const btn = findOurSidebarButton();
+    if (btn) {
+        let badge = btn.querySelector('.comfy-sidebar-badge');
+        if (count > 0) {
+            if (!badge) {
+                btn.style.position = 'relative';
+                badge = document.createElement('div');
+                badge.className = 'comfy-sidebar-badge';
+                Object.assign(badge.style, {
+                    position: 'absolute', top: '2px', right: '2px', background: '#0ea5e9', color: '#fff',
+                    borderRadius: '50%', width: '16px', height: '16px', fontSize: '10px', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', pointerEvents: 'none'
+                });
+                btn.appendChild(badge);
             }
+            badge.textContent = count > 99 ? '99+' : count;
+        } else if (badge) {
+            badge.remove();
         }
-    });
+    }
 }
 
 export function applySidebarOverride() {

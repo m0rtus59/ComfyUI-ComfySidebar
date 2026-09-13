@@ -509,12 +509,14 @@ export function updateCardDOM(cardObj, state, showPendingSummary = true, showWor
 
     if (state.status === PromptStatus.PENDING && !showPendingSummary) {
         cardObj.cancelBtn.style.display = "flex";
+        cardObj.cancelBtn.title = "Cancel Queued Task";
         cardObj.cancelBtn.onclick = async (ev) => {
             ev.stopPropagation();
             cancelPendingTask(state.pid);
         };
     } else if (state.status === PromptStatus.ACTIVE) {
         cardObj.cancelBtn.style.display = "flex";
+        cardObj.cancelBtn.title = "Interrupt Execution";
         cardObj.cancelBtn.onclick = async (ev) => {
             ev.stopPropagation();
             interruptActive();

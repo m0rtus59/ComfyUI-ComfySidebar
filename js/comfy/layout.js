@@ -163,20 +163,21 @@ function updateSidebarTabsVisibility() {
     const sidebar = document.querySelector('.comfyui-sidebar, .comfy-sidebar, .sidebar, [class*="sidebar-nav"], [class*="sidebar"]');
     if (!sidebar) return;
 
-    const tabIconSelectors = {
-        "Assets": '[class*="comfy--image-ai-edit"]',
-        "Nodes": '[class*="comfy--node"]',
-        "Models": '[class*="comfy--ai-model"]',
-        "Workflows": '[class*="comfy--workflow"], [class*="workflow"]',
-        "Apps": '[class*="lucide--panels-top-left"]',
-        "Templates": '[class*="comfy--template"]'
+    // Use stable ComfyUI data-testid selectors first, with icon classes as safe fallback
+    const tabSelectors = {
+        "Assets": '[data-testid="assets-tab-button"], [class*="comfy--image-ai-edit"]',
+        "Nodes": '[data-testid="node-library-tab-button"], [class*="comfy--node"]',
+        "Models": '[data-testid="model-library-tab-button"], [class*="comfy--ai-model"]',
+        "Workflows": '[data-testid="workflows-tab-button"], [class*="comfy--workflow"], [class*="workflow"]',
+        "Apps": '[data-testid="apps-tab-button"], [class*="lucide--panels-top-left"]',
+        "Templates": '[data-testid="templates-tab-button"], [class*="comfy--template"]'
     };
 
-    Object.entries(tabIconSelectors).forEach(([tab, selector]) => {
+    Object.entries(tabSelectors).forEach(([tab, selector]) => {
         const shouldHide = app.ui?.settings?.getSettingValue(`Comfy Sidebar.Hide Junk.${tab}`) ?? false;
-        const icon = sidebar.querySelector(selector);
-        if (icon) {
-            const tabBtn = icon.closest('.comfyui-sidebar-tab, button, [role="tab"], li, a, .comfyui-sidebar-item') || icon;
+        const target = sidebar.querySelector(selector);
+        if (target) {
+            const tabBtn = target.closest('.comfyui-sidebar-tab, button, [role="tab"], li, a, .comfyui-sidebar-item') || target;
             if (shouldHide) {
                 if (tabBtn.style.display !== "none") tabBtn.style.setProperty("display", "none", "important");
             } else {
@@ -186,9 +187,9 @@ function updateSidebarTabsVisibility() {
     });
 
     const hideStockHistory = app.ui?.settings?.getSettingValue("Comfy Sidebar.Hide Junk.Override Stock Job History Tab") ?? false;
-    const historyIcon = sidebar.querySelector('[class*="lucide--history"]');
-    if (historyIcon) {
-        const historyBtn = historyIcon.closest('.comfyui-sidebar-tab, button, [role="tab"], li, a, .comfyui-sidebar-item') || historyIcon;
+    const historyTarget = sidebar.querySelector('[data-testid="queue-tab-button"], [data-testid="job-history-tab-button"], [class*="lucide--history"]');
+    if (historyTarget) {
+        const historyBtn = historyTarget.closest('.comfyui-sidebar-tab, button, [role="tab"], li, a, .comfyui-sidebar-item') || historyTarget;
         if (hideStockHistory) {
             if (historyBtn.style.display !== "none") historyBtn.style.setProperty("display", "none", "important");
         } else {
@@ -223,141 +224,148 @@ function cleanHTML(html) {
     return tempDiv.innerHTML;
 }
 
+function syncGraphButton() {
+    const hideGraphBtn = app.ui?.settings?.getSettingValue("Comfy Sidebar.Hide Junk.Graph Button") ?? false;
+    const graphBtn = findGraphButton();
+    if (graphBtn) {
+        if (hideGraphBtn) {
+            if (graphBtn.style.display !== "none") graphBtn.style.setProperty("display", "none", "important");
+        } else {
+            if (graphBtn.style.display === "none") graphBtn.style.removeProperty("display");
+        }
+    }
+}
+
+function syncExtensionsPanel(isClassicLayoutEnabled) {
+    const extensionsPanel = findNativeExtensionsPanel();
+    if (!extensionsPanel) return;
+
+    if (isClassicLayoutEnabled) {
+        const container = findTopbarContainer();
+        if (container && extensionsPanel.parentNode !== container) {
+            if (!extensionsPanel._originalParent) {
+                extensionsPanel._originalParent = extensionsPanel.parentNode;
+                extensionsPanel._originalNextSibling = extensionsPanel.nextSibling;
+            }
+            container.appendChild(extensionsPanel);
+            extensionsPanel.classList.add("comfy-sidebar-extensions-override");
+        }
+    } else if (extensionsPanel._originalParent && extensionsPanel.parentNode !== extensionsPanel._originalParent) {
+        extensionsPanel._originalParent.insertBefore(extensionsPanel, extensionsPanel._originalNextSibling || null);
+        extensionsPanel.classList.remove("comfy-sidebar-extensions-override");
+    }
+}
+
+function syncPropertiesButton(isClassicLayoutEnabled) {
+    if (!isClassicLayoutEnabled) {
+        const originalBtn = findOriginalPropertiesButton();
+        if (originalBtn?.classList.contains("comfy-sidebar-hide-original-properties-btn")) {
+            originalBtn.classList.remove("comfy-sidebar-hide-original-properties-btn");
+        }
+
+        const customBtn = document.querySelector(".comfy-sidebar-custom-properties-toggle");
+        if (customBtn) customBtn.remove();
+        return;
+    }
+
+    const originalBtn = findOriginalPropertiesButton();
+    const container = findTopbarContainer();
+    const openState = isPropertiesPanelOpen();
+
+    if (originalBtn) {
+        if (!originalBtn.classList.contains("comfy-sidebar-hide-original-properties-btn")) {
+            originalBtn.classList.add("comfy-sidebar-hide-original-properties-btn");
+        }
+
+        savedButtonData = {
+            className: originalBtn.className.replace("comfy-sidebar-hide-original-properties-btn", "").trim(),
+            innerHTML: originalBtn.innerHTML,
+            tagName: originalBtn.tagName,
+            attributes: Array.from(originalBtn.attributes).map(attr => ({
+                name: attr.name,
+                value: attr.value
+            }))
+        };
+    }
+
+    let customBtn = document.querySelector(".comfy-sidebar-custom-properties-toggle");
+
+    if (!customBtn && savedButtonData && container) {
+        customBtn = document.createElement(savedButtonData.tagName);
+        customBtn.className = savedButtonData.className + " comfy-sidebar-custom-properties-toggle";
+        customBtn.innerHTML = cleanHTML(savedButtonData.innerHTML);
+
+        for (const attr of savedButtonData.attributes) {
+            if (attr.name !== "class" && attr.name !== "id" && attr.name !== "style") {
+                customBtn.setAttribute(attr.name, attr.value);
+            }
+        }
+
+        customBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const nativeBtn = findOriginalPropertiesButton();
+            if (nativeBtn) {
+                nativeBtn.click();
+                requestAnimationFrame(() => syncClassicLayout());
+            }
+        });
+
+        container.appendChild(customBtn);
+    }
+
+    if (customBtn) {
+        if (originalBtn) {
+            const cleanedHTML = cleanHTML(originalBtn.innerHTML);
+            if (cleanedHTML && customBtn.innerHTML !== cleanedHTML) {
+                const existingDot = customBtn.querySelector('.comfy-sidebar-error-dot');
+                customBtn.innerHTML = cleanedHTML;
+                if (existingDot) customBtn.appendChild(existingDot);
+            }
+
+            const titleVal = originalBtn.getAttribute("title") || originalBtn.getAttribute("aria-label") || "Toggle properties panel";
+            customBtn.setAttribute("title", titleVal);
+            customBtn.setAttribute("aria-label", titleVal);
+
+            for (const cls of originalBtn.classList) {
+                if (cls !== "comfy-sidebar-hide-original-properties-btn" && !customBtn.classList.contains(cls)) {
+                    customBtn.classList.add(cls);
+                }
+            }
+
+            syncErrorBadge(originalBtn, customBtn);
+        } else if (!customBtn.getAttribute("title")) {
+            customBtn.setAttribute("title", "Toggle properties panel");
+            customBtn.setAttribute("aria-label", "Toggle properties panel");
+        }
+        customBtn.classList.toggle("comfy-panel-open", openState);
+        customBtn.style.display = "inline-flex";
+    }
+}
+
+function syncActiveQueueIndicator(isClassicLayoutEnabled) {
+    const hideQueueIndicator = app.ui?.settings?.getSettingValue("Comfy Sidebar.Hide Junk.Override Stock Job History Tab") ?? false;
+    const indicator = findActiveQueueIndicator();
+    if (indicator) {
+        if (isClassicLayoutEnabled && hideQueueIndicator) {
+            if (indicator.style.display !== "none") indicator.style.setProperty("display", "none", "important");
+        } else if (indicator.style.display === "none") {
+            indicator.style.removeProperty("display");
+        }
+    }
+}
+
 export function syncClassicLayout() {
     if (domObserver) domObserver.disconnect();
 
     try {
         const isClassicLayoutEnabled = app.ui?.settings?.getSettingValue("Comfy Sidebar.Comfy Layout") ?? false;
 
-        const hideGraphBtn = app.ui?.settings?.getSettingValue("Comfy Sidebar.Hide Junk.Graph Button") ?? false;
-        const graphBtn = findGraphButton();
-        if (graphBtn) {
-            if (hideGraphBtn) {
-                if (graphBtn.style.display !== "none") graphBtn.style.setProperty("display", "none", "important");
-            } else {
-                if (graphBtn.style.display === "none") graphBtn.style.removeProperty("display");
-            }
-        }
-
-        const extensionsPanel = findNativeExtensionsPanel();
-        if (extensionsPanel) {
-            if (isClassicLayoutEnabled) {
-                const container = findTopbarContainer();
-                if (container && extensionsPanel.parentNode !== container) {
-                    if (!extensionsPanel._originalParent) {
-                        extensionsPanel._originalParent = extensionsPanel.parentNode;
-                        extensionsPanel._originalNextSibling = extensionsPanel.nextSibling;
-                    }
-                    container.appendChild(extensionsPanel);
-                    extensionsPanel.classList.add("comfy-sidebar-extensions-override");
-                }
-            } else if (extensionsPanel._originalParent && extensionsPanel.parentNode !== extensionsPanel._originalParent) {
-                extensionsPanel._originalParent.insertBefore(extensionsPanel, extensionsPanel._originalNextSibling || null);
-                extensionsPanel.classList.remove("comfy-sidebar-extensions-override");
-            }
-        }
-
-        if (!isClassicLayoutEnabled) {
-            const originalBtn = findOriginalPropertiesButton();
-            if (originalBtn?.classList.contains("comfy-sidebar-hide-original-properties-btn")) {
-                originalBtn.classList.remove("comfy-sidebar-hide-original-properties-btn");
-            }
-
-            const customBtn = document.querySelector(".comfy-sidebar-custom-properties-toggle");
-            if (customBtn) customBtn.remove();
-
-            const indicator = findActiveQueueIndicator();
-            if (indicator && indicator.style.display === "none") indicator.style.removeProperty("display");
-
-            updateSidebarTabsVisibility();
-            return;
-        }
-
-        const originalBtn = findOriginalPropertiesButton();
-        const container = findTopbarContainer();
-        const openState = isPropertiesPanelOpen();
-
-        if (originalBtn) {
-            if (!originalBtn.classList.contains("comfy-sidebar-hide-original-properties-btn")) {
-                originalBtn.classList.add("comfy-sidebar-hide-original-properties-btn");
-            }
-
-            savedButtonData = {
-                className: originalBtn.className.replace("comfy-sidebar-hide-original-properties-btn", "").trim(),
-                innerHTML: originalBtn.innerHTML,
-                tagName: originalBtn.tagName,
-                attributes: Array.from(originalBtn.attributes).map(attr => ({
-                    name: attr.name,
-                    value: attr.value
-                }))
-            };
-        }
-
-        let customBtn = document.querySelector(".comfy-sidebar-custom-properties-toggle");
-
-        if (!customBtn && savedButtonData && container) {
-            customBtn = document.createElement(savedButtonData.tagName);
-            customBtn.className = savedButtonData.className + " comfy-sidebar-custom-properties-toggle";
-            customBtn.innerHTML = cleanHTML(savedButtonData.innerHTML);
-
-            for (const attr of savedButtonData.attributes) {
-                if (attr.name !== "class" && attr.name !== "id" && attr.name !== "style") {
-                    customBtn.setAttribute(attr.name, attr.value);
-                }
-            }
-
-            customBtn.addEventListener("click", (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                const nativeBtn = findOriginalPropertiesButton();
-                if (nativeBtn) {
-                    nativeBtn.click();
-                    requestAnimationFrame(() => syncClassicLayout());
-                }
-            });
-
-            container.appendChild(customBtn);
-        }
-
-        if (customBtn) {
-            if (originalBtn) {
-                const cleanedHTML = cleanHTML(originalBtn.innerHTML);
-                if (cleanedHTML && customBtn.innerHTML !== cleanedHTML) {
-                    const existingDot = customBtn.querySelector('.comfy-sidebar-error-dot');
-                    customBtn.innerHTML = cleanedHTML;
-                    if (existingDot) customBtn.appendChild(existingDot);
-                }
-
-                const titleVal = originalBtn.getAttribute("title") || originalBtn.getAttribute("aria-label") || "Toggle properties panel";
-                customBtn.setAttribute("title", titleVal);
-                customBtn.setAttribute("aria-label", titleVal);
-
-                for (const cls of originalBtn.classList) {
-                    if (cls !== "comfy-sidebar-hide-original-properties-btn" && !customBtn.classList.contains(cls)) {
-                        customBtn.classList.add(cls);
-                    }
-                }
-
-                syncErrorBadge(originalBtn, customBtn);
-            } else if (!customBtn.getAttribute("title")) {
-                customBtn.setAttribute("title", "Toggle properties panel");
-                customBtn.setAttribute("aria-label", "Toggle properties panel");
-            }
-            customBtn.classList.toggle("comfy-panel-open", openState);
-            customBtn.style.display = "inline-flex";
-        }
-
-        const hideQueueIndicator = app.ui?.settings?.getSettingValue("Comfy Sidebar.Hide Junk.Override Stock Job History Tab") ?? false;
-        const indicator = findActiveQueueIndicator();
-        if (indicator) {
-            if (hideQueueIndicator) {
-                if (indicator.style.display !== "none") indicator.style.setProperty("display", "none", "important");
-            } else if (indicator.style.display === "none") {
-                indicator.style.removeProperty("display");
-            }
-        }
-
+        syncGraphButton();
+        syncExtensionsPanel(isClassicLayoutEnabled);
+        syncPropertiesButton(isClassicLayoutEnabled);
+        syncActiveQueueIndicator(isClassicLayoutEnabled);
         updateSidebarTabsVisibility();
 
     } catch (err) {
