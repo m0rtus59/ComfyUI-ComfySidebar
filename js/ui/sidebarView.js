@@ -7,6 +7,8 @@ import { updateSidebarBadge, centerAndSelectCanvasNode } from "../comfy/adapter.
 import { matchesFilter, getRunOutputs, isImageFormat } from "../utils/utils.js";
 import { renderCardImages } from "./mediaPreview.js";
 import { deleteFileOnServer, removeImageFromNodeOutputs, copyImageToClipboard, findNodeIdForImage } from "./mediaActions.js";
+import { toggleIgnoreActiveNode } from "../comfy/nodes.js";
+import { renumberNodesTopologically, showNotification } from "../utils/nodeRenumber.js";
 
 let scrollToTopBtnEl = null;
 let globalClickRegistered = false;
@@ -186,7 +188,20 @@ export function setupSidebarView() {
     standardHeader.appendChild(titleGroup);
 
     const actionsGroup = document.createElement("div");
-    Object.assign(actionsGroup.style, { display: "flex", gap: "6px", alignItems: "center" });
+    Object.assign(actionsGroup.style, { display: "flex", gap: "5px", alignItems: "center" });
+
+    const createInstantBtn = (iconClass, tooltip, onClickFn) => {
+        const btn = document.createElement("button");
+        btn.className = `${iconClass} comfy-sidebar-header-btn`;
+        btn.title = tooltip;
+        btn.addEventListener("click", async (ev) => {
+            ev.stopPropagation();
+            btn.style.transform = "scale(0.88)";
+            setTimeout(() => { btn.style.transform = ""; }, 120);
+            await onClickFn();
+        });
+        return btn;
+    };
 
     const createActionBtn = (iconClass, tooltip, hoverColor, onClickFn) => {
         const btn = document.createElement("button");
@@ -220,6 +235,31 @@ export function setupSidebarView() {
         return btn;
     };
 
+    const btnToggleIgnore = createInstantBtn("pi pi-eye-slash", "Toggle Ignore Selected Node(s) in Queue (Ctrl+Q)", () => {
+        const raw = app.canvas?.selected_nodes;
+        const selected = raw instanceof Map || raw instanceof Set
+            ? Array.from(raw.values())
+            : (Array.isArray(raw) ? raw : (raw && typeof raw === "object" ? Object.values(raw) : []));
+        const selectedNodes = selected.length > 0 ? selected : (app.canvas?.selected_node ? [app.canvas.selected_node] : []);
+
+        if (selectedNodes.length === 0) {
+            showNotification("No nodes selected. Click a node on the canvas first to toggle ignore.", "warn");
+            return;
+        }
+
+        toggleIgnoreActiveNode(() => renderSidebar());
+    });
+
+    const btnRenumber = createInstantBtn("pi pi-sort-numeric-down", "Renumber All Nodes by Execution Order (Alt+R)", async () => {
+        await renumberNodesTopologically();
+    });
+
+    const divider = document.createElement("div");
+    Object.assign(divider.style, {
+        width: "1px", height: "14px", background: "var(--border-color, #444)",
+        margin: "0 2px", opacity: "0.6"
+    });
+
     const btnClearInterrupted = createActionBtn("pi pi-eraser", "Clear Cancelled & Failed", "#ffc107", async () => {
         await clearCancelledOrFailed();
         renderSidebar();
@@ -230,6 +270,9 @@ export function setupSidebarView() {
         renderSidebar();
     });
 
+    actionsGroup.appendChild(btnToggleIgnore);
+    actionsGroup.appendChild(btnRenumber);
+    actionsGroup.appendChild(divider);
     actionsGroup.appendChild(btnClearInterrupted);
     actionsGroup.appendChild(btnClearAll);
     standardHeader.appendChild(actionsGroup);

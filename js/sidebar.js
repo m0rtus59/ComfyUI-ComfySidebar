@@ -2,6 +2,7 @@ import { app } from "/scripts/app.js";
 import { SettingIds } from "./core/constants.js";
 import { injectStyles } from "./utils/styles.js";
 import { setupDragAndDrop } from "./utils/dragdrop.js";
+import { renumberNodesTopologically, setManualNodeId } from "./utils/nodeRenumber.js";
 import { findOurSidebarButton } from "./comfy/adapter.js";
 import { syncAllNodeBadges, setupVueNodeObserver, toggleIgnoreActiveNode } from "./comfy/nodes.js";
 import { applyClassicLayout, setupPropertiesPanelToggleFix, syncClassicLayout, syncStockHistoryAndProgressSettings, destroyLayoutFix } from "./comfy/layout.js";
@@ -115,6 +116,13 @@ function setupKeydownShortcuts() {
             e.stopPropagation();
             toggleIgnoreActiveNode(() => renderSidebar());
         }
+
+        // Alt+R: Renumber all nodes in execution order
+        if (e.key.toLowerCase() === "r" && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            renumberNodesTopologically();
+        }
     };
 
     document.addEventListener("keydown", activeKeydownHandler, true);
@@ -140,8 +148,38 @@ app.registerExtension({
             id: "ComfySidebar.ToggleIgnoreNode",
             label: "Toggle Ignore Selected Node(s) in Queue",
             function: () => toggleIgnoreActiveNode(() => renderSidebar())
+        },
+        {
+            id: "ComfySidebar.RenumberNodes",
+            label: "Renumber All Nodes (Execution Order)",
+            function: () => renumberNodesTopologically()
+        },
+        {
+            id: "ComfySidebar.SetNodeId",
+            label: "Set Selected Node ID...",
+            function: () => setManualNodeId()
         }
     ],
+
+    getNodeMenuItems(node) {
+        return [
+            null,
+            {
+                content: "Set Node ID...",
+                callback: () => setManualNodeId(node)
+            }
+        ];
+    },
+
+    getCanvasMenuItems() {
+        return [
+            null,
+            {
+                content: "Renumber All Nodes (Execution Order)",
+                callback: () => renumberNodesTopologically()
+            }
+        ];
+    },
 
     nodeCreated(node) {
         if (node && node.properties?.ignoreInQueue) {
