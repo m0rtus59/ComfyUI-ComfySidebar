@@ -16,7 +16,12 @@ def is_path_safe(base_dir, target_path):
     """Prevents Path Traversal attacks."""
     real_base = os.path.realpath(base_dir)
     real_target = os.path.realpath(target_path)
-    return real_target == real_base or real_target.startswith(real_base + os.sep)
+    try:
+        # commonpath reliably handles OS-specific case sensitivity and slash logic
+        return os.path.commonpath([real_base, real_target]) == real_base
+    except ValueError:
+        # Raised if paths are on different drives on Windows
+        return False
 
 
 def get_all_candidate_roots(subfolder="", folder_type="output"):
@@ -199,9 +204,16 @@ async def three_proxy_handler(request):
     
     os.makedirs(SIDEBAR_CACHE_DIR, exist_ok=True)
     import re
-    safe_name = re.sub(r'[^a-zA-Z0-9_.-]', '_', full_req)
-    if not any(safe_name.endswith(ext) for ext in [".js", ".mjs", ".wasm", ".bin", ".json"]):
+    import hashlib
+    import urllib.parse
+    
+    # Hash the request to prevent Cache Poisoning collisions and OS filename length limits
+    req_hash = hashlib.sha256(full_req.encode("utf-8")).hexdigest()[:16]
+    prefix = re.sub(r'[^a-zA-Z0-9.-]', '_', raw_path)[:40]
+    safe_name = f"{prefix}_{req_hash}"
+    if not any(raw_path.endswith(ext) for ext in [".js", ".mjs", ".wasm", ".bin", ".json"]):
         safe_name += ".js"
+        
     cache_file = os.path.join(SIDEBAR_CACHE_DIR, safe_name)
 
     # 1. Serve immediately from disk cache if present
@@ -210,7 +222,8 @@ async def three_proxy_handler(request):
         return web.FileResponse(cache_file, headers={"Content-Type": content_type})
 
     # 2. Otherwise download via Python (not blocked by browser CSP)
-    url = f"https://esm.sh/{full_req}"
+    safe_url_path = urllib.parse.quote(full_req, safe="?&=/@+.-")
+    url = f"https://esm.sh/{safe_url_path}"
     try:
         import urllib.request
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
