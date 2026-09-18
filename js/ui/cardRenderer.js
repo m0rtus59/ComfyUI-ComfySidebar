@@ -8,6 +8,7 @@ import { getRunOutputs, extractWorkflowFromPng, isImageFormat } from "../utils/u
 import { showFullscreenPreview } from "../utils/comparison.js";
 import { stopAllAudioPlayback } from "./audioController.js";
 import { deleteHistoryItem, cancelPendingTask, interruptActive } from "../queue/queueService.js";
+import { showNotification } from "../utils/nodeRenumber.js";
 
 export const cardPool = new Map();
 
@@ -31,6 +32,8 @@ export function syncCardButtonVisibility(cardObj, state) {
         if (cardObj.leftHoverPanel) cardObj.leftHoverPanel.style.removeProperty("display");
     }
 
+    const randParam = state?.pid ? `&rand=${encodeURIComponent(state.pid)}` : "";
+
     // Check if the card has an actual verified file saved on disk
     const hasRealDiskFiles = state.images && state.images.length > 0 && 
         state.images.some(img => img.filename && !img.isFallback && (!img.url || !img.url.startsWith("blob:")));
@@ -47,7 +50,7 @@ export function syncCardButtonVisibility(cardObj, state) {
                 ev.stopPropagation();
                 state.images.forEach(img => {
                     const a = document.createElement("a");
-                    a.href = img.url ? img.url : `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}`;
+                    a.href = img.url ? img.url : `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}${randParam}`;
                     a.download = img.filename || "output";
                     a.click();
                 });
@@ -64,7 +67,7 @@ export function syncCardButtonVisibility(cardObj, state) {
             cardObj.btnCopy.style.display = "inline-flex";
             cardObj.btnCopy.onclick = async (ev) => {
                 ev.stopPropagation();
-                const src = currentImg.url ? currentImg.url : `/view?filename=${encodeURIComponent(currentImg.filename)}&type=${currentImg.type || 'output'}&subfolder=${encodeURIComponent(currentImg.subfolder || '')}`;
+                const src = currentImg.url ? currentImg.url : `/view?filename=${encodeURIComponent(currentImg.filename)}&type=${currentImg.type || 'output'}&subfolder=${encodeURIComponent(currentImg.subfolder || '')}${randParam}`;
                 const success = await copyImageToClipboard(src);
                 if (success) {
                     cardObj.btnCopy.className = "pi pi-check comfy-sidebar-card-action-btn";
@@ -88,7 +91,7 @@ export function syncCardButtonVisibility(cardObj, state) {
                 ev.stopPropagation();
                 let wf = state.workflow;
                 if (!wf && currentImg) {
-                    const src = currentImg.url ? currentImg.url : `/view?filename=${encodeURIComponent(currentImg.filename)}&type=${currentImg.type || 'output'}&subfolder=${encodeURIComponent(currentImg.subfolder || '')}`;
+                    const src = currentImg.url ? currentImg.url : `/view?filename=${encodeURIComponent(currentImg.filename)}&type=${currentImg.type || 'output'}&subfolder=${encodeURIComponent(currentImg.subfolder || '')}${randParam}`;
                     wf = await extractWorkflowFromPng(src);
                     if (wf) state.workflow = wf;
                 }
@@ -161,7 +164,7 @@ export function syncCardButtonVisibility(cardObj, state) {
             // Check if intermediate files still exist on disk
             for (const out of distinctOutputs) {
                 for (const img of out.images) {
-                    const src = img.url ? img.url : `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}`;
+                    const src = img.url ? img.url : `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}${randParam}`;
                     if (!src.startsWith("blob:")) {
                         fetch(src, { method: "HEAD" }).then(res => {
                             if (res.status === 404) {
@@ -197,7 +200,7 @@ export function syncCardButtonVisibility(cardObj, state) {
                 let anyMissing = false;
                 for (const out of curDistinct) {
                     for (const img of out.images) {
-                        const src = img.url ? img.url : `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}`;
+                        const src = img.url ? img.url : `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}${randParam}`;
                         if (!src.startsWith("blob:")) {
                             try {
                                 const res = await fetch(src, { method: "HEAD" });
@@ -248,7 +251,8 @@ export function updateCardProgressTargeted(cardObj, progress, activeNodeName, sh
     // Fast-path: update live preview image directly on active card
     if (state && state.images && state.images.length > 0) {
         const firstImg = state.images[0];
-        const previewUrl = firstImg.url || (firstImg.filename ? `/view?filename=${encodeURIComponent(firstImg.filename)}&type=${firstImg.type || 'output'}&subfolder=${encodeURIComponent(firstImg.subfolder || '')}` : null);
+        const randParam = state?.pid ? `&rand=${encodeURIComponent(state.pid)}` : "";
+        const previewUrl = firstImg.url || (firstImg.filename ? `/view?filename=${encodeURIComponent(firstImg.filename)}&type=${firstImg.type || 'output'}&subfolder=${encodeURIComponent(firstImg.subfolder || '')}${randParam}` : null);
         if (previewUrl && cardObj.firstImgElement && cardObj.firstImgElement.tagName === "IMG") {
             const currentSrc = cardObj.firstImgElement.getAttribute("src") || cardObj.firstImgElement.src;
             if (currentSrc !== previewUrl && !cardObj.firstImgElement.src.endsWith(previewUrl)) {
@@ -463,8 +467,21 @@ export function getOrCreateCard(state, callbacks = {}) {
                 const allOutputs = getRunOutputs(liveState.nodeOutputs, liveState.workflow);
                 allOutputs.forEach(out => (out.images || []).forEach(addFile));
 
+                let deletedCount = 0;
+                let lastAction = "trashed";
                 for (const fileItem of filesToDelete) {
-                    await deleteFileOnServer(fileItem);
+                    const action = await deleteFileOnServer(fileItem);
+                    if (action) {
+                        deletedCount++;
+                        lastAction = action;
+                    }
+                }
+
+                if (deletedCount > 0) {
+                    const msg = lastAction === "trashed"
+                        ? `Moved ${deletedCount} file${deletedCount > 1 ? "s" : ""} to Recycle Bin.`
+                        : `Permanently deleted ${deletedCount} file${deletedCount > 1 ? "s" : ""}.`;
+                    showNotification(msg, "success", "Delete Files");
                 }
             }
 

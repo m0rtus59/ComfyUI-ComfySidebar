@@ -7,7 +7,8 @@ import { PromptStatus } from "../core/constants.js";
 
 export function render3DCardPreview(cardObj, wrapper, src, img, state) {
     let preview3D = wrapper.querySelector(".comfy-sidebar-3d-wrapper");
-    const fullUrl = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}`;
+    const randParam = state?.pid ? `&rand=${encodeURIComponent(state.pid)}` : "";
+    const fullUrl = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}${randParam}`;
 
     const imageAssets = state?.images?.filter(i => isImageFormat(i.filename || i.url)) || [];
     const lastImageAsset = imageAssets.length > 0 ? imageAssets[imageAssets.length - 1] : null;
@@ -92,7 +93,8 @@ export function render3DCardPreview(cardObj, wrapper, src, img, state) {
 
 export function renderAudioCardPreview(cardObj, wrapper, src, img, state) {
     let previewAudio = wrapper.querySelector(".comfy-sidebar-audio-wrapper");
-    const fullUrl = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}`;
+    const randParam = state?.pid ? `&rand=${encodeURIComponent(state.pid)}` : "";
+    const fullUrl = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}${randParam}`;
     const filename = img.filename || getFilenameFromUrl(src) || "audio.wav";
     const ext = filename.split('.').pop().toUpperCase();
 
@@ -277,7 +279,8 @@ export function renderGenericFileCardPreview(cardObj, wrapper, src, img, state) 
     const playIcon = wrapper.querySelector(".comfy-sidebar-play-icon");
     if (playIcon) playIcon.remove();
     let previewFile = wrapper.querySelector(".comfy-sidebar-file-wrapper");
-    const fullUrl = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}`;
+    const randParam = state?.pid ? `&rand=${encodeURIComponent(state.pid)}` : "";
+    const fullUrl = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}${randParam}`;
     const filename = img.filename || getFilenameFromUrl(src) || "output_file";
     const ext = (filename.split('.').pop() || "FILE").toUpperCase();
     const folderName = img.subfolder ? `${img.subfolder}/` : (img.type || "output");
@@ -368,7 +371,8 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
         return;
     }
 
-    const src = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}`;
+    const randParam = state?.pid ? `&rand=${encodeURIComponent(state.pid)}` : "";
+    const src = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}${randParam}`;
     const isVideo = isVideoFormat(src) || isVideoFormat(img.filename);
     const is3D = is3DFormat(src) || is3DFormat(img.filename);
     const isAudio = isAudioFormat(src) || isAudioFormat(img.filename);

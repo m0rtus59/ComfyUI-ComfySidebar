@@ -36,19 +36,9 @@ async function getThreeLibs() {
     };
 
     try {
-        let loaded = null;
-        // 1. Try local Python proxy on 'self' (bypasses CSP & --disable-api-nodes)
-        try {
-            loaded = await loadFromBase("/comfy-sidebar/three-proxy/");
-            window.__COMFY_SIDEBAR_THREE_BASE = "/comfy-sidebar/three-proxy/";
-        } catch (proxyErr) {
-            // 2. Fall back to direct CDN if proxy is unreachable
-            console.warn("Comfy Sidebar: Proxy unavailable, trying direct CDN...", proxyErr);
-            loaded = await loadFromBase("https://esm.sh/");
-            window.__COMFY_SIDEBAR_THREE_BASE = "https://esm.sh/";
-        }
-
-        const { three, controls, gltf, obj, stl, ply } = loaded;
+        const base = "https://esm.sh/";
+        window.__COMFY_SIDEBAR_THREE_BASE = base;
+        const { three, controls, gltf, obj, stl, ply } = await loadFromBase(base);
         cachedThreeLibs = {
             ...three,
             OrbitControls: controls.OrbitControls || controls.default || controls,
@@ -232,7 +222,7 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
             loadingSpinner.style.display = "flex";
             loadingSpinner.innerHTML = `<span class="pi pi-spin pi-spinner"></span> Exporting ${format}...`;
 
-            const base = window.__COMFY_SIDEBAR_THREE_BASE || "/comfy-sidebar/three-proxy/";
+            const base = window.__COMFY_SIDEBAR_THREE_BASE || "https://esm.sh/";
             if (format === "OBJ") {
                 const mod = await import(`${base}three@0.170.0/examples/jsm/exporters/OBJExporter.js`);
                 const OBJExporter = mod.OBJExporter || mod.default || mod;
@@ -283,9 +273,11 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
         THREE = await getThreeLibs();
         if (!THREE) {
             loadingSpinner.innerHTML = `
-                <div style="text-align: center; max-width: 320px; line-height: 1.4;">
-                    <span style="color: #f87171; font-weight: bold;">Failed to load 3D engine.</span><br>
-                    <span style="font-size: 11px; color: #94a3b8;">Blocked by ComfyUI Content Security Policy (CSP). Check if <code>--disable-api-nodes</code> is enabled in your startup arguments, or vendor Three.js locally.</span>
+                <div style="text-align: center; max-width: 340px; line-height: 1.4; padding: 6px;">
+                    <span style="color: #f87171; font-weight: bold; font-size: 13px;">Failed to load 3D engine.</span><br>
+                    <span style="font-size: 11px; color: #cbd5e1; display: inline-block; margin-top: 4px;">
+                        Unable to download 3D libraries. Make sure your computer is online, or check if <code>--disable-api-nodes</code> is blocking external network requests.
+                    </span>
                 </div>
             `;
             return;

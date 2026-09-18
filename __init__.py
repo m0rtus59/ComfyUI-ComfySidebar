@@ -60,9 +60,9 @@ def get_all_candidate_roots(subfolder="", folder_type="output"):
     return unique
 
 
-def resolve_existing_path(filename="", subfolder="", folder_type="output"):
+def resolve_existing_path(filename="", subfolder="", folder_type="output", candidate_roots=None):
     """Finds the actual location of a file or folder across all candidate root directories."""
-    candidates = get_all_candidate_roots(subfolder, folder_type)
+    candidates = candidate_roots if candidate_roots is not None else get_all_candidate_roots(subfolder, folder_type)
 
     if filename:
         for root in candidates:
@@ -97,7 +97,7 @@ def open_file_in_os(target_path):
             # Passed as a single argument so Windows Explorer highlights the file properly
             subprocess.Popen(["explorer", f"/select,{norm_path}"])
         else:
-            os.startfile(norm_path)
+            subprocess.Popen(["explorer", norm_path])
 
     elif system == "Darwin":  # macOS
         if not os.path.exists(target_path):
@@ -146,19 +146,34 @@ async def delete_file_handler(request):
         if not filename:
             return web.json_response({"error": "No filename provided"}, status=400)
 
-        target_file, root = resolve_existing_path(filename, subfolder, folder_type)
+        # Strictly restrict deletion to generated output and temp files (protects models/checkpoints)
+        delete_roots = [
+            folder_paths.get_output_directory(),
+            folder_paths.get_temp_directory()
+        ]
+        delete_roots = [os.path.realpath(r) for r in delete_roots if r and os.path.exists(r)]
+
+        target_file, root = resolve_existing_path(filename, subfolder, folder_type, candidate_roots=delete_roots)
 
         if not target_file or not os.path.isfile(target_file) or not is_path_safe(root, target_file):
-            return web.json_response({"error": "File not found or unsafe path"}, status=404)
+            return web.json_response({"error": "File not found or outside output directory"}, status=404)
 
         # Try moving to Recycle Bin / Trash first, fallback to os.remove
-        try:
-            import send2trash
-            send2trash.send2trash(target_file)
-        except Exception:
+        permanent = bool(data.get("permanent", False))
+        action = "deleted"
+        if not permanent:
+            try:
+                import send2trash
+                send2trash.send2trash(target_file)
+                action = "trashed"
+            except Exception:
+                os.remove(target_file)
+                action = "deleted"
+        else:
             os.remove(target_file)
+            action = "deleted"
 
-        return web.json_response({"success": True, "deleted": target_file})
+        return web.json_response({"success": True, "deleted": target_file, "action": action})
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
 
@@ -186,68 +201,3 @@ async def promote_output_handler(request):
         return web.json_response({"name": filename})
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
-
-
-# ============================================================================
-# Local Three.js Proxy & Offline Cache (Bypasses CSP & --disable-api-nodes)
-# ============================================================================
-SIDEBAR_CACHE_DIR = os.path.join(os.path.dirname(__file__), "js", "vendor", "cache")
-
-@PromptServer.instance.routes.get("/comfy-sidebar/three-proxy/{path:.*}")
-async def three_proxy_handler(request):
-    raw_path = request.match_info.get("path", "").lstrip("/")
-    if not raw_path:
-        return web.Response(status=404)
-
-    query = request.query_string
-    full_req = f"{raw_path}?{query}" if query else raw_path
-    
-    os.makedirs(SIDEBAR_CACHE_DIR, exist_ok=True)
-    import re
-    import hashlib
-    import urllib.parse
-    
-    # Hash the request to prevent Cache Poisoning collisions and OS filename length limits
-    req_hash = hashlib.sha256(full_req.encode("utf-8")).hexdigest()[:16]
-    prefix = re.sub(r'[^a-zA-Z0-9.-]', '_', raw_path)[:40]
-    safe_name = f"{prefix}_{req_hash}"
-    if not any(raw_path.endswith(ext) for ext in [".js", ".mjs", ".wasm", ".bin", ".json"]):
-        safe_name += ".js"
-        
-    cache_file = os.path.join(SIDEBAR_CACHE_DIR, safe_name)
-
-    # 1. Serve immediately from disk cache if present
-    if os.path.isfile(cache_file) and os.path.getsize(cache_file) > 0:
-        content_type = "application/wasm" if raw_path.endswith(".wasm") else "application/javascript"
-        return web.FileResponse(cache_file, headers={"Content-Type": content_type})
-
-    # 2. Otherwise download via Python (not blocked by browser CSP)
-    safe_url_path = urllib.parse.quote(full_req, safe="?&=/@+.-")
-    url = f"https://esm.sh/{safe_url_path}"
-    try:
-        import urllib.request
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            raw_data = resp.read()
-
-            if raw_path.endswith((".wasm", ".bin", ".png", ".jpg")):
-                with open(cache_file, "wb") as f:
-                    f.write(raw_data)
-                return web.Response(body=raw_data, content_type="application/octet-stream")
-
-            content = raw_data.decode("utf-8", errors="replace")
-            # Rewrite absolute esm.sh paths to route through our local 'self' proxy
-            content = content.replace("https://esm.sh/", "/comfy-sidebar/three-proxy/")
-            # Rewrite root-relative module paths (e.g. from "/v135/...")
-            content = re.sub(
-                r'((?:from|import)\s*["\'])/(v\d+|[a-zA-Z0-9@_.~-]+/)',
-                r'\1/comfy-sidebar/three-proxy/\2',
-                content
-            )
-
-            with open(cache_file, "w", encoding="utf-8") as f:
-                f.write(content)
-
-            return web.Response(text=content, content_type="application/javascript")
-    except Exception as e:
-        return web.Response(text=f"/* Proxy error fetching {url}: {e} */", status=502, content_type="application/javascript")

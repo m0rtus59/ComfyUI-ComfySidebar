@@ -50,8 +50,11 @@ export async function openFileOrFolder(img) {
     a.remove();
 }
 
+import { app } from "/scripts/app.js";
+
 export async function deleteFileOnServer(fileItem) {
-    if (!fileItem || !fileItem.filename) return false;
+    if (!fileItem || !fileItem.filename) return null;
+    const isPermanent = app.ui?.settings?.getSettingValue?.("Comfy Sidebar.Permanent Delete on Disk Deletion") ?? false;
     try {
         const res = await fetch("/comfy-sidebar/delete-file", {
             method: "POST",
@@ -59,13 +62,18 @@ export async function deleteFileOnServer(fileItem) {
             body: JSON.stringify({
                 filename: fileItem.filename,
                 subfolder: fileItem.subfolder || "",
-                type: fileItem.type || "output"
+                type: fileItem.type || "output",
+                permanent: isPermanent
             })
         });
-        return res.ok;
+        if (res.ok) {
+            const data = await res.json();
+            return data.action || (isPermanent ? "deleted" : "trashed");
+        }
+        return null;
     } catch (e) {
         console.error("Comfy Sidebar: Failed to delete file on server", e);
-        return false;
+        return null;
     }
 }
 

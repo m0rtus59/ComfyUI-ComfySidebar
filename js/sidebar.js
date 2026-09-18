@@ -44,6 +44,12 @@ function registerSettings() {
         type: "boolean",
         defaultValue: false
     });
+    app.ui.settings.addSetting({
+        id: "Comfy Sidebar.Permanent Delete on Disk Deletion",
+        name: "Permanently delete files on disk deletion (bypasses Recycle Bin / Trash)",
+        type: "boolean",
+        defaultValue: false
+    });
 
     const sidebarTabs = ["Assets", "Nodes", "Models", "Workflows", "Apps", "Templates"];
     sidebarTabs.forEach(tab => {

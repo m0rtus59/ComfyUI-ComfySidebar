@@ -1,8 +1,8 @@
 import { app } from "/scripts/app.js";
 import { syncAllNodeBadges } from "../comfy/nodes.js";
 
-export function showNotification(message, type = "success") {
-    const summary = type === "error" ? "Error" : type === "warn" ? "Warning" : "Node Renumber";
+export function showNotification(message, type = "success", title = null) {
+    const summary = title || (type === "error" ? "Error" : type === "warn" ? "Warning" : "Comfy Sidebar");
     
     if (app.extensionManager?.toast?.add) {
         app.extensionManager.toast.add({
@@ -60,6 +60,13 @@ export async function renumberNodesTopologically() {
         showNotification("No nodes found on canvas to renumber.", "warn");
         return;
     }
+
+    const confirmed = confirm(
+        "Renumbering will rewrite all node IDs on the canvas in topological execution order.\n\n" +
+        "This will fix intermediate node outputs showing as the final result, but may break external scripts that rely on specific node IDs\n\n" +
+        "Do you want to proceed?"
+    );
+    if (!confirmed) return;
 
     try {
         // Compute LiteGraph's topological execution order

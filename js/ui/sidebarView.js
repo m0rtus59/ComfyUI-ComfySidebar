@@ -512,7 +512,11 @@ export function renderSidebar() {
                             resetDelete();
 
                             if (shouldDeleteFromDisk && img && img.filename) {
-                                await deleteFileOnServer(img);
+                                const action = await deleteFileOnServer(img);
+                                if (action) {
+                                    const msg = action === "trashed" ? "Moved file to Recycle Bin." : "Permanently deleted file.";
+                                    showNotification(msg, "success", "Delete File");
+                                }
                             }
 
                             const pid = batchInfo.parentPromptId || batchInfo.pid;
@@ -779,8 +783,17 @@ export function renderSidebar() {
                                 resetDelete();
 
                                 if (shouldDeleteFromDisk && out.images) {
+                                    let count = 0;
+                                    let lastAct = "trashed";
                                     for (const imgItem of out.images) {
-                                        await deleteFileOnServer(imgItem);
+                                        const action = await deleteFileOnServer(imgItem);
+                                        if (action) { count++; lastAct = action; }
+                                    }
+                                    if (count > 0) {
+                                        const msg = lastAct === "trashed"
+                                            ? `Moved ${count} file${count > 1 ? "s" : ""} to Recycle Bin.`
+                                            : `Permanently deleted ${count} file${count > 1 ? "s" : ""}.`;
+                                        showNotification(msg, "success", "Delete Files");
                                     }
                                 }
 

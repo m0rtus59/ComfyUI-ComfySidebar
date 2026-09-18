@@ -118,7 +118,7 @@ export function setupExecutionTracker(onTargetedProgressUpdate) {
                 prompt.images = nodeImgs;
                 // If fullscreen is open, smoothly transition to the final saved image
                 const finalImg = nodeImgs[0];
-                const finalSrc = finalImg.url || (window.location.origin + `/view?filename=${encodeURIComponent(finalImg.filename)}&type=${finalImg.type || 'output'}&subfolder=${encodeURIComponent(finalImg.subfolder || '')}`);
+                const finalSrc = finalImg.url || (window.location.origin + `/view?filename=${encodeURIComponent(finalImg.filename)}&type=${finalImg.type || 'output'}&subfolder=${encodeURIComponent(finalImg.subfolder || '')}&rand=${encodeURIComponent(pid)}`);
                 updateActiveComparisonPreview(pid, finalSrc);
             }
             const nodeTexts = findTextsInOutputs({ [e.detail.node]: e.detail.output }, prompt.workflow);
