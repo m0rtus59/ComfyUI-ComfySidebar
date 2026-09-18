@@ -13,3 +13,4 @@ Repository = "https://github.com/m0rtus59/ComfyUI-ComfySidebar"
 [tool.comfy]
 PublisherId = "soundslikethunder"
 DisplayName = "Comfy Sidebar"
+Icon = "https://raw.githubusercontent.com/m0rtus59/ComfyUI-ComfySidebar/main/icon.png"
