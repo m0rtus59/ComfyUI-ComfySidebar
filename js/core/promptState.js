@@ -42,6 +42,7 @@ export function activatePrompt(state, patch = {}) {
     state.rendered = false;
     state.startTime = state.startTime || Date.now();
     state.duration = null;
+    state._hasValidatedIntermediates = true; // New live prompt; files are fresh
     if (patch.workflow) state.workflow = patch.workflow;
     if (patch.activeNodeName !== undefined) state.activeNodeName = patch.activeNodeName;
     if (patch.nodeTitles) Object.assign(state.nodeTitles, patch.nodeTitles);
@@ -62,6 +63,7 @@ export function finalizePrompt(state, targetStatus, patch = {}) {
     state.status = targetStatus;
     state.progressText = "";
     state.rendered = false;
+    state._hasValidatedIntermediates = true; // Live session generation; files are fresh
     state.endTime = patch.endTime || Date.now();
     if (state.startTime) {
         state.duration = (state.endTime - state.startTime) / 1000;
