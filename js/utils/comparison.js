@@ -3,17 +3,108 @@ import { create3DViewer } from "./viewer3d.js";
 import { createTextReader } from "./text_reader.js";
 import { stopAllAudioPlayback } from "../ui/audioController.js";
 import { SidebarOverlay } from "./overlay.js";
+import { store } from "../core/store.js";
+import { PromptStatus } from "../core/constants.js";
 
 let activeComparisonViewer = null;
+let isRuntimePreviewActive = false;
+let onRuntimePreviewStateChange = null;
+
+export function isRuntimePreviewEnabled() {
+    return isRuntimePreviewActive;
+}
+
+export function getActiveComparisonViewer() {
+    return activeComparisonViewer;
+}
+
+export function setRuntimePreviewStateListener(fn) {
+    onRuntimePreviewStateChange = fn;
+}
+
+export function setRuntimePreviewEnabled(enabled, triggerFocus = true) {
+    isRuntimePreviewActive = !!enabled;
+    if (typeof onRuntimePreviewStateChange === "function") {
+        try { onRuntimePreviewStateChange(isRuntimePreviewActive); } catch (e) {}
+    }
+
+    if (isRuntimePreviewActive && triggerFocus) {
+        focusRuntimePreviewTarget();
+    }
+}
+
+function isLatestOrActiveTask(pid) {
+    if (!pid) return false;
+    try {
+        const targetPid = String(pid);
+        const activePid = store.ui.currentlyActivePromptId;
+
+        // If a job is actively generating in the background:
+        // ONLY that active job is considered active. Any other card is an older card!
+        if (activePid) {
+            return String(activePid) === targetPid;
+        }
+
+        // If the queue is idle, only the newest prompt in history is the latest
+        const all = store.getAllPrompts().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        if (all.length > 0 && String(all[0].pid) === targetPid) {
+            return true;
+        }
+    } catch (e) {}
+    return false;
+}
+
+export function focusRuntimePreviewTarget() {
+    try {
+        const activePid = store.ui.currentlyActivePromptId;
+        const activePrompt = activePid ? store.getPrompt(activePid) : null;
+        
+        // 1. If a prompt is actively running, focus it (even if it has no image yet)
+        if (activePrompt && activePrompt.status === PromptStatus.ACTIVE) {
+            const previewSrc = activePrompt._previewBlobUrl || 
+                (activePrompt.images && activePrompt.images.length > 0 ? (activePrompt.images[0].url || activePrompt.images[0].filename) : null);
+            showFullscreenPreview([previewSrc || ""], false, activePrompt.pid);
+            return;
+        }
+
+        // 2. Otherwise focus the latest task in history (even if cancelled or text-only)
+        const all = store.getAllPrompts().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        const latest = all[0];
+
+        if (latest) {
+            const firstImg = latest.images && latest.images.length > 0 ? latest.images[0] : null;
+            const randParam = latest.pid ? `&rand=${encodeURIComponent(latest.pid)}` : "";
+            const src = latest._previewBlobUrl || 
+                (firstImg ? (firstImg.url || `/view?filename=${encodeURIComponent(firstImg.filename)}&type=${firstImg.type || 'output'}&subfolder=${encodeURIComponent(firstImg.subfolder || '')}${randParam}`) : "");
+            showFullscreenPreview([src || ""], false, latest.pid);
+        } else {
+            // Queue is totally empty
+            showFullscreenPreview([""], false, null);
+        }
+    } catch (e) {
+        console.error("Comfy Sidebar: Error focusing runtime preview target:", e);
+    }
+}
 
 export function isAudioViewerOpen() {
     return !!(activeComparisonViewer && activeComparisonViewer.isAudio);
 }
 
 export function updateActiveComparisonPreview(pid, newSrc) {
-    if (activeComparisonViewer && activeComparisonViewer.targetPid === String(pid)) {
-        activeComparisonViewer.loadTarget(newSrc);
+    if (!activeComparisonViewer) return;
+    const targetPidStr = String(pid);
+
+    // If Runtime Preview is OFF: NEVER interrupt the user while inspecting older cards!
+    if (!isRuntimePreviewActive) {
+        if (activeComparisonViewer.targetPid === targetPidStr) {
+            activeComparisonViewer.loadTarget(newSrc);
+        }
+        return;
     }
+
+    // If Runtime Preview is ON: always track the active generation
+    activeComparisonViewer.targetPid = targetPidStr;
+    activeComparisonViewer.loadTarget(newSrc);
 }
 
 const getClientX = (e) => {
@@ -33,6 +124,9 @@ function createAudioViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = () => 
 
     const overlay = new SidebarOverlay({
         onDestroy,
+        onUserClose: () => {
+            if (isRuntimePreviewActive) setRuntimePreviewEnabled(false, false);
+        },
         onKeyDown: (e) => {
             if (e.key === " ") {
                 e.preventDefault();
@@ -371,6 +465,9 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
 
     const overlay = new SidebarOverlay({
         onDestroy,
+        onUserClose: () => {
+            if (isRuntimePreviewActive) setRuntimePreviewEnabled(false, false);
+        },
         onKeyDown: (e) => {
             if (e.key === " " && mediaB) {
                 e.preventDefault();
@@ -415,9 +512,64 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
     });
     scrollContainer.appendChild(wrapper);
 
+    // Large 60px Lucide Spinner with relaxed 1.3s rotation
+    const showPlaceholder = () => {
+        mediaA.style.display = "none";
+        if (mediaB) {
+            cleanupMedia(mediaB);
+            mediaB.remove();
+            mediaB = null;
+        }
+        slider.style.display = "none";
+
+        let placeholder = wrapper.querySelector(".comfy-sidebar-viewer-placeholder");
+        if (!placeholder) {
+            placeholder = document.createElement("div");
+            placeholder.className = "comfy-sidebar-viewer-placeholder";
+            Object.assign(placeholder.style, {
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                padding: "36px", borderRadius: "12px", color: "#94a3b8", textAlign: "center",
+                userSelect: "none", pointerEvents: "auto", minWidth: "120px", minHeight: "120px",
+                boxSizing: "border-box", margin: "auto"
+            });
+            wrapper.appendChild(placeholder);
+        }
+
+        const spinnerSvg = `
+            <style>
+                @keyframes comfy-sidebar-spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+            </style>
+            <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation: comfy-sidebar-spin 1.3s linear infinite; filter: drop-shadow(0 0 12px rgba(59, 130, 246, 0.45));">
+                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+            </svg>
+        `;
+
+        placeholder.innerHTML = spinnerSvg;
+        placeholder.style.display = "flex";
+        wrapper.style.width = "auto";
+        wrapper.style.height = "auto";
+        wrapper.style.cursor = "default";
+    };
+
+    const hidePlaceholder = () => {
+        const placeholder = wrapper.querySelector(".comfy-sidebar-viewer-placeholder");
+        if (placeholder) placeholder.style.display = "none";
+        mediaA.style.display = "block";
+    };
+
     let mediaA = createMediaElement(baseSrc, false);
+    mediaA.onerror = () => {
+        showPlaceholder();
+    };
     wrapper.appendChild(mediaA);
     let isZoomed = false;
+
+    if (!baseSrc) {
+        showPlaceholder();
+    }
 
     const slider = document.createElement("div");
     Object.assign(slider.style, {
@@ -585,8 +737,14 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
         }
     };
 
-    mediaA.onload = syncImageScales;
-    if (mediaA.complete) syncImageScales();
+    mediaA.onload = () => {
+        hidePlaceholder();
+        syncImageScales();
+    };
+    if (mediaA.complete && mediaA.naturalWidth) {
+        hidePlaceholder();
+        syncImageScales();
+    }
 
     // Dynamically adjust preview scale if sidebars are resized
     if (window.ResizeObserver) {
@@ -682,8 +840,14 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
             const isTargetText = typeof targetSrc === "object" && targetSrc.text;
 
             if (isBaseVideo || isTargetVideo || isTarget3D || isTargetAudio || isTargetText) {
+                const currentPid = activeComparisonViewer?.targetPid;
                 overlay.destroy();
-                showFullscreenPreview([targetSrc], isShiftClick);
+                showFullscreenPreview([targetSrc], isShiftClick, currentPid);
+                return;
+            }
+
+            if (!targetSrc) {
+                showPlaceholder();
                 return;
             }
 
@@ -705,8 +869,10 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
                     mediaB = null;
                 }
                 slider.style.display = "none";
+                hidePlaceholder();
                 mediaA.src = targetSrc;
                 mediaA.onload = () => {
+                    hidePlaceholder();
                     infoText.style.color = "#aaa";
                     infoText.textContent = "Click image to zoom (100%/Fit) | Shift+Click another card to compare.";
                     syncImageScales();
@@ -721,11 +887,23 @@ export function showFullscreenPreview(imgSrcs, isShiftClick = false, pid = null)
     if (!imgSrcs || imgSrcs.length === 0) return;
 
     const item = imgSrcs[0];
+    const targetPid = pid || (typeof item === "object" && item ? item.pid : null);
+    const pidStr = targetPid ? String(targetPid) : null;
+
+    // Automatically manage Runtime Preview mode based on the card clicked
+    if (pidStr) {
+        if (isLatestOrActiveTask(pidStr)) {
+            if (!isRuntimePreviewActive) setRuntimePreviewEnabled(true, false);
+        } else {
+            if (isRuntimePreviewActive) setRuntimePreviewEnabled(false, false);
+        }
+    }
 
     // Handle Text Output
     if (typeof item === "object" && item.text) {
         if (activeComparisonViewer) {
             if (activeComparisonViewer.isText) {
+                activeComparisonViewer.targetPid = pidStr;
                 activeComparisonViewer.loadTarget(item);
                 return;
             }
@@ -734,9 +912,10 @@ export function showFullscreenPreview(imgSrcs, isShiftClick = false, pid = null)
         }
         activeComparisonViewer = createTextReader(
             item, 
-            (target) => showFullscreenPreview([target]), 
+            (target) => showFullscreenPreview([target], false, pidStr), 
             () => { activeComparisonViewer = null; }
         );
+        if (activeComparisonViewer) activeComparisonViewer.targetPid = pidStr;
         return;
     }
 
@@ -746,6 +925,7 @@ export function showFullscreenPreview(imgSrcs, isShiftClick = false, pid = null)
     if (is3DFormat(src)) {
         if (activeComparisonViewer) {
             if (activeComparisonViewer.is3D) {
+                activeComparisonViewer.targetPid = pidStr;
                 activeComparisonViewer.loadTarget(src);
                 return;
             }
@@ -754,9 +934,10 @@ export function showFullscreenPreview(imgSrcs, isShiftClick = false, pid = null)
         }
         activeComparisonViewer = create3DViewer(
             src, 
-            (targetSrc) => showFullscreenPreview([targetSrc]), 
+            (targetSrc) => showFullscreenPreview([targetSrc], false, pidStr), 
             () => { activeComparisonViewer = null; }
         );
+        if (activeComparisonViewer) activeComparisonViewer.targetPid = pidStr;
         return;
     }
 
@@ -764,6 +945,7 @@ export function showFullscreenPreview(imgSrcs, isShiftClick = false, pid = null)
     if (isAudioFormat(src)) {
         if (activeComparisonViewer) {
             if (activeComparisonViewer.isAudio) {
+                activeComparisonViewer.targetPid = pidStr;
                 activeComparisonViewer.loadTarget(src);
                 return;
             }
@@ -772,9 +954,10 @@ export function showFullscreenPreview(imgSrcs, isShiftClick = false, pid = null)
         }
         activeComparisonViewer = createAudioViewer(
             src, 
-            (targetSrc) => showFullscreenPreview([targetSrc]), 
+            (targetSrc) => showFullscreenPreview([targetSrc], false, pidStr), 
             () => { activeComparisonViewer = null; }
         );
+        if (activeComparisonViewer) activeComparisonViewer.targetPid = pidStr;
         return;
     }
     
@@ -784,6 +967,7 @@ export function showFullscreenPreview(imgSrcs, isShiftClick = false, pid = null)
             activeComparisonViewer.destroy();
             activeComparisonViewer = null;
         } else {
+            activeComparisonViewer.targetPid = pidStr;
             activeComparisonViewer.loadTarget(src, isShiftClick);
             return;
         }
@@ -794,6 +978,6 @@ export function showFullscreenPreview(imgSrcs, isShiftClick = false, pid = null)
         () => { activeComparisonViewer = null; }
     );
     if (activeComparisonViewer) {
-        activeComparisonViewer.targetPid = pid ? String(pid) : null;
+        activeComparisonViewer.targetPid = pidStr;
     }
 }

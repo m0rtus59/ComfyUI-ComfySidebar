@@ -225,8 +225,7 @@ export function syncCardButtonVisibility(cardObj, state) {
                                 images: (o.images || []).filter(i => i && i.filename && !i.isFallback)
                             }))
                             .filter(o => o.images.length > 0);
-                        const primSigs = new Set((liveState.images || []).map(i => `${i.subfolder || ""}/${i.filename}`));
-                        const curDistinct = curValid.filter(o => o.images.some(i => !primSigs.has(`${i.subfolder || ""}/${i.filename}`)));
+                        const curDistinct = curValid.filter(o => o.images.some(i => !primarySignatures.has(`${i.subfolder || ""}/${i.filename}`)));
                         const stillHas = (curValid.length > 1 && curDistinct.length > 0) || 
                             (liveState.status !== PromptStatus.COMPLETED && curValid.length > 0);
 
@@ -357,14 +356,15 @@ export function getOrCreateCard(state, callbacks = {}) {
     const cancelX = document.createElement("span");
     cancelX.className = "pi pi-times comfy-sidebar-queue-cancel-btn";
     Object.assign(cancelX.style, {
-        position: "absolute", top: "4px", right: "4px", display: "none", zIndex: "10"
+        position: "absolute", top: "4px", right: "4px", display: "none", zIndex: "25"
     });
 
     const sBadge = document.createElement("div");
+    sBadge.className = "comfy-sidebar-status-badge";
     Object.assign(sBadge.style, {
-        position: "absolute", top: "6px", right: "8px", fontSize: "9px", fontWeight: "bold",
-        padding: "2px 6px", borderRadius: "2px", textTransform: "uppercase", display: "none",
-        pointerEvents: "none", zIndex: "10"
+        position: "absolute", top: "6px", right: "8px", fontSize: "10px", fontWeight: "bold",
+        padding: "3px 7px", borderRadius: "3px", textTransform: "uppercase", display: "none",
+        pointerEvents: "none", zIndex: "30", letterSpacing: "0.5px", boxShadow: "0 2px 6px rgba(0,0,0,0.6)"
     });
 
     const dimEl = document.createElement("div");
@@ -444,7 +444,8 @@ export function getOrCreateCard(state, callbacks = {}) {
     hoverPanel.append(btnImg, btnJson, btnDel);
     leftHoverPanel.append(btnCopy, btnFocus, leftHoverBtn);
 
-    card.append(timerEl, cancelX, sBadge, dimEl, grid, p, pt, statusText, hoverPanel, leftHoverPanel);
+    // Appending grid FIRST ensures overlays (badges, cancel button) naturally render on top
+    card.append(grid, p, pt, statusText, timerEl, cancelX, dimEl, sBadge, hoverPanel, leftHoverPanel);
 
     cardObj = {
         element: card,
@@ -593,11 +594,23 @@ export function updateCardDOM(cardObj, state, showPendingSummary = true, showWor
     }
 
     if (state.status === PromptStatus.CANCELLED) {
-        Object.assign(cardObj.statusBadge.style, { display: "block", background: "#ffc107", color: "#000" });
+        Object.assign(cardObj.statusBadge.style, { 
+            display: "block", 
+            background: "#eab308", 
+            color: "#000", 
+            zIndex: "30" 
+        });
         cardObj.statusBadge.textContent = "Cancelled";
+        if (cardObj.dimEl) cardObj.dimEl.style.display = "none";
     } else if (state.status === PromptStatus.ERROR) {
-        Object.assign(cardObj.statusBadge.style, { display: "block", background: "#dc3545", color: "#fff" });
+        Object.assign(cardObj.statusBadge.style, { 
+            display: "block", 
+            background: "#dc3545", 
+            color: "#fff", 
+            zIndex: "30" 
+        });
         cardObj.statusBadge.textContent = "Error";
+        if (cardObj.dimEl) cardObj.dimEl.style.display = "none";
     } else {
         cardObj.statusBadge.style.display = "none";
     }
@@ -657,7 +670,7 @@ export function updateCardDOM(cardObj, state, showPendingSummary = true, showWor
             cardObj.placeholder.onclick = (e) => {
                 e.stopPropagation();
                 stopAllAudioPlayback();
-                showFullscreenPreview([{ text: fullText, pid: state.pid }]);
+                showFullscreenPreview([{ text: fullText, pid: state.pid }], false, state.pid);
             };
         } else {
             cardObj.placeholder.textContent = state.progressText || "No Outputs";

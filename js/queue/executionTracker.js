@@ -5,7 +5,7 @@ import { PromptStatus } from "../core/constants.js";
 import { createPromptState, activatePrompt, updatePromptProgress } from "../core/promptState.js";
 import { syncQueue, concludeRun, initSessionAndHistory, clearCancelledOrFailed } from "./queueService.js";
 import { findImagesInOutputs, findTextsInOutputs } from "../utils/utils.js";
-import { updateActiveComparisonPreview } from "../utils/comparison.js";
+import { updateActiveComparisonPreview, isRuntimePreviewEnabled, focusRuntimePreviewTarget, getActiveComparisonViewer, showFullscreenPreview } from "../utils/comparison.js";
 
 export function setupExecutionTracker(onTargetedProgressUpdate) {
     const onStatus = () => syncQueue();
@@ -43,6 +43,10 @@ export function setupExecutionTracker(onTargetedProgressUpdate) {
                 startTime: Date.now()
             });
             store.setPrompt(pid, newState);
+        }
+
+        if (isRuntimePreviewEnabled()) {
+            focusRuntimePreviewTarget();
         }
 
         syncQueue();
@@ -99,6 +103,11 @@ export function setupExecutionTracker(onTargetedProgressUpdate) {
 
             // Update live fullscreen preview if currently open
             updateActiveComparisonPreview(prompt.pid, newBlobUrl);
+
+            // If Runtime Preview mode is enabled but the overlay was closed, auto-open it
+            if (isRuntimePreviewEnabled() && !getActiveComparisonViewer()) {
+                showFullscreenPreview([newBlobUrl], false, prompt.pid);
+            }
 
             // Update the active card in the sidebar
             if (typeof onTargetedProgressUpdate === "function") {

@@ -70,7 +70,7 @@ export function render3DCardPreview(cardObj, wrapper, src, img, state) {
             openFileOrFolder(img);
             return;
         }
-        showFullscreenPreview([fullUrl], ev.shiftKey);
+        showFullscreenPreview([fullUrl], ev.shiftKey, state?.pid);
     };
 
     preview3D.setAttribute("draggable", "true");
@@ -156,6 +156,7 @@ export function renderAudioCardPreview(cardObj, wrapper, src, img, state) {
         });
         const scrubberFill = document.createElement("div");
         Object.assign(scrubberFill.style, { width: "0%", height: "100%", background: "#c084fc", borderRadius: "2px" });
+        scrubberFill.style.borderRadius = "2px";
         scrubber.appendChild(scrubberFill);
 
         const timeLabel = document.createElement("div");
@@ -205,7 +206,7 @@ export function renderAudioCardPreview(cardObj, wrapper, src, img, state) {
 
             if (isAudioViewerOpen()) {
                 stopAllAudioPlayback();
-                showFullscreenPreview([fullUrl]);
+                showFullscreenPreview([fullUrl], false, state?.pid);
                 return;
             }
 
@@ -252,7 +253,7 @@ export function renderAudioCardPreview(cardObj, wrapper, src, img, state) {
                 openFileOrFolder(img);
                 return;
             }
-            showFullscreenPreview([fullUrl]);
+            showFullscreenPreview([fullUrl], false, state?.pid);
         };
     }
 
@@ -508,7 +509,7 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
                 removeImageFromNodeOutputs(liveState.nodeOutputs, img);
             }
 
-            // If the card still has other images (e.g. from a batch), persist and switch to next image
+            // If the card still has other images, persist and switch
             if (liveState.images && liveState.images.length > 0) {
                 cardObj.currentImageIndex = 0;
                 cardObj.lastImagesSignature = "";
@@ -516,14 +517,13 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
                 return;
             }
 
-            // If the card has text outputs or is still in progress, persist
+            // If the card has text outputs or is in progress, persist
             if ((liveState.texts && liveState.texts.length > 0) || (liveState.status && liveState.status !== PromptStatus.COMPLETED)) {
                 cardObj.lastImagesSignature = "";
                 store.updatePrompt(liveState.pid, liveState);
                 return;
             }
 
-            // Only delete the main card when all items belonging to it are gone
             store.deletePrompt(liveState.pid);
             cardObj.element?.remove();
             return;
@@ -535,7 +535,7 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
     const applyDimensions = (width, height) => {
         if (cardObj.dimEl && width && height) {
             // Don't show the dimension badge for active/running preview frames
-            if (state.status === "active") {
+            if (state.status === "active" || state.status === "cancelled" || state.status === "error") {
                 cardObj.dimEl.style.display = "none";
                 return;
             }

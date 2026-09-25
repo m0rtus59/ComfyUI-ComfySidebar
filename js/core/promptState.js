@@ -59,7 +59,10 @@ export function updatePromptProgress(state, progress, activeNodeName = null) {
 }
 
 export function finalizePrompt(state, targetStatus, patch = {}) {
-    revokePromptBlobs(state);
+    // Only revoke blobs if not cancelled; preserve the preview so the user can inspect the cancelled step
+    if (targetStatus !== PromptStatus.CANCELLED && state.status !== PromptStatus.CANCELLED) {
+        revokePromptBlobs(state);
+    }
     state.status = targetStatus;
     state.progressText = "";
     state.rendered = false;

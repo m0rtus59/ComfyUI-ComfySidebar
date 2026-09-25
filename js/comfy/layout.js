@@ -5,8 +5,15 @@ import {
     isPropertiesPanelOpen,
     findActiveQueueIndicator,
     findNativeExtensionsPanel,
-    findGraphButton
+    findGraphButton,
+    findPropertiesPanel
 } from "./adapter.js";
+import { isRuntimePreviewEnabled, setRuntimePreviewEnabled, setRuntimePreviewStateListener } from "../utils/comparison.js";
+
+// Listen for runtime preview state changes to keep button UI in sync
+setRuntimePreviewStateListener(() => {
+    syncRuntimePreviewButton();
+});
 
 const STYLE_ID = "comfy-sidebar-classic-layout-override";
 
@@ -163,7 +170,6 @@ function updateSidebarTabsVisibility() {
     const sidebar = document.querySelector('.comfyui-sidebar, .comfy-sidebar, .sidebar, [class*="sidebar-nav"], [class*="sidebar"]');
     if (!sidebar) return;
 
-    // Use stable ComfyUI data-testid selectors first, with icon classes as safe fallback
     const tabSelectors = {
         "Assets": '[data-testid="assets-tab-button"], [class*="comfy--image-ai-edit"]',
         "Nodes": '[data-testid="node-library-tab-button"], [class*="comfy--node"]',
@@ -356,6 +362,86 @@ function syncActiveQueueIndicator(isClassicLayoutEnabled) {
     }
 }
 
+export function syncRuntimePreviewButton() {
+    const panel = findPropertiesPanel();
+    if (!panel) return;
+
+    let dock = panel.querySelector(".comfy-sidebar-runtime-preview-dock");
+    if (!dock) {
+        dock = document.createElement("div");
+        dock.className = "comfy-sidebar-runtime-preview-dock";
+        Object.assign(dock.style, {
+            position: "sticky",
+            bottom: "0px",
+            left: "0px",
+            width: "100%",
+            padding: "8px 12px",
+            boxSizing: "border-box",
+            background: "var(--comfy-menu-bg, #181818)",
+            borderTop: "1px solid var(--border-color, rgba(255, 255, 255, 0.12))",
+            zIndex: "20",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginTop: "auto"
+        });
+
+        const btn = document.createElement("button");
+        btn.className = "comfy-sidebar-runtime-preview-btn";
+        Object.assign(btn.style, {
+            width: "100%",
+            height: "34px",
+            borderRadius: "6px",
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "8px",
+            fontSize: "12px",
+            fontWeight: "600",
+            fontFamily: "sans-serif",
+            transition: "all 0.15s ease",
+            outline: "none"
+        });
+
+        btn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const nextState = !isRuntimePreviewEnabled();
+            setRuntimePreviewEnabled(nextState, true);
+        };
+
+        dock.appendChild(btn);
+        panel.appendChild(dock);
+    }
+
+    const btn = dock.querySelector(".comfy-sidebar-runtime-preview-btn");
+    if (btn) {
+        const active = isRuntimePreviewEnabled();
+
+        const lucidePlay = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polygon points="6 3 20 12 6 21 6 3"/></svg>`;
+        const lucideEye = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.7;flex-shrink:0;"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+        const lucideSquareCheck = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 12 2 2 4-4"/></svg>`;
+        const lucideSquare = `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.5;flex-shrink:0;"><rect width="18" height="18" x="3" y="3" rx="2"/></svg>`;
+
+        if (active) {
+            btn.style.background = "rgba(59, 130, 246, 0.18)";
+            btn.style.border = "1px solid #3b82f6";
+            btn.style.color = "#93c5fd";
+            btn.style.boxShadow = "0 0 8px rgba(59, 130, 246, 0.35)";
+            btn.innerHTML = `<span style="display:flex;align-items:center;gap:7px;">${lucidePlay}<span>Runtime Preview</span></span>${lucideSquareCheck}`;
+            btn.title = "Runtime Preview is ON (auto-tracking live generation). Click to turn OFF.";
+        } else {
+            btn.style.background = "rgba(255, 255, 255, 0.05)";
+            btn.style.border = "1px solid var(--border-color, rgba(255, 255, 255, 0.15))";
+            btn.style.color = "var(--desc-color, #aaa)";
+            btn.style.boxShadow = "none";
+            btn.innerHTML = `<span style="display:flex;align-items:center;gap:7px;">${lucideEye}<span>Runtime Preview</span></span>${lucideSquare}`;
+            btn.title = "Click to turn ON Runtime Preview (auto-focus live generation).";
+        }
+    }
+}
+
 export function syncClassicLayout() {
     if (domObserver) domObserver.disconnect();
 
@@ -367,6 +453,7 @@ export function syncClassicLayout() {
         syncPropertiesButton(isClassicLayoutEnabled);
         syncActiveQueueIndicator(isClassicLayoutEnabled);
         updateSidebarTabsVisibility();
+        syncRuntimePreviewButton();
 
     } catch (err) {
         console.error("Comfy Sidebar: Error inside layout sync routine:", err);

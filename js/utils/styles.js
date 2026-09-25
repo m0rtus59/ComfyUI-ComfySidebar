@@ -30,7 +30,7 @@ export function injectStyles() {
             display: flex !important; 
         }
 
-        /* Prevent action hover buttons (Delete/JSON/Node) from showing on pending & running cards */
+        /* Prevent action hover buttons from showing on pending & running cards */
         .comfy-sidebar-card.pending .comfy-sidebar-hover-panel,
         .comfy-sidebar-card.active .comfy-sidebar-hover-panel,
         .comfy-sidebar-card.pending .comfy-sidebar-left-hover-panel,
@@ -41,7 +41,7 @@ export function injectStyles() {
         .comfy-sidebar-card-timer {
             position: absolute; top: 6px; left: 8px; font-size: 10px;
             font-family: monospace; opacity: 0.7; background: rgba(0, 0, 0, 0.6);
-            padding: 2px 4px; border-radius: 3px; pointer-events: none; z-index: 5; color: #fff;
+            padding: 2px 4px; border-radius: 3px; pointer-events: none; z-index: 10; color: #fff;
         }
 
         .comfy-sidebar-queue-cancel-btn {
@@ -57,6 +57,7 @@ export function injectStyles() {
             cursor: pointer !important;
             transition: background-color 0.15s ease, color 0.15s ease !important;
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+            z-index: 25 !important;
         }
 
         .comfy-sidebar-queue-cancel-btn:hover {
@@ -412,7 +413,7 @@ export function injectStyles() {
             100% { transform: scaleY(1.3); }
         }
 
-        /* Generic / Unknown File Preview Cards (LoRA, Checkpoint, Latent, etc.) */
+        /* Generic File Preview Cards */
         .comfy-sidebar-file-wrapper {
             width: 100%;
             min-height: 88px;
@@ -513,23 +514,38 @@ export function injectStyles() {
             background: rgba(59, 130, 246, 0.08);
         }
 
-        /* Elevate native sidebars and splitters above the preview overlay */
+        /* Elevate outer sidebar dock containers above the preview overlay */
+        body.comfy-sidebar-overlay-active aside,
+        body.comfy-sidebar-overlay-active nav,
         body.comfy-sidebar-overlay-active .comfyui-sidebar,
-        body.comfy-sidebar-overlay-active .comfy-sidebar,
-        body.comfy-sidebar-overlay-active [data-testid="properties-panel"],
-        body.comfy-sidebar-overlay-active [data-testid="workflow-overview-panel"],
+        body.comfy-sidebar-overlay-active .side-tool-bar-container,
+        body.comfy-sidebar-overlay-active .sidebar-content-container,
+        body.comfy-sidebar-overlay-active .comfyui-sidebar-content,
         body.comfy-sidebar-overlay-active .p-sidebar,
         body.comfy-sidebar-overlay-active .p-sidebar-right,
+        body.comfy-sidebar-overlay-active [data-testid="properties-panel"],
+        body.comfy-sidebar-overlay-active [data-testid="workflow-overview-panel"],
         body.comfy-sidebar-overlay-active [class*="properties-panel"],
-        body.comfy-sidebar-overlay-active [class*="side-panel"],
-        body.comfy-sidebar-overlay-active [class*="sidebar-content"],
-        body.comfy-sidebar-overlay-active .sidebar-content-container,
         body.comfy-sidebar-overlay-active [class*="resize-handle"],
         body.comfy-sidebar-overlay-active [class*="resizer"],
         body.comfy-sidebar-overlay-active [class*="splitter"],
         body.comfy-sidebar-overlay-active [class*="gutter"],
         body.comfy-sidebar-overlay-active [role="separator"] {
             z-index: 1005 !important;
+        }
+
+        /* Explicit card element layering so badges and [X] are ALWAYS on top of images */
+        .comfy-sidebar-card .comfy-sidebar-media-wrapper {
+            z-index: 1 !important;
+        }
+        .comfy-sidebar-card-timer {
+            z-index: 10 !important;
+        }
+        .comfy-sidebar-queue-cancel-btn {
+            z-index: 25 !important;
+        }
+        .comfy-sidebar-status-badge {
+            z-index: 30 !important;
         }
 
         /* Slim down the Queue sidebar scrollbar so it stops colliding with the separator */
@@ -545,6 +561,12 @@ export function injectStyles() {
         .sidebar-content-container ::-webkit-scrollbar-thumb {
             background: rgba(255, 255, 255, 0.25) !important;
             border-radius: 3px !important;
+        }
+
+        /* Smooth animation for the circular loader */
+        @keyframes comfy-sidebar-spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
     `;
     document.head.appendChild(style);

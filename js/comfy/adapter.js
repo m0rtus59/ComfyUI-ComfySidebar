@@ -44,9 +44,9 @@ export function findTopbarContainer() {
 }
 
 export function findPropertiesPanel() {
-    const panel = document.querySelector('[data-testid="properties-panel"], [data-testid="workflow-overview-panel"], .properties-panel, [class*="properties-panel"]');
-    if (panel && panel.offsetWidth > 0 && panel.offsetHeight > 0 && panel.isConnected) {
-        return panel;
+    const testIdPanel = document.querySelector('[data-testid="properties-panel"], [data-testid="workflow-overview-panel"], .properties-panel, [class*="properties-panel"]');
+    if (testIdPanel && testIdPanel.offsetWidth > 0 && testIdPanel.offsetHeight > 0 && testIdPanel.isConnected) {
+        return testIdPanel;
     }
 
     const headings = document.querySelectorAll('h1, h2, h3, h4, [class*="title"]');
@@ -73,11 +73,6 @@ export function isPropertiesPanelOpen() {
     const panel = findPropertiesPanel();
     if (panel) return true;
 
-    const headings = document.querySelectorAll('h1, h2, h3, h4');
-    for (const h of headings) {
-        if (h.textContent.trim() === "Workflow Overview" && h.offsetWidth > 0 && h.offsetHeight > 0) return true;
-    }
-
     const origBtn = findOriginalPropertiesButton();
     if (origBtn) {
         if (origBtn.classList.contains("p-button-active") ||
@@ -88,6 +83,56 @@ export function isPropertiesPanelOpen() {
         }
     }
     return false;
+}
+
+export function findActiveSidebars() {
+    const leftPanels = [];
+    const rightPanels = [];
+    const winW = window.innerWidth;
+    const midX = winW / 2;
+
+    // 1. Check if our Queue sidebar is open and visible
+    const queueHeader = document.querySelector('.comfy-sidebar-header-root');
+    if (queueHeader) {
+        const queueDrawer = queueHeader.closest('.sidebar-content-container, .comfyui-sidebar-content, .p-sidebar, aside') || queueHeader.parentElement;
+        if (queueDrawer && queueDrawer.offsetWidth > 0 && queueDrawer.offsetHeight > 0 && queueDrawer.isConnected) {
+            const r = queueDrawer.getBoundingClientRect();
+            if (r.right > 0 && r.right < midX) {
+                leftPanels.push(queueDrawer);
+            }
+        }
+    }
+
+    // 2. Query all active sidebars and panels across ComfyUI & third-party extensions
+    const candidates = document.querySelectorAll(
+        'aside, nav, .comfyui-sidebar, .side-tool-bar-container, .sidebar-content-container, ' +
+        '.comfyui-sidebar-content, .p-sidebar, [data-testid="properties-panel"], ' +
+        '[data-testid="workflow-overview-panel"], [data-testid*="sidebar"], .p-sidebar-right'
+    );
+
+    const seen = new Set(leftPanels);
+
+    for (const el of candidates) {
+        if (!el.isConnected || el.offsetWidth < 30 || el.offsetHeight < 120) continue;
+        if (el.closest('.comfy-sidebar-comparison-overlay, .p-dialog, [role="dialog"], .comfy-modal, .comfy-menu')) continue;
+
+        if (seen.has(el)) continue;
+        seen.add(el);
+
+        const rect = el.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0 || rect.top > 150) continue;
+
+        // Left-docked panels (Icon bar or an open drawer on the left)
+        if (rect.left <= 100 && rect.right > 0 && rect.right < midX) {
+            leftPanels.push(el);
+        }
+        // Right-docked panels (Workflow Overview or right inspector drawers)
+        else if (rect.right >= winW - 80 && rect.left > midX && rect.left < winW) {
+            rightPanels.push(el);
+        }
+    }
+
+    return { leftPanels, rightPanels };
 }
 
 export function findActiveQueueIndicator() {
@@ -137,13 +182,11 @@ export function findOurSidebarButton() {
 }
 
 export function findStandardQueueButton() {
-    // 1. Try modern ComfyUI stable test-ids first
     const byTestId = document.querySelector('[data-testid="queue-tab-button"], [data-testid="job-history-tab-button"]');
     if (byTestId && !byTestId.id?.includes('classic-comfy-sidebar') && !byTestId.querySelector('.pi-images')) {
         return byTestId;
     }
 
-    // 2. Fallback to icon discovery
     for (const iconSelector of [".pi-history", ".pi-clock", ".pi-server", ".pi-list", ".pi-sliders-h", '[class*="lucide--history"]']) {
         const icon = document.querySelector(iconSelector);
         if (icon) {
@@ -152,7 +195,6 @@ export function findStandardQueueButton() {
         }
     }
 
-    // 3. Fallback to semantic labels
     const buttons = document.querySelectorAll('.comfyui-sidebar-tab, button, [role="tab"]');
     for (const btn of buttons) {
         const title = btn.title || btn.getAttribute('aria-label') || '';

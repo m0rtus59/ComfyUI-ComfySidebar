@@ -1,9 +1,10 @@
 import { store } from "../core/store.js";
-import { findPropertiesPanel } from "../comfy/adapter.js";
+import { findActiveSidebars, findPropertiesPanel } from "../comfy/adapter.js";
 
 export class SidebarOverlay {
     constructor(options = {}) {
         this.onDestroy = options.onDestroy || (() => {});
+        this.onUserClose = options.onUserClose || (() => {});
         this.cleanupFns = [];
         this.observedElements = new Set();
 
@@ -11,7 +12,6 @@ export class SidebarOverlay {
         document.body.classList.add("comfy-sidebar-overlay-active");
 
         // Root container: visual backdrop (covers 100% flush from sidebar to sidebar, zero gap)
-        // pointerEvents is "none" so the 6px edge zones pass mouse events directly to native resize handles
         this.container = document.createElement("div");
         this.container.className = `comfy-sidebar-comparison-overlay ${options.className || ""}`;
         Object.assign(this.container.style, {
@@ -31,7 +31,10 @@ export class SidebarOverlay {
             pointerEvents: "auto", zIndex: "1"
         });
         this.backdrop.addEventListener("click", (e) => {
-            if (e.target === this.backdrop) this.destroy();
+            if (e.target === this.backdrop) {
+                this.onUserClose();
+                this.destroy();
+            }
         });
         this.container.appendChild(this.backdrop);
 
@@ -57,10 +60,13 @@ export class SidebarOverlay {
             this.closeBtn.style.borderColor = "var(--border-color, rgba(255, 255, 255, 0.1))";
         };
 
-        this.closeBtn.onclick = () => this.destroy();
+        this.closeBtn.onclick = () => {
+            this.onUserClose();
+            this.destroy();
+        };
         this.container.appendChild(this.closeBtn);
 
-        // ResizeObserver to track live drag-resizing on both sidebars
+        // ResizeObserver to track live drag-resizing on all active sidebars
         if (window.ResizeObserver) {
             this.ro = new ResizeObserver(() => {
                 this.updateOverlayBounds();
@@ -94,6 +100,7 @@ export class SidebarOverlay {
         const onKeyDown = (e) => {
             if (e.key === "Escape") {
                 e.preventDefault();
+                this.onUserClose();
                 this.destroy();
             }
             if (options.onKeyDown) options.onKeyDown(e);
@@ -111,12 +118,6 @@ export class SidebarOverlay {
     }
 
     updateOverlayBounds() {
-        const ourSidebar = store.ui.sidebarContainer?.closest('.comfyui-sidebar, .comfy-sidebar, .p-sidebar, [class*="sidebar"]') || store.ui.sidebarContainer;
-        const propPanel = findPropertiesPanel();
-
-        if (ourSidebar) this.observeElement(ourSidebar);
-        if (propPanel) this.observeElement(propPanel);
-
         let leftOffset = 0;
         let rightOffset = 0;
         let topOffset = 0;
@@ -124,30 +125,37 @@ export class SidebarOverlay {
         const winW = window.innerWidth;
         const midX = winW / 2;
 
-        const checkSidebars = [ourSidebar, propPanel].filter(el => {
-            return el && el.offsetWidth > 0 && el.offsetHeight > 0 && el.isConnected;
-        });
+        try {
+            const { leftPanels, rightPanels } = findActiveSidebars();
 
-        for (const el of checkSidebars) {
-            const rect = el.getBoundingClientRect();
-            
-            // Left sidebar boundary (flush with border)
-            if (rect.left < midX && rect.right > 0) {
-                leftOffset = Math.max(leftOffset, Math.round(rect.right));
-            }
-            // Right sidebar boundary (flush with border)
-            if (rect.right > midX && rect.left < winW) {
-                rightOffset = Math.max(rightOffset, Math.round(winW - rect.left));
+            [...leftPanels, ...rightPanels].forEach(p => this.observeElement(p));
+
+            for (const el of leftPanels) {
+                const rect = el.getBoundingClientRect();
+                if (rect.right > 0 && rect.right < midX) {
+                    leftOffset = Math.max(leftOffset, Math.round(rect.right));
+                }
+                if (rect.top > 0 && rect.top < 120) {
+                    topOffset = Math.max(topOffset, Math.round(rect.top));
+                }
             }
 
-            // Top boundary alignment
-            if (rect.top > 0 && rect.top < 120) {
-                topOffset = Math.max(topOffset, Math.round(rect.top));
+            for (const el of rightPanels) {
+                const rect = el.getBoundingClientRect();
+                if (rect.left > midX && rect.left < winW) {
+                    rightOffset = Math.max(rightOffset, Math.round(winW - rect.left));
+                }
+                if (rect.top > 0 && rect.top < 120) {
+                    topOffset = Math.max(topOffset, Math.round(rect.top));
+                }
             }
+        } catch (e) {
+            console.error("Comfy Sidebar: Error finding active sidebars:", e);
         }
 
-        leftOffset = Math.max(0, leftOffset);
-        rightOffset = Math.max(0, rightOffset);
+        // Safety clamp: offsets can never exceed half screen width
+        leftOffset = Math.min(midX - 50, Math.max(0, leftOffset));
+        rightOffset = Math.min(midX - 50, Math.max(0, rightOffset));
         topOffset = Math.max(0, topOffset);
 
         this.container.style.left = `${leftOffset}px`;
@@ -156,7 +164,7 @@ export class SidebarOverlay {
         this.container.style.top = `${topOffset}px`;
         this.container.style.height = `calc(100vh - ${topOffset}px)`;
 
-        // Crisp 1px visible separator line along each open sidebar boundary
+        // Crisp 1px visible separator lines along active sidebar borders
         this.container.style.borderLeft = leftOffset > 0 ? "1px solid var(--border-color, rgba(255, 255, 255, 0.22))" : "none";
         this.container.style.borderRight = rightOffset > 0 ? "1px solid var(--border-color, rgba(255, 255, 255, 0.22))" : "none";
     }
