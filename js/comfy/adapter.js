@@ -43,9 +43,35 @@ export function findTopbarContainer() {
     return null;
 }
 
+export function findPropertiesPanel() {
+    const panel = document.querySelector('[data-testid="properties-panel"], [data-testid="workflow-overview-panel"], .properties-panel, [class*="properties-panel"]');
+    if (panel && panel.offsetWidth > 0 && panel.offsetHeight > 0 && panel.isConnected) {
+        return panel;
+    }
+
+    const headings = document.querySelectorAll('h1, h2, h3, h4, [class*="title"]');
+    for (const h of headings) {
+        if (h.textContent.trim().toLowerCase() === "workflow overview" && h.offsetWidth > 0 && h.offsetHeight > 0) {
+            const container = h.closest('.p-sidebar, .sidebar, aside, [class*="side-panel"], [class*="panel"], [class*="properties"]') || h.parentElement;
+            if (container && container.offsetWidth > 0 && container !== document.body) {
+                return container;
+            }
+        }
+    }
+
+    const rightSidebars = document.querySelectorAll('.p-sidebar-right, aside.p-sidebar, [class*="p-sidebar-right"]');
+    for (const sb of rightSidebars) {
+        if (sb.offsetWidth > 0 && sb.offsetHeight > 0) {
+            return sb;
+        }
+    }
+
+    return null;
+}
+
 export function isPropertiesPanelOpen() {
-    const panel = document.querySelector('[data-testid="properties-panel"]');
-    if (panel && panel.offsetWidth > 0 && panel.offsetHeight > 0) return true;
+    const panel = findPropertiesPanel();
+    if (panel) return true;
 
     const headings = document.querySelectorAll('h1, h2, h3, h4');
     for (const h of headings) {

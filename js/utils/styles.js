@@ -512,6 +512,40 @@ export function injectStyles() {
             border-color: #3b82f6;
             background: rgba(59, 130, 246, 0.08);
         }
+
+        /* Elevate native sidebars and splitters above the preview overlay */
+        body.comfy-sidebar-overlay-active .comfyui-sidebar,
+        body.comfy-sidebar-overlay-active .comfy-sidebar,
+        body.comfy-sidebar-overlay-active [data-testid="properties-panel"],
+        body.comfy-sidebar-overlay-active [data-testid="workflow-overview-panel"],
+        body.comfy-sidebar-overlay-active .p-sidebar,
+        body.comfy-sidebar-overlay-active .p-sidebar-right,
+        body.comfy-sidebar-overlay-active [class*="properties-panel"],
+        body.comfy-sidebar-overlay-active [class*="side-panel"],
+        body.comfy-sidebar-overlay-active [class*="sidebar-content"],
+        body.comfy-sidebar-overlay-active .sidebar-content-container,
+        body.comfy-sidebar-overlay-active [class*="resize-handle"],
+        body.comfy-sidebar-overlay-active [class*="resizer"],
+        body.comfy-sidebar-overlay-active [class*="splitter"],
+        body.comfy-sidebar-overlay-active [class*="gutter"],
+        body.comfy-sidebar-overlay-active [role="separator"] {
+            z-index: 1005 !important;
+        }
+
+        /* Slim down the Queue sidebar scrollbar so it stops colliding with the separator */
+        .comfyui-sidebar ::-webkit-scrollbar,
+        .comfy-sidebar ::-webkit-scrollbar,
+        [class*="sidebar-content"] ::-webkit-scrollbar,
+        .sidebar-content-container ::-webkit-scrollbar {
+            width: 6px !important;
+        }
+        .comfyui-sidebar ::-webkit-scrollbar-thumb,
+        .comfy-sidebar ::-webkit-scrollbar-thumb,
+        [class*="sidebar-content"] ::-webkit-scrollbar-thumb,
+        .sidebar-content-container ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.25) !important;
+            border-radius: 3px !important;
+        }
     `;
     document.head.appendChild(style);
 }
