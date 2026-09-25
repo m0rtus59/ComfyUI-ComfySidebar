@@ -19,7 +19,8 @@ export class SidebarOverlay {
             background: options.background || "color-mix(in srgb, var(--comfy-menu-bg, #121212) 95%, transparent)",
             backdropFilter: "blur(8px)",
             color: "var(--fg-color, #eee)",
-            zIndex: "1000", boxSizing: "border-box",
+            display: "flex", flexDirection: "column", alignItems: "center",
+            justifyContent: "center", zIndex: "1000", boxSizing: "border-box",
             overflow: "hidden", pointerEvents: "none", userSelect: "none"
         });
 

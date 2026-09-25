@@ -208,25 +208,48 @@ export function createTextReader(textData, onSwitchMedia = () => {}, onDestroy =
         padding: "20px 24px", width: "85%", maxWidth: "840px", height: "80vh",
         boxShadow: "0 12px 40px rgba(0,0,0,0.4)", display: "flex",
         flexDirection: "column", gap: "14px", zIndex: "20",
-        color: "var(--fg-color, #eee)"
+        color: "var(--fg-color, #eee)",
+        pointerEvents: "auto"
     });
 
+    const formatTitle = (id) => {
+        if (!id) return "Text Output";
+        const shortId = id.length > 10 ? `${id.slice(0, 8)}…` : id;
+        return `Text Output #${shortId}`;
+    };
+
     const headerRow = document.createElement("div");
-    Object.assign(headerRow.style, { display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "12px" });
+    Object.assign(headerRow.style, { 
+        display: "flex", alignItems: "center", justifyContent: "space-between", 
+        borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "12px",
+        flexWrap: "wrap", gap: "10px"
+    });
 
     const titleInfo = document.createElement("div");
-    Object.assign(titleInfo.style, { display: "flex", alignItems: "center", gap: "10px" });
+    Object.assign(titleInfo.style, { 
+        display: "flex", alignItems: "center", gap: "10px", 
+        minWidth: "0", flex: "1 1 auto", overflow: "hidden" 
+    });
+
     const title = document.createElement("span");
-    title.textContent = pid ? `Text Output #${pid}` : "Text Output";
-    Object.assign(title.style, { fontSize: "14px", fontWeight: "bold", color: "#f8fafc", whiteSpace: "nowrap" });
+    title.textContent = formatTitle(pid);
+    title.title = pid ? `Text Output #${pid}` : "Text Output";
+    Object.assign(title.style, { 
+        fontSize: "14px", fontWeight: "bold", color: "#f8fafc", 
+        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flexShrink: "1" 
+    });
 
     const statsBadge = document.createElement("span");
-    Object.assign(statsBadge.style, { fontSize: "10px", color: "#94a3b8", background: "rgba(255,255,255,0.06)", padding: "3px 8px", borderRadius: "4px", fontFamily: "monospace", whiteSpace: "nowrap" });
+    Object.assign(statsBadge.style, { 
+        fontSize: "10px", color: "#94a3b8", background: "rgba(255,255,255,0.06)", 
+        padding: "3px 8px", borderRadius: "4px", fontFamily: "monospace", 
+        whiteSpace: "nowrap", flexShrink: "0" 
+    });
 
     titleInfo.append(title, statsBadge);
 
     const actionsRow = document.createElement("div");
-    Object.assign(actionsRow.style, { display: "flex", gap: "8px", alignItems: "center" });
+    Object.assign(actionsRow.style, { display: "flex", gap: "8px", alignItems: "center", flexShrink: "0" });
 
     const modeBtn = document.createElement("button");
     Object.assign(modeBtn.style, {
@@ -328,7 +351,8 @@ export function createTextReader(textData, onSwitchMedia = () => {}, onDestroy =
             }
             rawText = targetData.text || "";
             pid = targetData.pid || "";
-            title.textContent = pid ? `Text Output #${pid}` : "Text Output";
+            title.textContent = formatTitle(pid);
+            title.title = pid ? `Text Output #${pid}` : "Text Output";
             updateView();
         },
         destroy: () => overlay.destroy()

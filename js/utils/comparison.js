@@ -47,7 +47,8 @@ function createAudioViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = () => 
         border: "1px solid rgba(255,255,255,0.15)", borderRadius: "12px",
         padding: "24px 28px", width: "90%", maxWidth: "520px",
         boxShadow: "0 8px 32px rgba(0,0,0,0.7)", display: "flex",
-        flexDirection: "column", gap: "16px", zIndex: "20"
+        flexDirection: "column", gap: "16px", zIndex: "20",
+        pointerEvents: "auto"
     });
 
     const parsedFilename = getFilenameFromUrl(baseSrc) || "audio.wav";
@@ -457,11 +458,27 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
         if (!mediaA) return;
         const wA = mediaA.naturalWidth || mediaA.videoWidth || 0;
         const hA = mediaA.naturalHeight || mediaA.videoHeight || 0;
+        if (!wA || !hA) return;
+
+        // Calculate available space inside the preview area
+        const availW = Math.max(100, (scrollContainer.clientWidth || window.innerWidth) - 48);
+        const availH = Math.max(100, (scrollContainer.clientHeight || window.innerHeight) - 96);
+        const aspectA = wA / hA;
+
+        // Scale to fit available space while maintaining aspect ratio (fills screen even for small previews)
+        let fitW = availW;
+        let fitH = fitW / aspectA;
+        if (fitH > availH) {
+            fitH = availH;
+            fitW = fitH * aspectA;
+        }
+        fitW = Math.round(fitW);
+        fitH = Math.round(fitH);
 
         if (!mediaB) {
             slider.style.display = "none";
             if (mediaA) mediaA.style.pointerEvents = isBaseVideo ? "none" : "auto";
-            if (isZoomed && wA && hA) {
+            if (isZoomed) {
                 wrapper.style.maxWidth = "none";
                 wrapper.style.maxHeight = "none";
                 wrapper.style.width = `${wA}px`;
@@ -475,21 +492,21 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
             } else {
                 wrapper.style.maxWidth = "none";
                 wrapper.style.maxHeight = "none";
-                wrapper.style.width = "auto";
-                wrapper.style.height = "auto";
+                wrapper.style.width = `${fitW}px`;
+                wrapper.style.height = `${fitH}px`;
                 wrapper.style.cursor = isBaseVideo ? "default" : "zoom-in";
-                mediaA.style.maxWidth = "calc(100vw - 120px)";
-                mediaA.style.maxHeight = "calc(100vh - 120px)";
-                mediaA.style.width = "auto";
-                mediaA.style.height = "auto";
-                mediaA.style.objectFit = "contain";
+                mediaA.style.maxWidth = "none";
+                mediaA.style.maxHeight = "none";
+                mediaA.style.width = "100%";
+                mediaA.style.height = "100%";
+                mediaA.style.objectFit = "fill";
             }
             return;
         }
 
         const wB = mediaB.naturalWidth || mediaB.videoWidth || 0;
         const hB = mediaB.naturalHeight || mediaB.videoHeight || 0;
-        if (!wA || !hA || !wB || !hB) return;
+        if (!wB || !hB) return;
 
         const arA = wA / hA;
         const arB = wB / hB;
@@ -522,6 +539,16 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
 
         const maxW = Math.max(wA, wB);
         const maxH = Math.max(hA, hB);
+        const aspectComp = maxW / maxH;
+
+        let fitWComp = availW;
+        let fitHComp = fitWComp / aspectComp;
+        if (fitHComp > availH) {
+            fitHComp = availH;
+            fitWComp = fitHComp * aspectComp;
+        }
+        fitWComp = Math.round(fitWComp);
+        fitHComp = Math.round(fitHComp);
 
         if (isZoomed) {
             wrapper.style.maxWidth = "none";
@@ -542,17 +569,17 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
         } else {
             wrapper.style.maxWidth = "none";
             wrapper.style.maxHeight = "none";
-            wrapper.style.width = "auto";
-            wrapper.style.height = "auto";
+            wrapper.style.width = `${fitWComp}px`;
+            wrapper.style.height = `${fitHComp}px`;
             wrapper.style.cursor = "zoom-in";
 
             [mediaA, mediaB].forEach(el => {
                 if (el) {
-                    el.style.maxWidth = "calc(100vw - 120px)";
-                    el.style.maxHeight = "calc(100vh - 120px)";
-                    el.style.width = "auto";
-                    el.style.height = "auto";
-                    el.style.objectFit = "contain";
+                    el.style.maxWidth = "none";
+                    el.style.maxHeight = "none";
+                    el.style.width = "100%";
+                    el.style.height = "100%";
+                    el.style.objectFit = "fill";
                 }
             });
         }
@@ -560,6 +587,15 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
 
     mediaA.onload = syncImageScales;
     if (mediaA.complete) syncImageScales();
+
+    // Dynamically adjust preview scale if sidebars are resized
+    if (window.ResizeObserver) {
+        const ro = new ResizeObserver(() => {
+            if (!isZoomed) syncImageScales();
+        });
+        ro.observe(scrollContainer);
+        overlay.addCleanup(() => ro.disconnect());
+    }
 
     const toggleZoom = () => {
         if (isBaseVideo) return;
