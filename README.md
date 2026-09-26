@@ -6,21 +6,21 @@ A compact and powerful layout overhaul for ComfyUI that makes generation results
 
 * **Compact, information-dense layout** with visual previews that let you see what is happening at a glance. Optional UI elements and sidebar tabs can be hidden when you don't need them.
 
-  <img src="assets/layout.png" alt="ComfySidebar layout" width="80%">
+  <img src="assets/layout.png" alt="ComfySidebar layout" width="100%">
   
 * **Left or right side:** Choose which side the sidebar appears on in ComfyUI settings.
 
 * **Simplified mouse-friendly workflow** with drag-and-drop support and convenient actions for moving results back into the workflow, opening files, and managing outputs. Hold `Ctrl` for extra actions such as opening an image's location or deleting it directly from your device.
 
-  <img src="assets/controls.png" alt="ComfySidebar controls overview" width="80%">
+  <img src="assets/controls.png" alt="ComfySidebar controls overview" width="100%">
 
 * **Built-in comparison tool** for quickly comparing two generated results side by side.
 
-  <img src="assets/compare.png" alt="ComfySidebar compare" width="80%">
+  <img src="assets/compare.png" alt="ComfySidebar compare" width="100%">
 
 * **Runtime preview mode** combined with workflow overview makes ComfyUI practical for running and monitoring workflows in a more streamlined, queue-oriented way.
 
-  <img src="assets/runtime.png" alt="ComfySidebar runtime mode" width="80%">
+  <img src="assets/runtime.png" alt="ComfySidebar runtime mode" width="100%">
 
 ## 🛠️ Installation
 
