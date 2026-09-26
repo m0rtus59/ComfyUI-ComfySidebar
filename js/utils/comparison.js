@@ -476,12 +476,14 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
         }
     });
 
+    // Inset 6px left/right so sidebar resize handles stay 100% accessible
     const scrollContainer = document.createElement("div");
     Object.assign(scrollContainer.style, {
-        position: "absolute", top: "0", left: "0", width: "100%", height: "100%",
+        position: "absolute", top: "0", left: "6px", right: "6px", width: "auto", height: "100%",
         display: "flex", overflow: "auto", boxSizing: "border-box",
         padding: "48px 24px", scrollbarWidth: "thin",
-        scrollbarColor: "#555 rgba(0, 0, 0, 0.3)", zIndex: "15"
+        scrollbarColor: "#555 rgba(0, 0, 0, 0.3)", zIndex: "15",
+        pointerEvents: "auto"
     });
     overlay.container.appendChild(scrollContainer);
 
@@ -508,7 +510,8 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
     Object.assign(wrapper.style, {
         position: "relative", display: "grid", placeItems: "center",
         margin: "auto", flexShrink: "0",
-        cursor: isBaseVideo ? "default" : "zoom-in"
+        cursor: isBaseVideo ? "default" : "zoom-in",
+        pointerEvents: "auto"
     });
     scrollContainer.appendChild(wrapper);
 
@@ -629,13 +632,13 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
 
         if (!mediaB) {
             slider.style.display = "none";
+            wrapper.style.cursor = isBaseVideo ? "default" : (isZoomed ? "zoom-out" : "zoom-in");
             if (mediaA) mediaA.style.pointerEvents = isBaseVideo ? "none" : "auto";
             if (isZoomed) {
                 wrapper.style.maxWidth = "none";
                 wrapper.style.maxHeight = "none";
                 wrapper.style.width = `${wA}px`;
                 wrapper.style.height = `${hA}px`;
-                wrapper.style.cursor = "zoom-out";
                 mediaA.style.maxWidth = "none";
                 mediaA.style.maxHeight = "none";
                 mediaA.style.width = "100%";
@@ -646,7 +649,6 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
                 wrapper.style.maxHeight = "none";
                 wrapper.style.width = `${fitW}px`;
                 wrapper.style.height = `${fitH}px`;
-                wrapper.style.cursor = isBaseVideo ? "default" : "zoom-in";
                 mediaA.style.maxWidth = "none";
                 mediaA.style.maxHeight = "none";
                 mediaA.style.width = "100%";
@@ -683,10 +685,11 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
         }
 
         slider.style.display = "block";
+        wrapper.style.cursor = isBaseVideo ? "default" : (isZoomed ? "zoom-out" : "zoom-in");
         if (mediaA) mediaA.style.pointerEvents = "none";
         if (mediaB) mediaB.style.pointerEvents = "none";
         infoText.style.color = "#aaa";
-        infoText.textContent = "Drag slider to compare. Click image to zoom (100%/Fit) | Shift+Click another card to compare | Esc to close.";
+        infoText.textContent = "Click image to zoom | Drag image to compare slider | Esc to close.";
         updateSliderPosition(50);
 
         const maxW = Math.max(wA, wB);
@@ -707,7 +710,6 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
             wrapper.style.maxHeight = "none";
             wrapper.style.width = `${maxW}px`;
             wrapper.style.height = `${maxH}px`;
-            wrapper.style.cursor = "zoom-out";
 
             [mediaA, mediaB].forEach(el => {
                 if (el) {
@@ -723,7 +725,6 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
             wrapper.style.maxHeight = "none";
             wrapper.style.width = `${fitWComp}px`;
             wrapper.style.height = `${fitHComp}px`;
-            wrapper.style.cursor = "zoom-in";
 
             [mediaA, mediaB].forEach(el => {
                 if (el) {
@@ -779,20 +780,29 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
         if (!isDraggingSlider) return;
         const clientX = getClientX(e);
         const clientY = getClientY(e);
-        if (!dragMoved && (Math.abs(clientX - dragStartX) > 4 || Math.abs(clientY - dragStartY) > 4)) {
+
+        // Distinguish click from drag: only snap when mouse moves more than 3px
+        if (!dragMoved && (Math.abs(clientX - dragStartX) > 3 || Math.abs(clientY - dragStartY) > 3)) {
             dragMoved = true;
         }
+
+        // Click + Drag: snap slider to mouse pointer and drag smoothly
         if (dragMoved && mediaB) {
             const rect = wrapper.getBoundingClientRect();
-            const percent = ((clientX - rect.left) / rect.width) * 100;
-            updateSliderPosition(percent);
+            if (rect.width > 0) {
+                const percent = ((clientX - rect.left) / rect.width) * 100;
+                updateSliderPosition(percent);
+            }
         }
     };
 
     const endDrag = () => { 
         if (!isDraggingSlider) return;
         isDraggingSlider = false;
-        if (dragMoved) setTimeout(() => { dragMoved = false; }, 50);
+        if (dragMoved) {
+            // Keep dragMoved true briefly so the upcoming click event doesn't trigger toggleZoom
+            setTimeout(() => { dragMoved = false; }, 60);
+        }
     };
 
     wrapper.addEventListener("mousedown", startDrag);
@@ -809,14 +819,17 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
         window.removeEventListener("touchend", endDrag);
     });
 
-    wrapper.addEventListener("click", () => {
+    wrapper.addEventListener("click", (e) => {
         if (dragMoved || isBaseVideo) return;
         toggleZoom();
     });
 
     scrollContainer.addEventListener("click", (e) => {
         if (dragMoved) return;
-        if (e.target === scrollContainer || e.target === overlay.container) overlay.destroy();
+        if (e.target === scrollContainer || e.target === overlay.container) {
+            overlay.onUserClose?.();
+            overlay.destroy();
+        }
     });
 
     if (isBaseVideo) {

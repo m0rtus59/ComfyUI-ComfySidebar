@@ -1,69 +1,80 @@
 # ComfyUI-ComfySidebar
 
-A compact sidebar for ComfyUI that replaces the stock queue/history UI with a faster way to browse, preview, compare, and manage generation results.
-
-> ⚠️ **Note:** This repository was developed collaboratively with AI. While it is fully functional and has been tested, there is always room for optimization. If you have ideas for improvements, contributions via Pull Requests are highly welcome!
+A compact and powerful layout overhaul for ComfyUI that makes generation results easier to browse, preview, compare, and manage.
 
 ## ✨ Features
 
-* Browse generation results in a compact grid.
-* Drag results back onto the canvas to restore workflows.
-* Drag images directly into `LoadImage` and compatible input nodes.
-* Preview images, videos, and text outputs.
-* Compare two results side by side with `Shift+Click`.
-* Download generated files or workflow JSON directly from result cards.
-* Show queue progress and the node currently being executed.
-* Hide sidebar tabs and UI elements you don't use.
-* Optionally replace the stock Job History sidebar.
-* Optional unified top bar for workflow tabs and controls.
-* Exclude selected nodes from sidebar results with `Ctrl+Q` (or the header button).
-* Ctrl-clicking the sidebar cards opens their file location or the menu for alternative actions.
-* Ctrl-clicking the delete button places the generated file to the recycle bin.
-* [NEW] Reset all node IDs in topological execution order (`Alt+R`, right-click menu, or header button) to ensure the final output node is always prioritized as the primary preview.
+* **Compact, information-dense layout** with visual previews that let you see what is happening at a glance. Optional UI elements and sidebar tabs can be hidden when you don't need them.
 
-<img width="385" height="336" alt="image" src="https://github.com/user-attachments/assets/743fbf85-9281-4561-9dd0-cd9af4d8c0e4" />
+  <img src="assets/layout.png" alt="ComfySidebar layout" width="80%">
+  
+* **Left or right side:** Choose which side the sidebar appears on in ComfyUI settings.
 
+* **Simplified mouse-friendly workflow** with drag-and-drop support and convenient actions for moving results back into the workflow, opening files, and managing outputs. Hold `Ctrl` for extra actions such as opening an image's location or deleting it directly from your device.
+
+  <img src="assets/controls.png" alt="ComfySidebar controls overview" width="80%">
+
+* **Built-in comparison tool** for quickly comparing two generated results side by side.
+
+  <img src="assets/compare.png" alt="ComfySidebar compare" width="80%">
+
+* **Runtime preview mode** combined with workflow overview makes ComfyUI practical for running and monitoring workflows in a more streamlined, queue-oriented way.
+
+  <img src="assets/runtime.png" alt="ComfySidebar runtime mode" width="80%">
 
 ## 🛠️ Installation
 
-Clone the repository directly into your ComfyUI custom nodes directory:
+### ComfyUI Registry
+
+Install directly from the ComfyUI Manager or run:
+
+```bash
+comfy node install comfy-sidebar
+```
+
+ComfySidebar is available on the [ComfyUI Registry](https://registry.comfy.org/publishers/soundslikethunder/nodes/comfy-sidebar).
+
+### Manual installation
+
+Clone the repository into your ComfyUI custom nodes directory:
 
 ```bash
 cd /path/to/ComfyUI/custom_nodes
 git clone https://github.com/m0rtus59/ComfyUI-ComfySidebar.git
-
 ```
 
-Restart your ComfyUI server and refresh the browser tab.
+Restart ComfyUI and refresh the browser.
 
-## ⚙️ Configuration
+## ⚙️ Settings
 
 Open **Settings → Comfy Sidebar** to configure:
 
-* Queue grid layout
-* Result aspect ratio
+* Queue layout and column width
 * Queue display mode
 * Working node display
-* Automatic cleanup of cancelled/failed jobs
+* Automatic cleanup of cancelled or failed jobs
 * Sidebar tabs to hide
 * Stock Job History replacement
 * Graph button visibility
 * Unified top bar layout
+* Permanent deletion behavior
 
-## ⌨️ Shortcuts
+## ⌨️ Controls
 
-| Shortcut      | Action                                             |
-| ------------- | -------------------------------------------------- |
-| `Q`           | Toggle ComfySidebar                                |
-| `Ctrl+Q`      | Exclude the selected node from the sidebar outputs |
-| `Alt+R`       | Reset all node IDs by execution order              |
-| `Click`       | Open result preview                                |
-| `Shift+Click` | Compare another result                             |
-| `Ctrl+Click`  | Open file location/alternative action              |
+| Shortcut      | Action                                         |
+| ------------- | ---------------------------------------------- |
+| `Q`           | Toggle ComfySidebar                            |
+| `Ctrl+Q`      | Exclude the selected node from sidebar results |
+| `Alt+R`       | Renumber nodes in execution order              |
+| `Click`       | Open result preview                            |
+| `Shift+Click` | Compare another result                         |
+| `Ctrl+Click`  | Open the file location / alternative action    |
+
+You can also use the available actions from result cards, the sidebar header, and the node/canvas context menus.
 
 ## 📝 Notes
 
-ComfySidebar integrates with the ComfyUI frontend and therefore depends on parts of its UI structure. Frontend changes in ComfyUI may require corresponding updates to this extension.
+ComfySidebar integrates with the ComfyUI frontend and depends on parts of its UI structure. Frontend changes in ComfyUI may require updates to this extension.
 
 ## License
 
