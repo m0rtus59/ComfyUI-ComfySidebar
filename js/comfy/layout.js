@@ -106,6 +106,126 @@ let domObserver = null;
 let syncScheduled = false;
 let actionbarResizeObserver = null;
 
+function findCanvasMenu() {
+    const existing = document.querySelector('.comfy-sidebar-unfloated-canvas-menu');
+    if (existing) return existing;
+
+    return document.querySelector(
+        '.p-buttongroup.z-1200, ' +
+        '.p-buttongroup.bottom-0.right-0, ' +
+        '[class*="bottom-0"][class*="right-0"][class*="p-buttongroup"], ' +
+        '.p-buttongroup:has([class*="w-15"])'
+    );
+}
+
+function findSidebarBottomTarget(sidebar) {
+    if (!sidebar) return null;
+
+    const candidates = Array.from(sidebar.querySelectorAll('button, [role="button"], a, .comfyui-sidebar-tab, .comfyui-sidebar-item'));
+    const bottomBtn = candidates.find(el => {
+        const text = el.textContent?.trim().toLowerCase();
+        const title = (el.getAttribute('title') || el.getAttribute('aria-label') || '').toLowerCase();
+        return text === 'help' || text === 'console' || text === 'shortcuts' || text === 'settings' ||
+               title.includes('help') || title.includes('console') || title.includes('shortcuts') || title.includes('settings') ||
+               el.querySelector('[class*="help"], [class*="terminal"], [class*="keyboard"], [class*="settings"], [class*="gear"], .pi-cog, .pi-question');
+    });
+
+    return bottomBtn || null;
+}
+
+function stripBorderRadius(canvasMenu) {
+    if (!canvasMenu) return;
+    const elements = canvasMenu.querySelectorAll("button, [role='button'], div, i, span");
+    elements.forEach((el) => {
+        el.style.setProperty("border-radius", "0px", "important");
+    });
+}
+
+function syncCanvasMenuPlacement(unfloat) {
+    const canvasMenu = findCanvasMenu();
+    if (!canvasMenu) return;
+
+    if (unfloat) {
+        const sidebar = document.querySelector('.comfyui-sidebar, .comfy-sidebar, .sidebar, [class*="sidebar-nav"], [class*="sidebar"]');
+        if (!sidebar) return;
+
+        const bottomTarget = findSidebarBottomTarget(sidebar);
+        const targetParent = bottomTarget ? bottomTarget.parentNode : sidebar;
+
+        if (canvasMenu.parentNode !== targetParent) {
+            if (!canvasMenu._originalParent) {
+                canvasMenu._originalParent = canvasMenu.parentNode;
+                canvasMenu._originalNextSibling = canvasMenu.nextSibling;
+            }
+
+            if (bottomTarget && bottomTarget.parentNode === targetParent) {
+                targetParent.insertBefore(canvasMenu, bottomTarget);
+            } else {
+                targetParent.appendChild(canvasMenu);
+            }
+            canvasMenu.classList.add("comfy-sidebar-unfloated-canvas-menu");
+
+            // Strip inline borderRadius and attach persistent re-enforcer
+            stripBorderRadius(canvasMenu);
+
+            if (!canvasMenu._clickGuardAttached) {
+                canvasMenu._clickGuardAttached = true;
+                const enforce = () => {
+                    requestAnimationFrame(() => stripBorderRadius(canvasMenu));
+                };
+                canvasMenu.addEventListener("click", enforce);
+                canvasMenu.addEventListener("pointerup", enforce);
+            }
+        } else {
+            stripBorderRadius(canvasMenu);
+        }
+    } else if (canvasMenu._originalParent && canvasMenu.parentNode !== canvasMenu._originalParent) {
+        canvasMenu._originalParent.insertBefore(canvasMenu, canvasMenu._originalNextSibling || null);
+        canvasMenu.classList.remove("comfy-sidebar-unfloated-canvas-menu");
+
+        const elements = canvasMenu.querySelectorAll("button, [role='button'], div, i, span");
+        elements.forEach((el) => {
+            el.style.removeProperty("border-radius");
+        });
+    }
+}
+
+// Seamlessly positions tooltips to the left with zero visual jump
+function setupCanvasMenuTooltipRelocator() {
+    if (window._canvasTooltipRelocatorReady) return;
+    window._canvasTooltipRelocatorReady = true;
+
+    document.addEventListener("mouseenter", (e) => {
+        const targetBtn = e.target?.closest?.(
+            ".comfy-sidebar-unfloated-canvas-menu button, " +
+            ".comfy-sidebar-unfloated-canvas-menu [role='button'], " +
+            ".comfy-sidebar-unfloated-canvas-menu [data-pd-tooltip='true']"
+        );
+        if (!targetBtn) return;
+
+        const align = () => {
+            const tooltipId = targetBtn.$_ptooltipId || targetBtn.getAttribute("aria-describedby");
+            const tooltip = tooltipId ? document.getElementById(tooltipId) : document.querySelector(".p-tooltip:not(.p-tooltip-hidden)");
+            if (!tooltip) return;
+
+            const btnRect = targetBtn.getBoundingClientRect();
+            const tWidth = tooltip.offsetWidth || 80;
+            const tHeight = tooltip.offsetHeight || 28;
+
+            tooltip.classList.remove("p-tooltip-top", "p-tooltip-bottom", "p-tooltip-right");
+            tooltip.classList.add("p-tooltip-left");
+
+            tooltip.style.setProperty("left", `${Math.round(btnRect.left - tWidth - 8)}px`, "important");
+            tooltip.style.setProperty("top", `${Math.round(btnRect.top + (btnRect.height - tHeight) / 2)}px`, "important");
+            tooltip.style.setProperty("transform", "none", "important");
+        };
+
+        // Align immediately before next browser paint
+        queueMicrotask(align);
+        requestAnimationFrame(align);
+    }, true);
+}
+
 function updateTopMetrics() {
     const bar = document.querySelector('.actionbar-buttons, [class*="actionbar-buttons"]') || findTopbarContainer();
     const tabsEl = document.querySelector('.workflow-tabs-container');
@@ -171,6 +291,41 @@ export function applyClassicLayout(enable, updateSetting = false) {
                 app.ui.settings.setSettingValue("Comfy.Workflow.WorkflowTabsPosition", "Sidebar");
             }
         }
+    }
+}
+
+function syncAvatarVisibility() {
+    const hideAvatar = app.ui?.settings?.getSettingValue("Comfy Sidebar.Hide Junk.Avatar") ?? false;
+    const STYLE_AVATAR_ID = "comfy-sidebar-hide-avatar-override";
+    let styleEl = document.getElementById(STYLE_AVATAR_ID);
+
+    if (hideAvatar) {
+        if (!styleEl) {
+            styleEl = document.createElement("style");
+            styleEl.id = STYLE_AVATAR_ID;
+            styleEl.textContent = `
+                img[alt*="User Avatar"],
+                img[alt*="user avatar"],
+                button:has(img[alt*="User Avatar"]),
+                [role="button"]:has(img[alt*="User Avatar"]),
+                button:has(img[alt*="user avatar"]),
+                [role="button"]:has(img[alt*="user avatar"]),
+                .p-avatar,
+                [data-pc-name="avatar"],
+                button:has(.p-avatar),
+                [role="button"]:has(.p-avatar),
+                button:has([data-pc-name="avatar"]),
+                [role="button"]:has([data-pc-name="avatar"]),
+                button:has([class*="lucide--user"]),
+                button:has(svg.lucide-user),
+                [data-testid="user-profile-button"] {
+                    display: none !important;
+                }
+            `;
+            document.head.appendChild(styleEl);
+        }
+    } else {
+        if (styleEl) styleEl.remove();
     }
 }
 
@@ -247,41 +402,6 @@ function syncGraphButton() {
         } else {
             if (graphBtn.style.display === "none") graphBtn.style.removeProperty("display");
         }
-    }
-}
-
-function syncAvatarVisibility() {
-    const hideAvatar = app.ui?.settings?.getSettingValue("Comfy Sidebar.Hide Junk.Avatar") ?? false;
-    const STYLE_AVATAR_ID = "comfy-sidebar-hide-avatar-override";
-    let styleEl = document.getElementById(STYLE_AVATAR_ID);
-
-    if (hideAvatar) {
-        if (!styleEl) {
-            styleEl = document.createElement("style");
-            styleEl.id = STYLE_AVATAR_ID;
-            styleEl.textContent = `
-                img[alt*="User Avatar"],
-                img[alt*="user avatar"],
-                button:has(img[alt*="User Avatar"]),
-                [role="button"]:has(img[alt*="User Avatar"]),
-                button:has(img[alt*="user avatar"]),
-                [role="button"]:has(img[alt*="user avatar"]),
-                .p-avatar,
-                [data-pc-name="avatar"],
-                button:has(.p-avatar),
-                [role="button"]:has(.p-avatar),
-                button:has([data-pc-name="avatar"]),
-                [role="button"]:has([data-pc-name="avatar"]),
-                button:has([class*="lucide--user"]),
-                button:has(svg.lucide-user),
-                [data-testid="user-profile-button"] {
-                    display: none !important;
-                }
-            `;
-            document.head.appendChild(styleEl);
-        }
-    } else {
-        if (styleEl) styleEl.remove();
     }
 }
 
@@ -490,6 +610,7 @@ export function syncClassicLayout() {
 
     try {
         const isClassicLayoutEnabled = app.ui?.settings?.getSettingValue("Comfy Sidebar.Comfy Layout") ?? false;
+        const dockCanvasControls = app.ui?.settings?.getSettingValue("Comfy Sidebar.Dock Canvas Controls") ?? false;
 
         if (isClassicLayoutEnabled) {
             updateTopMetrics();
@@ -497,6 +618,7 @@ export function syncClassicLayout() {
 
         syncGraphButton();
         syncAvatarVisibility();
+        syncCanvasMenuPlacement(dockCanvasControls);
         syncExtensionsPanel(isClassicLayoutEnabled);
         syncPropertiesButton(isClassicLayoutEnabled);
         syncActiveQueueIndicator(isClassicLayoutEnabled);
@@ -516,6 +638,8 @@ export function syncClassicLayout() {
 }
 
 export function setupPropertiesPanelToggleFix() {
+    setupCanvasMenuTooltipRelocator();
+
     if (!document.getElementById("comfy-sidebar-layout-fix-styles")) {
         const style = document.createElement("style");
         style.id = "comfy-sidebar-layout-fix-styles";
@@ -543,6 +667,186 @@ export function setupPropertiesPanelToggleFix() {
             }
             .comfy-sidebar-custom-properties-toggle > span.comfy-sidebar-error-dot {
                 display: inline-flex !important;
+            }
+
+            /* Tooltip positioning: suppress top tooltip flash and show cleanly on the left */
+            body:has(.comfy-sidebar-unfloated-canvas-menu :hover) .p-tooltip-top {
+                visibility: hidden !important;
+            }
+            body:has(.comfy-sidebar-unfloated-canvas-menu :hover) .p-tooltip-left {
+                visibility: visible !important;
+                transform: none !important;
+            }
+
+            /* Docked canvas menu: vertical containment */
+            .comfy-sidebar-unfloated-canvas-menu {
+                position: static !important;
+                bottom: auto !important;
+                right: auto !important;
+                left: auto !important;
+                top: auto !important;
+                transform: none !important;
+                z-index: 10 !important;
+                flex-direction: column !important;
+                background: transparent !important;
+                border: none !important;
+                border-radius: 0 !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: 0 !important;
+                overflow: hidden !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 0 !important;
+                box-sizing: border-box !important;
+            }
+
+            /* Strict containment: stops all children from expanding sidebar width */
+            .comfy-sidebar-unfloated-canvas-menu,
+            .comfy-sidebar-unfloated-canvas-menu * {
+                min-width: 0 !important;
+                box-sizing: border-box !important;
+            }
+
+            /* Unconditional zero radius override across entire container and all states */
+            html body .comfy-sidebar-unfloated-canvas-menu,
+            html body .comfy-sidebar-unfloated-canvas-menu *,
+            html body .comfy-sidebar-unfloated-canvas-menu *:hover,
+            html body .comfy-sidebar-unfloated-canvas-menu *:focus,
+            html body .comfy-sidebar-unfloated-canvas-menu *:active,
+            html body .comfy-sidebar-unfloated-canvas-menu button,
+            html body .comfy-sidebar-unfloated-canvas-menu button:hover,
+            html body .comfy-sidebar-unfloated-canvas-menu button:focus,
+            html body .comfy-sidebar-unfloated-canvas-menu button:active,
+            html body .comfy-sidebar-unfloated-canvas-menu [class*="hover:rounded"]:hover,
+            html body .comfy-sidebar-unfloated-canvas-menu .hover\\:rounded-lg\\!:hover,
+            html body .comfy-sidebar-unfloated-canvas-menu div,
+            html body .comfy-sidebar-unfloated-canvas-menu div:hover {
+                border-radius: 0 !important;
+            }
+
+            /* Full-width rectangular button containers matching stock Help/Console */
+            .comfy-sidebar-unfloated-canvas-menu > button,
+            .comfy-sidebar-unfloated-canvas-menu > [role="button"],
+            .comfy-sidebar-unfloated-canvas-menu > div {
+                width: 100% !important;
+                max-width: 100% !important;
+                height: 38px !important;
+                min-height: 38px !important;
+                border-radius: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                background: transparent !important;
+            }
+
+            /* Full rectangular hover background across the full sidebar width */
+            .comfy-sidebar-unfloated-canvas-menu > button:hover,
+            .comfy-sidebar-unfloated-canvas-menu > [role="button"]:hover,
+            .comfy-sidebar-unfloated-canvas-menu > div:hover,
+            .comfy-sidebar-unfloated-canvas-menu button:hover {
+                background: var(--interface-button-hover-surface, rgba(255, 255, 255, 0.08)) !important;
+                border-radius: 0 !important;
+            }
+
+            /* Neutralize CanvasModeSelector's inner selected background and padding */
+            .comfy-sidebar-unfloated-canvas-menu [class*="bg-interface-panel-selected-surface"],
+            .comfy-sidebar-unfloated-canvas-menu [class*="group-hover:bg-interface-button-hover-surface"] {
+                border-radius: 0 !important;
+                background: transparent !important;
+                padding: 0 !important;
+            }
+
+            /* Compact CanvasModeSelector padding and chevrons to eliminate extra sidebar width */
+            .comfy-sidebar-unfloated-canvas-menu [class*="pr-0.5"],
+            .comfy-sidebar-unfloated-canvas-menu div.flex.items-center {
+                padding: 0 !important;
+                gap: 2px !important;
+                justify-content: center !important;
+                width: 100% !important;
+            }
+
+            /* Compact the Zoom button: strip w-15 (60px) and px-2 padding */
+            .comfy-sidebar-unfloated-canvas-menu [class*="w-15"],
+            .comfy-sidebar-unfloated-canvas-menu .w-15 {
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+            .comfy-sidebar-unfloated-canvas-menu [class*="px-2"],
+            .comfy-sidebar-unfloated-canvas-menu span.px-2 {
+                padding: 0 !important;
+                gap: 2px !important;
+            }
+
+            /* Compact down-arrow chevrons */
+            .comfy-sidebar-unfloated-canvas-menu [class*="chevron-down"],
+            .comfy-sidebar-unfloated-canvas-menu [class*="pr-1.5"] {
+                padding: 0 !important;
+                width: 12px !important;
+                height: 12px !important;
+            }
+
+            .comfy-sidebar-unfloated-canvas-menu button,
+            .comfy-sidebar-unfloated-canvas-menu [role="button"] {
+                border-radius: 0 !important;
+                background: transparent !important;
+                font-size: 11px !important;
+                width: 100% !important;
+                height: 100% !important;
+            }
+
+            /* Exact stock grey color #8a8a8a without opacity */
+            .comfy-sidebar-unfloated-canvas-menu button,
+            .comfy-sidebar-unfloated-canvas-menu [role="button"],
+            .comfy-sidebar-unfloated-canvas-menu span,
+            .comfy-sidebar-unfloated-canvas-menu svg {
+                color: #8a8a8a !important;
+                opacity: 1 !important;
+                transition: color 0.15s ease !important;
+            }
+
+            .comfy-sidebar-unfloated-canvas-menu button:hover,
+            .comfy-sidebar-unfloated-canvas-menu [role="button"]:hover,
+            .comfy-sidebar-unfloated-canvas-menu button:hover span,
+            .comfy-sidebar-unfloated-canvas-menu [role="button"]:hover span,
+            .comfy-sidebar-unfloated-canvas-menu button:hover svg,
+            .comfy-sidebar-unfloated-canvas-menu [role="button"]:hover svg {
+                color: #ffffff !important;
+            }
+
+            /* Consistent, uniform 38px horizontal separators */
+            .comfy-sidebar-unfloated-canvas-menu::before,
+            .comfy-sidebar-unfloated-canvas-menu::after,
+            .comfy-sidebar-unfloated-canvas-menu .p-divider,
+            .comfy-sidebar-unfloated-canvas-menu [class*="divider"],
+            .comfy-sidebar-unfloated-canvas-menu hr,
+            .comfy-sidebar-unfloated-canvas-menu > div:not(:has(*)):not(button),
+            .comfy-sidebar-unfloated-canvas-menu > span:not(:has(*)):not(button),
+            .comfy-sidebar-unfloated-canvas-menu [class*="w-px"],
+            .comfy-sidebar-unfloated-canvas-menu [class*="w-\[1px\]"] {
+                content: "" !important;
+                width: 38px !important;
+                height: 1px !important;
+                min-height: 1px !important;
+                max-height: 1px !important;
+                min-width: 38px !important;
+                max-width: 38px !important;
+                border: none !important;
+                background: var(--interface-stroke, var(--border-color, rgba(255, 255, 255, 0.15))) !important;
+                margin: 4px auto !important;
+                display: block !important;
+                position: static !important;
+            }
+
+            .comfy-sidebar-unfloated-canvas-menu .p-divider::before,
+            .comfy-sidebar-unfloated-canvas-menu [class*="divider"]::before {
+                display: none !important;
             }
         `;
         document.head.appendChild(style);
@@ -589,6 +893,7 @@ export function setupPropertiesPanelToggleFix() {
 }
 
 export function destroyLayoutFix() {
+    syncCanvasMenuPlacement(false);
     if (domObserver) {
         domObserver.disconnect();
         domObserver = null;

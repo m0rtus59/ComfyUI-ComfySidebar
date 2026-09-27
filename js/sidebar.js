@@ -98,6 +98,16 @@ function registerSettings() {
     });
 
     app.ui.settings.addSetting({
+        id: "Comfy Sidebar.Dock Canvas Controls",
+        name: "Dock bottom-right canvas controls to sidebar",
+        type: "boolean",
+        defaultValue: false,
+        onChange: () => {
+            setTimeout(() => { syncClassicLayout(); }, 0);
+        }
+    });
+
+    app.ui.settings.addSetting({
         id: SettingIds.CLASSIC_LAYOUT,
         name: "Places the controls and the open workflow tabs on a single unified top bar",
         type: "boolean",
