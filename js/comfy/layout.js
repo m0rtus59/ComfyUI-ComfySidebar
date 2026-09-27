@@ -18,33 +18,46 @@ setRuntimePreviewStateListener(() => {
 const STYLE_ID = "comfy-sidebar-classic-layout-override";
 
 const CLASSIC_LAYOUT_CSS_MEDIA = `
+/* Neutralize the leftover floating shell box to prevent empty dark square artifacts */
 .actionbar-container,
 .shadow-interface.rounded-lg.bg-comfy-menu-bg,
 .shadow-interface.rounded-lg.border-interface-stroke,
 .shadow-interface.border.rounded-lg:has([class*="actionbar-buttons"]),
 .shadow-interface.border.rounded-lg:has(.actionbar-buttons),
-div.border-interface-stroke.rounded-lg:has([class*="actionbar-buttons"]) {
+div.border-interface-stroke.rounded-lg:has([class*="actionbar-buttons"]),
+div.shadow-interface.py-1\\.75 {
     border: none !important;
     background: transparent !important;
     box-shadow: none !important;
 }
 
+/* Dock actionbar buttons in the topbar row with matching dark background and seamless border */
 [class*="actionbar"]:not(.actionbar),
 [class*="actionbar-buttons"],
 .actionbar-buttons {
     position: fixed !important;
-    top: 3px !important; 
-    right: 4px !important; 
+    top: 0 !important; 
+    right: 0 !important; 
     left: auto !important;
+    height: var(--topbar-height, 40px) !important;
     transform: none !important;
     z-index: 1010 !important;
-    background: transparent !important;
+    background: var(--comfy-menu-bg, #181818) !important;
     border: none !important;
+    border-bottom: 1px solid var(--interface-stroke, var(--border-color, rgba(255, 255, 255, 0.12))) !important;
     box-shadow: none !important;
-    padding: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 8px !important;
     margin: 0 !important;
     display: flex !important;
     align-items: center !important;
+    box-sizing: border-box !important;
+}
+
+/* Constrain tabs boundary directly to the start of the action bar */
+.workflow-tabs-container {
+    padding-right: var(--actionbar-width, 240px) !important;
+    box-sizing: border-box !important;
 }
 
 .comfy-sidebar-extensions-override {
@@ -67,51 +80,6 @@ div.border-interface-stroke.rounded-lg:has([class*="actionbar-buttons"]) {
     display: inline-flex !important;
     align-items: center !important;
 }
-
-img[alt*="User Avatar"],
-img[alt*="user avatar"],
-button:has(img[alt*="User Avatar"]),
-[role="button"]:has(img[alt*="User Avatar"]),
-button:has(img[alt*="user avatar"]),
-[role="button"]:has(img[alt*="user avatar"]),
-.p-avatar,
-[data-pc-name="avatar"],
-button:has(.p-avatar),
-[role="button"]:has(.p-avatar),
-button:has([data-pc-name="avatar"]),
-[role="button"]:has([data-pc-name="avatar"]) {
-    display: none !important;
-}
-
-.p-tabview-nav-content,
-[class*="tabview"] {
-    padding-left: 150px !important;
-    padding-right: 580px !important; 
-}
-
-@media (max-width: 1599px) {
-    .p-tabview-nav-content,
-    [class*="tabview"] {
-        padding-left: 100px !important;
-        padding-right: 420px !important; 
-    }
-}
-
-@media (max-width: 1199px) {
-    .p-tabview-nav-content,
-    [class*="tabview"] {
-        padding-left: 40px !important;
-        padding-right: 280px !important; 
-    }
-}
-
-@media (max-width: 899px) {
-    .p-tabview-nav-content,
-    [class*="tabview"] {
-        padding-left: 10px !important;
-        padding-right: 180px !important; 
-    }
-}
 `;
 
 export function syncStockHistoryAndProgressSettings(enable) {
@@ -133,6 +101,39 @@ export function syncStockHistoryAndProgressSettings(enable) {
     try { window.dispatchEvent(new Event("storage")); } catch (e) {}
 }
 
+let savedButtonData = null;
+let domObserver = null;
+let syncScheduled = false;
+let actionbarResizeObserver = null;
+
+function updateTopMetrics() {
+    const bar = document.querySelector('.actionbar-buttons, [class*="actionbar-buttons"]') || findTopbarContainer();
+    const tabsEl = document.querySelector('.workflow-tabs-container');
+    const topbar = tabsEl?.closest('header, .topbar, [class*="topbar"]') || tabsEl;
+
+    if (bar) {
+        const rect = bar.getBoundingClientRect();
+        const width = Math.ceil(rect.width);
+        if (width > 80 && width < window.innerWidth * 0.8) {
+            document.documentElement.style.setProperty('--actionbar-width', `${Math.round(width / 2)}px`);
+        }
+
+        if (window.ResizeObserver && !actionbarResizeObserver) {
+            actionbarResizeObserver = new ResizeObserver(() => {
+                updateTopMetrics();
+            });
+            actionbarResizeObserver.observe(bar);
+        }
+    }
+
+    if (topbar) {
+        const height = Math.round(topbar.getBoundingClientRect().height);
+        if (height > 20) {
+            document.documentElement.style.setProperty('--topbar-height', `${height}px`);
+        }
+    }
+}
+
 export function applyClassicLayout(enable, updateSetting = false) {
     let styleEl = document.getElementById(STYLE_ID);
     
@@ -150,8 +151,19 @@ export function applyClassicLayout(enable, updateSetting = false) {
             document.head.appendChild(styleEl);
         }
         styleEl.textContent = CLASSIC_LAYOUT_CSS_MEDIA;
+        updateTopMetrics();
+        window.removeEventListener("resize", updateTopMetrics);
+        window.addEventListener("resize", updateTopMetrics);
     } else {
         if (styleEl) styleEl.remove();
+        if (actionbarResizeObserver) {
+            actionbarResizeObserver.disconnect();
+            actionbarResizeObserver = null;
+        }
+        window.removeEventListener("resize", updateTopMetrics);
+        document.documentElement.style.removeProperty('--actionbar-width');
+        document.documentElement.style.removeProperty('--topbar-height');
+
         if (updateSetting) {
             if (app.extensionManager?.setting) {
                 app.extensionManager.setting.set("Comfy.Workflow.WorkflowTabsPosition", "Sidebar");
@@ -161,10 +173,6 @@ export function applyClassicLayout(enable, updateSetting = false) {
         }
     }
 }
-
-let savedButtonData = null;
-let domObserver = null;
-let syncScheduled = false;
 
 function updateSidebarTabsVisibility() {
     const sidebar = document.querySelector('.comfyui-sidebar, .comfy-sidebar, .sidebar, [class*="sidebar-nav"], [class*="sidebar"]');
@@ -239,6 +247,41 @@ function syncGraphButton() {
         } else {
             if (graphBtn.style.display === "none") graphBtn.style.removeProperty("display");
         }
+    }
+}
+
+function syncAvatarVisibility() {
+    const hideAvatar = app.ui?.settings?.getSettingValue("Comfy Sidebar.Hide Junk.Avatar") ?? false;
+    const STYLE_AVATAR_ID = "comfy-sidebar-hide-avatar-override";
+    let styleEl = document.getElementById(STYLE_AVATAR_ID);
+
+    if (hideAvatar) {
+        if (!styleEl) {
+            styleEl = document.createElement("style");
+            styleEl.id = STYLE_AVATAR_ID;
+            styleEl.textContent = `
+                img[alt*="User Avatar"],
+                img[alt*="user avatar"],
+                button:has(img[alt*="User Avatar"]),
+                [role="button"]:has(img[alt*="User Avatar"]),
+                button:has(img[alt*="user avatar"]),
+                [role="button"]:has(img[alt*="user avatar"]),
+                .p-avatar,
+                [data-pc-name="avatar"],
+                button:has(.p-avatar),
+                [role="button"]:has(.p-avatar),
+                button:has([data-pc-name="avatar"]),
+                [role="button"]:has([data-pc-name="avatar"]),
+                button:has([class*="lucide--user"]),
+                button:has(svg.lucide-user),
+                [data-testid="user-profile-button"] {
+                    display: none !important;
+                }
+            `;
+            document.head.appendChild(styleEl);
+        }
+    } else {
+        if (styleEl) styleEl.remove();
     }
 }
 
@@ -448,7 +491,12 @@ export function syncClassicLayout() {
     try {
         const isClassicLayoutEnabled = app.ui?.settings?.getSettingValue("Comfy Sidebar.Comfy Layout") ?? false;
 
+        if (isClassicLayoutEnabled) {
+            updateTopMetrics();
+        }
+
         syncGraphButton();
+        syncAvatarVisibility();
         syncExtensionsPanel(isClassicLayoutEnabled);
         syncPropertiesButton(isClassicLayoutEnabled);
         syncActiveQueueIndicator(isClassicLayoutEnabled);
@@ -545,8 +593,18 @@ export function destroyLayoutFix() {
         domObserver.disconnect();
         domObserver = null;
     }
+    if (actionbarResizeObserver) {
+        actionbarResizeObserver.disconnect();
+        actionbarResizeObserver = null;
+    }
+    window.removeEventListener("resize", updateTopMetrics);
+    document.documentElement.style.removeProperty('--actionbar-width');
+    document.documentElement.style.removeProperty('--topbar-height');
+
     const styleEl = document.getElementById(STYLE_ID);
     if (styleEl) styleEl.remove();
     const fixStyles = document.getElementById("comfy-sidebar-layout-fix-styles");
     if (fixStyles) fixStyles.remove();
+    const avatarStyles = document.getElementById("comfy-sidebar-hide-avatar-override");
+    if (avatarStyles) avatarStyles.remove();
 }
