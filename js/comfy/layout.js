@@ -106,16 +106,10 @@ let domObserver = null;
 let syncScheduled = false;
 let actionbarResizeObserver = null;
 
-function findCanvasMenu() {
-    const existing = document.querySelector('.comfy-sidebar-unfloated-canvas-menu');
-    if (existing) return existing;
-
-    return document.querySelector(
-        '.p-buttongroup.z-1200, ' +
-        '.p-buttongroup.bottom-0.right-0, ' +
-        '[class*="bottom-0"][class*="right-0"][class*="p-buttongroup"], ' +
-        '.p-buttongroup:has([class*="w-15"])'
-    );
+function isSidebarOnLeft() {
+    const sidebar = document.querySelector('.comfyui-sidebar, .comfy-sidebar, .sidebar, [class*="sidebar-nav"], [class*="sidebar"]');
+    if (!sidebar) return false;
+    return sidebar.getBoundingClientRect().left < window.innerWidth / 2;
 }
 
 function findSidebarBottomTarget(sidebar) {
@@ -142,15 +136,30 @@ function stripBorderRadius(canvasMenu) {
 }
 
 function syncCanvasMenuPlacement(unfloat) {
-    const canvasMenu = findCanvasMenu();
-    if (!canvasMenu) return;
-
     if (unfloat) {
         const sidebar = document.querySelector('.comfyui-sidebar, .comfy-sidebar, .sidebar, [class*="sidebar-nav"], [class*="sidebar"]');
         if (!sidebar) return;
 
         const bottomTarget = findSidebarBottomTarget(sidebar);
         const targetParent = bottomTarget ? bottomTarget.parentNode : sidebar;
+
+        // Find any floating toolbar on the canvas
+        const floatingMenu = document.querySelector(
+            '.p-buttongroup.z-1200:not(.comfy-sidebar-unfloated-canvas-menu), ' +
+            '.p-buttongroup.bottom-0.right-0:not(.comfy-sidebar-unfloated-canvas-menu), ' +
+            '[class*="bottom-0"][class*="right-0"][class*="p-buttongroup"]:not(.comfy-sidebar-unfloated-canvas-menu), ' +
+            '.p-buttongroup:has([class*="w-15"]):not(.comfy-sidebar-unfloated-canvas-menu)'
+        );
+
+        const existingDocked = document.querySelector('.comfy-sidebar-unfloated-canvas-menu');
+
+        // Prevent duplication when switching sidebar sides: drop stale docked bar if a fresh floating one appeared
+        if (floatingMenu && existingDocked && floatingMenu !== existingDocked) {
+            existingDocked.remove();
+        }
+
+        const canvasMenu = floatingMenu || existingDocked;
+        if (!canvasMenu) return;
 
         if (canvasMenu.parentNode !== targetParent) {
             if (!canvasMenu._originalParent) {
@@ -165,7 +174,6 @@ function syncCanvasMenuPlacement(unfloat) {
             }
             canvasMenu.classList.add("comfy-sidebar-unfloated-canvas-menu");
 
-            // Strip inline borderRadius and attach persistent re-enforcer
             stripBorderRadius(canvasMenu);
 
             if (!canvasMenu._clickGuardAttached) {
@@ -179,18 +187,21 @@ function syncCanvasMenuPlacement(unfloat) {
         } else {
             stripBorderRadius(canvasMenu);
         }
-    } else if (canvasMenu._originalParent && canvasMenu.parentNode !== canvasMenu._originalParent) {
-        canvasMenu._originalParent.insertBefore(canvasMenu, canvasMenu._originalNextSibling || null);
-        canvasMenu.classList.remove("comfy-sidebar-unfloated-canvas-menu");
+    } else {
+        const canvasMenu = document.querySelector('.comfy-sidebar-unfloated-canvas-menu');
+        if (canvasMenu && canvasMenu._originalParent) {
+            canvasMenu._originalParent.insertBefore(canvasMenu, canvasMenu._originalNextSibling || null);
+            canvasMenu.classList.remove("comfy-sidebar-unfloated-canvas-menu");
 
-        const elements = canvasMenu.querySelectorAll("button, [role='button'], div, i, span");
-        elements.forEach((el) => {
-            el.style.removeProperty("border-radius");
-        });
+            const elements = canvasMenu.querySelectorAll("button, [role='button'], div, i, span");
+            elements.forEach((el) => {
+                el.style.removeProperty("border-radius");
+            });
+        }
     }
 }
 
-// Seamlessly positions tooltips to the left with zero visual jump
+// Tooltips: dynamic side calculation (right for left-sidebar, left for right-sidebar)
 function setupCanvasMenuTooltipRelocator() {
     if (window._canvasTooltipRelocatorReady) return;
     window._canvasTooltipRelocatorReady = true;
@@ -211,18 +222,61 @@ function setupCanvasMenuTooltipRelocator() {
             const btnRect = targetBtn.getBoundingClientRect();
             const tWidth = tooltip.offsetWidth || 80;
             const tHeight = tooltip.offsetHeight || 28;
+            const onLeft = isSidebarOnLeft();
 
-            tooltip.classList.remove("p-tooltip-top", "p-tooltip-bottom", "p-tooltip-right");
-            tooltip.classList.add("p-tooltip-left");
+            tooltip.classList.remove("p-tooltip-top", "p-tooltip-bottom", "p-tooltip-right", "p-tooltip-left");
+            tooltip.classList.add(onLeft ? "p-tooltip-right" : "p-tooltip-left");
 
-            tooltip.style.setProperty("left", `${Math.round(btnRect.left - tWidth - 8)}px`, "important");
-            tooltip.style.setProperty("top", `${Math.round(btnRect.top + (btnRect.height - tHeight) / 2)}px`, "important");
+            const posX = onLeft ? Math.round(btnRect.right + 8) : Math.round(btnRect.left - tWidth - 8);
+            const posY = Math.round(btnRect.top + (btnRect.height - tHeight) / 2);
+
+            tooltip.style.setProperty("left", `${posX}px`, "important");
+            tooltip.style.setProperty("top", `${posY}px`, "important");
             tooltip.style.setProperty("transform", "none", "important");
         };
 
-        // Align immediately before next browser paint
         queueMicrotask(align);
         requestAnimationFrame(align);
+    }, true);
+}
+
+// Popovers / Menus: positions popup on the screen side of the sidebar
+function setupCanvasMenuPopoverRelocator() {
+    if (window._canvasPopoverRelocatorReady) return;
+    window._canvasPopoverRelocatorReady = true;
+
+    document.addEventListener("click", (e) => {
+        const btn = e.target?.closest?.(".comfy-sidebar-unfloated-canvas-menu button, .comfy-sidebar-unfloated-canvas-menu [role='button']");
+        if (!btn) return;
+
+        const reposition = () => {
+            const popovers = document.querySelectorAll(".p-popover");
+            const sidebar = document.querySelector('.comfyui-sidebar, .comfy-sidebar, .sidebar, [class*="sidebar-nav"], [class*="sidebar"]');
+            if (!sidebar || !popovers.length) return;
+
+            const sidebarRect = sidebar.getBoundingClientRect();
+            const btnRect = btn.getBoundingClientRect();
+            const onLeft = sidebarRect.left < window.innerWidth / 2;
+
+            popovers.forEach((pop) => {
+                if (pop.style.display !== "none" && !pop.classList.contains("p-overlay-hidden")) {
+                    const popWidth = pop.offsetWidth || 160;
+                    const popHeight = pop.offsetHeight || 100;
+                    const maxTop = window.innerHeight - popHeight - 12;
+                    const topPos = Math.max(12, Math.min(maxTop, Math.round(btnRect.top)));
+
+                    const leftPos = onLeft
+                        ? Math.round(sidebarRect.right + 8)
+                        : Math.round(sidebarRect.left - popWidth - 8);
+
+                    pop.style.setProperty("left", `${leftPos}px`, "important");
+                    pop.style.setProperty("top", `${topPos}px`, "important");
+                    pop.style.setProperty("transform", "none", "important");
+                }
+            });
+        };
+
+        [0, 15, 40, 100].forEach((ms) => setTimeout(reposition, ms));
     }, true);
 }
 
@@ -639,6 +693,7 @@ export function syncClassicLayout() {
 
 export function setupPropertiesPanelToggleFix() {
     setupCanvasMenuTooltipRelocator();
+    setupCanvasMenuPopoverRelocator();
 
     if (!document.getElementById("comfy-sidebar-layout-fix-styles")) {
         const style = document.createElement("style");
@@ -669,11 +724,12 @@ export function setupPropertiesPanelToggleFix() {
                 display: inline-flex !important;
             }
 
-            /* Tooltip positioning: suppress top tooltip flash and show cleanly on the left */
+            /* Tooltip positioning: suppress top tooltip flash and show cleanly on left/right */
             body:has(.comfy-sidebar-unfloated-canvas-menu :hover) .p-tooltip-top {
                 visibility: hidden !important;
             }
-            body:has(.comfy-sidebar-unfloated-canvas-menu :hover) .p-tooltip-left {
+            body:has(.comfy-sidebar-unfloated-canvas-menu :hover) .p-tooltip-left,
+            body:has(.comfy-sidebar-unfloated-canvas-menu :hover) .p-tooltip-right {
                 visibility: visible !important;
                 transform: none !important;
             }
