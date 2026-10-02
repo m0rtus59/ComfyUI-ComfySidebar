@@ -94,10 +94,10 @@ def open_file_in_os(target_path):
         if not os.path.exists(norm_path):
             raise FileNotFoundError(f"Path not found: {norm_path}")
         if os.path.isfile(norm_path):
-            # Passed as a single argument so Windows Explorer highlights the file properly
-            subprocess.Popen(["explorer", f"/select,{norm_path}"])
+            # Use raw command string so Windows Explorer correctly parses /select,"path"
+            subprocess.Popen(f'explorer /select,"{norm_path}"')
         else:
-            subprocess.Popen(["explorer", norm_path])
+            subprocess.Popen(f'explorer "{norm_path}"')
 
     elif system == "Darwin":  # macOS
         if not os.path.exists(target_path):

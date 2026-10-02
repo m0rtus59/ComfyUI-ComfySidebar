@@ -738,13 +738,17 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
         }
     };
 
-    mediaA.onload = () => {
+    const onMediaReady = () => {
         hidePlaceholder();
         syncImageScales();
     };
-    if (mediaA.complete && mediaA.naturalWidth) {
-        hidePlaceholder();
-        syncImageScales();
+
+    if (mediaA.tagName === "VIDEO") {
+        mediaA.addEventListener("loadedmetadata", onMediaReady);
+        if (mediaA.readyState >= 1) onMediaReady();
+    } else {
+        mediaA.onload = onMediaReady;
+        if (mediaA.complete && mediaA.naturalWidth) onMediaReady();
     }
 
     // Dynamically adjust preview scale if sidebars are resized
@@ -912,6 +916,10 @@ export function showFullscreenPreview(imgSrcs, isShiftClick = false, pid = null)
         }
     }
 
+    const handleUserClose = () => {
+        if (isRuntimePreviewActive) setRuntimePreviewEnabled(false, false);
+    };
+
     // Handle Text Output
     if (typeof item === "object" && item.text) {
         if (activeComparisonViewer) {
@@ -926,7 +934,8 @@ export function showFullscreenPreview(imgSrcs, isShiftClick = false, pid = null)
         activeComparisonViewer = createTextReader(
             item, 
             (target) => showFullscreenPreview([target], false, pidStr), 
-            () => { activeComparisonViewer = null; }
+            () => { activeComparisonViewer = null; },
+            handleUserClose
         );
         if (activeComparisonViewer) activeComparisonViewer.targetPid = pidStr;
         return;
@@ -948,7 +957,8 @@ export function showFullscreenPreview(imgSrcs, isShiftClick = false, pid = null)
         activeComparisonViewer = create3DViewer(
             src, 
             (targetSrc) => showFullscreenPreview([targetSrc], false, pidStr), 
-            () => { activeComparisonViewer = null; }
+            () => { activeComparisonViewer = null; },
+            handleUserClose
         );
         if (activeComparisonViewer) activeComparisonViewer.targetPid = pidStr;
         return;

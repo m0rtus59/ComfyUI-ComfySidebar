@@ -24,6 +24,8 @@ export async function copyImageToClipboard(src) {
     }
 }
 
+import { app } from "/scripts/app.js";
+
 export async function openFileOrFolder(img) {
     if (!img) return;
 
@@ -49,8 +51,6 @@ export async function openFileOrFolder(img) {
     a.click();
     a.remove();
 }
-
-import { app } from "/scripts/app.js";
 
 export async function deleteFileOnServer(fileItem) {
     if (!fileItem || !fileItem.filename) return null;

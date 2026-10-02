@@ -104,7 +104,8 @@ export async function syncQueue() {
             if (prompt.status === PromptStatus.PENDING && !pendingIds.has(prompt.pid)) {
                 store.deletePrompt(prompt.pid);
             } else if (prompt.status === PromptStatus.ACTIVE && !runningIds.has(prompt.pid)) {
-                concludeRun(prompt.pid, PromptStatus.CANCELLED);
+                // Do not prematurely mark as CANCELLED; let concludeRun verify via /history
+                concludeRun(prompt.pid, PromptStatus.COMPLETED);
             }
         }
 

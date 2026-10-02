@@ -339,6 +339,26 @@ export function injectStyles() {
         }
 
         /* Audio Preview Cards */
+        /* Generic Background Thumbnail for Non-Image Cards (Audio, 3D, File) */
+        .comfy-sidebar-card-bg-img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: brightness(0.35);
+            transition: filter 0.2s ease, transform 0.2s ease;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .comfy-sidebar-audio-wrapper:hover .comfy-sidebar-card-bg-img,
+        .comfy-sidebar-file-wrapper:hover .comfy-sidebar-card-bg-img {
+            filter: brightness(0.5);
+            transform: scale(1.03);
+        }
+
         .comfy-sidebar-audio-wrapper {
             width: 100%;
             min-height: 110px;
@@ -425,6 +445,7 @@ export function injectStyles() {
             padding: 8px 10px;
             box-sizing: border-box;
             position: relative;
+            overflow: hidden;
             border: 1px solid rgba(255, 255, 255, 0.12);
             transition: all 0.2s ease-in-out;
             user-select: none;

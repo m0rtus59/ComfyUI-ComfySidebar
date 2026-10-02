@@ -146,7 +146,11 @@ export async function renumberNodesTopologically() {
 
 export async function setManualNodeId(targetNode = null) {
     if (!app.graph) return;
-    const node = targetNode || (app.canvas?.selected_nodes ? Object.values(app.canvas.selected_nodes)[0] : null);
+    const rawSelected = app.canvas?.selected_nodes;
+    const selectedList = rawSelected instanceof Map || rawSelected instanceof Set
+        ? Array.from(rawSelected.values())
+        : (Array.isArray(rawSelected) ? rawSelected : (rawSelected && typeof rawSelected === "object" ? Object.values(rawSelected) : []));
+    const node = targetNode || selectedList[0] || app.canvas?.current_active_node || null;
     if (!node) {
         showNotification("Please select a node first to change its ID.", "warn");
         return;

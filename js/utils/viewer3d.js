@@ -54,10 +54,11 @@ async function getThreeLibs() {
     }
 }
 
-export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = () => {}) {
+export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = () => {}, onUserClose = () => {}) {
     const overlay = new SidebarOverlay({
         className: "comfy-sidebar-3d-overlay-root",
-        onDestroy
+        onDestroy,
+        onUserClose
     });
 
     const header = document.createElement("div");

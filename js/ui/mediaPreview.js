@@ -1,20 +1,35 @@
-import { isImageFormat, isVideoFormat, is3DFormat, isAudioFormat, getFilenameFromUrl } from "../utils/utils.js";
+import { isImageFormat, isVideoFormat, is3DFormat, isAudioFormat, getFilenameFromUrl, findImagesInOutputs } from "../utils/utils.js";
 import { openFileOrFolder, removeImageFromNodeOutputs } from "./mediaActions.js";
 import { stopAllAudioPlayback, isAudioViewerOpen, setCurrentlyPlayingAudio, getCurrentlyPlayingAudio } from "./audioController.js";
 import { showFullscreenPreview } from "../utils/comparison.js";
 import { store } from "../core/store.js";
 import { PromptStatus } from "../core/constants.js";
 
+export function findWorkflowBackgroundThumbnail(state, randParam = "") {
+    if (!state) return null;
+    // 1. Check if state.images already has a valid image asset
+    const imgs = (state.images || []).filter(i => isImageFormat(i.filename || i.url) && !i.isFallback);
+    let lastImg = imgs.length > 0 ? imgs[imgs.length - 1] : null;
+
+    // 2. Search all workflow node outputs for any generated image
+    if (!lastImg && state.nodeOutputs) {
+        const allOutputs = findImagesInOutputs(state.nodeOutputs, state.workflow);
+        const validImgs = allOutputs.filter(i => isImageFormat(i.filename || i.url) && !i.isFallback);
+        if (validImgs.length > 0) lastImg = validImgs[validImgs.length - 1];
+    }
+
+    if (lastImg) {
+        return lastImg.url || (window.location.origin + `/view?filename=${encodeURIComponent(lastImg.filename)}&type=${lastImg.type || 'output'}&subfolder=${encodeURIComponent(lastImg.subfolder || '')}${randParam}`);
+    }
+    return null;
+}
+
 export function render3DCardPreview(cardObj, wrapper, src, img, state) {
+    if (cardObj.dimEl) cardObj.dimEl.style.display = "none";
     let preview3D = wrapper.querySelector(".comfy-sidebar-3d-wrapper");
     const randParam = state?.pid ? `&rand=${encodeURIComponent(state.pid)}` : "";
     const fullUrl = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}${randParam}`;
-
-    const imageAssets = state?.images?.filter(i => isImageFormat(i.filename || i.url)) || [];
-    const lastImageAsset = imageAssets.length > 0 ? imageAssets[imageAssets.length - 1] : null;
-    const bgImgSrc = lastImageAsset
-        ? (lastImageAsset.url || window.location.origin + `/view?filename=${encodeURIComponent(lastImageAsset.filename)}&type=${lastImageAsset.type || 'output'}&subfolder=${encodeURIComponent(lastImageAsset.subfolder || '')}`)
-        : null;
+    const bgImgSrc = findWorkflowBackgroundThumbnail(state, randParam);
 
     if (!preview3D) {
         wrapper.innerHTML = "";
@@ -57,6 +72,8 @@ export function render3DCardPreview(cardObj, wrapper, src, img, state) {
             newBgImg.src = bgImgSrc;
             newBgImg.alt = "3D Thumbnail Preview";
             preview3D.insertBefore(newBgImg, preview3D.firstChild);
+        } else if (bgImg && !bgImgSrc) {
+            bgImg.remove();
         }
         const title = preview3D.querySelector(".comfy-sidebar-3d-title");
         if (title) title.textContent = img.filename || "3D Model";
@@ -92,11 +109,13 @@ export function render3DCardPreview(cardObj, wrapper, src, img, state) {
 }
 
 export function renderAudioCardPreview(cardObj, wrapper, src, img, state) {
+    if (cardObj.dimEl) cardObj.dimEl.style.display = "none";
     let previewAudio = wrapper.querySelector(".comfy-sidebar-audio-wrapper");
     const randParam = state?.pid ? `&rand=${encodeURIComponent(state.pid)}` : "";
     const fullUrl = img.url ? img.url : window.location.origin + `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || 'output'}&subfolder=${encodeURIComponent(img.subfolder || '')}${randParam}`;
     const filename = img.filename || getFilenameFromUrl(src) || "audio.wav";
     const ext = filename.split('.').pop().toUpperCase();
+    const bgImgSrc = findWorkflowBackgroundThumbnail(state, randParam);
 
     const playIconSvg = `<svg viewBox="0 0 24 24" width="14" height="14" style="margin-left: 2px; pointer-events: none;"><polygon points="6,4 20,12 6,20" fill="#ffffff"/></svg>`;
     const stopIconSvg = `<svg viewBox="0 0 24 24" width="12" height="12" style="pointer-events: none;"><rect x="5" y="5" width="14" height="14" rx="2" fill="#ffffff"/></svg>`;
@@ -106,8 +125,16 @@ export function renderAudioCardPreview(cardObj, wrapper, src, img, state) {
         previewAudio = document.createElement("div");
         previewAudio.className = "comfy-sidebar-audio-wrapper";
 
+        if (bgImgSrc) {
+            const bgImg = document.createElement("img");
+            bgImg.className = "comfy-sidebar-card-bg-img";
+            bgImg.src = bgImgSrc;
+            bgImg.alt = "Audio Cover Preview";
+            previewAudio.appendChild(bgImg);
+        }
+
         const topRow = document.createElement("div");
-        Object.assign(topRow.style, { display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", paddingLeft: "42px" });
+        Object.assign(topRow.style, { display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", paddingLeft: "42px", position: "relative", zIndex: "2" });
 
         const title = document.createElement("span");
         title.className = "comfy-sidebar-audio-title";
@@ -120,7 +147,7 @@ export function renderAudioCardPreview(cardObj, wrapper, src, img, state) {
         topRow.append(title, badge);
 
         const centerArea = document.createElement("div");
-        Object.assign(centerArea.style, { position: "relative", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", margin: "6px 0" });
+        Object.assign(centerArea.style, { position: "relative", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", margin: "6px 0", zIndex: "2" });
 
         const soundwave = document.createElement("div");
         soundwave.className = "comfy-sidebar-soundwave-container";
@@ -147,7 +174,7 @@ export function renderAudioCardPreview(cardObj, wrapper, src, img, state) {
         centerArea.append(soundwave, playBtn);
 
         const bottomRow = document.createElement("div");
-        Object.assign(bottomRow.style, { display: "flex", flexDirection: "column", gap: "4px", width: "100%", padding: "0 34px", boxSizing: "border-box" });
+        Object.assign(bottomRow.style, { display: "flex", flexDirection: "column", gap: "4px", width: "100%", padding: "0 34px", boxSizing: "border-box", position: "relative", zIndex: "2" });
 
         const scrubber = document.createElement("div");
         Object.assign(scrubber.style, {
@@ -156,7 +183,6 @@ export function renderAudioCardPreview(cardObj, wrapper, src, img, state) {
         });
         const scrubberFill = document.createElement("div");
         Object.assign(scrubberFill.style, { width: "0%", height: "100%", background: "#c084fc", borderRadius: "2px" });
-        scrubberFill.style.borderRadius = "2px";
         scrubber.appendChild(scrubberFill);
 
         const timeLabel = document.createElement("div");
@@ -255,6 +281,21 @@ export function renderAudioCardPreview(cardObj, wrapper, src, img, state) {
             }
             showFullscreenPreview([fullUrl], false, state?.pid);
         };
+    } else {
+        const bgImg = previewAudio.querySelector(".comfy-sidebar-card-bg-img");
+        if (bgImg && bgImgSrc && bgImg.src !== bgImgSrc) {
+            bgImg.src = bgImgSrc;
+        } else if (!bgImg && bgImgSrc) {
+            const newBgImg = document.createElement("img");
+            newBgImg.className = "comfy-sidebar-card-bg-img";
+            newBgImg.src = bgImgSrc;
+            newBgImg.alt = "Audio Cover Preview";
+            previewAudio.insertBefore(newBgImg, previewAudio.firstChild);
+        } else if (bgImg && !bgImgSrc) {
+            bgImg.remove();
+        }
+        const title = previewAudio.querySelector(".comfy-sidebar-audio-title");
+        if (title) title.textContent = filename;
     }
 
     cardObj.firstImgElement = previewAudio;
@@ -285,14 +326,23 @@ export function renderGenericFileCardPreview(cardObj, wrapper, src, img, state) 
     const filename = img.filename || getFilenameFromUrl(src) || "output_file";
     const ext = (filename.split('.').pop() || "FILE").toUpperCase();
     const folderName = img.subfolder ? `${img.subfolder}/` : (img.type || "output");
+    const bgImgSrc = findWorkflowBackgroundThumbnail(state, randParam);
 
     if (!previewFile) {
         wrapper.innerHTML = "";
         previewFile = document.createElement("div");
         previewFile.className = "comfy-sidebar-file-wrapper";
 
+        if (bgImgSrc) {
+            const bgImg = document.createElement("img");
+            bgImg.className = "comfy-sidebar-card-bg-img";
+            bgImg.src = bgImgSrc;
+            bgImg.alt = "File Thumbnail Preview";
+            previewFile.appendChild(bgImg);
+        }
+
         const topRow = document.createElement("div");
-        Object.assign(topRow.style, { display: "flex", justifyContent: "flex-end", width: "100%", minHeight: "18px" });
+        Object.assign(topRow.style, { display: "flex", justifyContent: "flex-end", width: "100%", minHeight: "18px", position: "relative", zIndex: "2" });
 
         const badge = document.createElement("span");
         badge.className = "comfy-sidebar-file-badge";
@@ -300,7 +350,7 @@ export function renderGenericFileCardPreview(cardObj, wrapper, src, img, state) 
         topRow.appendChild(badge);
 
         const centerArea = document.createElement("div");
-        Object.assign(centerArea.style, { display: "flex", alignItems: "center", gap: "8px", width: "100%", margin: "2px 0 6px 0" });
+        Object.assign(centerArea.style, { display: "flex", alignItems: "center", gap: "8px", width: "100%", margin: "2px 0 6px 0", position: "relative", zIndex: "2" });
 
         const icon = document.createElement("span");
         icon.className = "pi pi-file comfy-sidebar-file-icon";
@@ -313,7 +363,7 @@ export function renderGenericFileCardPreview(cardObj, wrapper, src, img, state) 
         centerArea.append(icon, title);
 
         const bottomRow = document.createElement("div");
-        Object.assign(bottomRow.style, { display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" });
+        Object.assign(bottomRow.style, { display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", position: "relative", zIndex: "2" });
 
         const folderInfo = document.createElement("div");
         folderInfo.className = "comfy-sidebar-file-subtext";
@@ -328,6 +378,18 @@ export function renderGenericFileCardPreview(cardObj, wrapper, src, img, state) 
         previewFile.append(topRow, centerArea, bottomRow);
         wrapper.appendChild(previewFile);
     } else {
+        const bgImg = previewFile.querySelector(".comfy-sidebar-card-bg-img");
+        if (bgImg && bgImgSrc && bgImg.src !== bgImgSrc) {
+            bgImg.src = bgImgSrc;
+        } else if (!bgImg && bgImgSrc) {
+            const newBgImg = document.createElement("img");
+            newBgImg.className = "comfy-sidebar-card-bg-img";
+            newBgImg.src = bgImgSrc;
+            newBgImg.alt = "File Thumbnail Preview";
+            previewFile.insertBefore(newBgImg, previewFile.firstChild);
+        } else if (bgImg && !bgImgSrc) {
+            bgImg.remove();
+        }
         const title = previewFile.querySelector(".comfy-sidebar-file-title");
         if (title) { title.textContent = filename; title.title = filename; }
         const badge = previewFile.querySelector(".comfy-sidebar-file-badge");
@@ -396,22 +458,57 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
         wrapper.appendChild(ctrlOverlay);
     }
 
+    // Direct children check: safely disconnect any loading event listeners on previous media
+    const existingTopImg = wrapper.querySelector(":scope > img, :scope > video");
+    const existing3D = wrapper.querySelector(".comfy-sidebar-3d-wrapper");
+    const existingAudio = wrapper.querySelector(".comfy-sidebar-audio-wrapper");
+    const existingFile = wrapper.querySelector(".comfy-sidebar-file-wrapper");
+
+    if (existingTopImg) {
+        if (existingTopImg.tagName === "VIDEO") {
+            existingTopImg.onloadedmetadata = null;
+            existingTopImg.pause();
+            existingTopImg.src = "";
+            existingTopImg.load();
+        } else {
+            existingTopImg.onload = null;
+            existingTopImg.src = "";
+        }
+    }
+
     if (is3D) {
+        if (cardObj.dimEl) cardObj.dimEl.style.display = "none";
+        if (existingTopImg) existingTopImg.remove();
+        if (existingAudio) existingAudio.remove();
+        if (existingFile) existingFile.remove();
         render3DCardPreview(cardObj, wrapper, src, img, state);
         return;
     }
 
     if (isAudio) {
+        if (cardObj.dimEl) cardObj.dimEl.style.display = "none";
+        if (existingTopImg) existingTopImg.remove();
+        if (existing3D) existing3D.remove();
+        if (existingFile) existingFile.remove();
         renderAudioCardPreview(cardObj, wrapper, src, img, state);
         return;
     }
 
     if (!isImage && !isVideo) {
+        if (cardObj.dimEl) cardObj.dimEl.style.display = "none";
+        if (existingTopImg) existingTopImg.remove();
+        if (existing3D) existing3D.remove();
+        if (existingAudio) existingAudio.remove();
         renderGenericFileCardPreview(cardObj, wrapper, src, img, state);
         return;
     }
 
-    let mediaEl = wrapper.querySelector("img, video");
+    // Standard Image/Video mode: remove any 3D, audio, or file preview boxes
+    if (existing3D) existing3D.remove();
+    if (existingAudio) existingAudio.remove();
+    if (existingFile) existingFile.remove();
+
+    let mediaEl = wrapper.querySelector(":scope > img, :scope > video");
     const needsRebuild = !mediaEl || (isVideo !== (mediaEl.tagName.toLowerCase() === "video"));
 
     if (needsRebuild) {
@@ -437,7 +534,6 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
             return;
         }
         let activeSrc = mediaEl.currentSrc || mediaEl.src || src;
-        // If it's a preview blob, snapshot the rendered pixels from the card so revoked blobs don't 404 in fullscreen
         if (activeSrc && activeSrc.startsWith("blob:") && mediaEl.naturalWidth > 0) {
             try {
                 const canvas = document.createElement("canvas");
@@ -509,7 +605,6 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
                 removeImageFromNodeOutputs(liveState.nodeOutputs, img);
             }
 
-            // If the card still has other images, persist and switch
             if (liveState.images && liveState.images.length > 0) {
                 cardObj.currentImageIndex = 0;
                 cardObj.lastImagesSignature = "";
@@ -517,7 +612,6 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
                 return;
             }
 
-            // If the card has text outputs or is in progress, persist
             if ((liveState.texts && liveState.texts.length > 0) || (liveState.status && liveState.status !== PromptStatus.COMPLETED)) {
                 cardObj.lastImagesSignature = "";
                 store.updatePrompt(liveState.pid, liveState);
@@ -533,8 +627,12 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
     };
 
     const applyDimensions = (width, height) => {
+        // Strictly forbid dimension badges on 3D, Audio, or File cards
+        if (is3D || isAudio || (!isImage && !isVideo)) {
+            if (cardObj.dimEl) cardObj.dimEl.style.display = "none";
+            return;
+        }
         if (cardObj.dimEl && width && height) {
-            // Don't show the dimension badge for active/running preview frames
             if (state.status === "active" || state.status === "cancelled" || state.status === "error") {
                 cardObj.dimEl.style.display = "none";
                 return;

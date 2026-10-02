@@ -39,7 +39,7 @@ function parseInlineMarkdown(html) {
     html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
     html = html.replace(/_(.*?)_/g, '<em>$1</em>');
     html = html.replace(/~~(.*?)~~/g, '<span style="text-decoration:line-through;color:#888;">$1</span>');
-    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color:#61afef;text-decoration:none;border-bottom:1px dashed #61afef;cursor:pointer;">$1</a>');
+    html = html.replace(/\[([^\]]+)\]\(((?:https?:\/\/|\/)[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:#61afef;text-decoration:none;border-bottom:1px dashed #61afef;cursor:pointer;">$1</a>');
     html = html.replace(/\$(?!\s)([^\$]+?)(?<!\s)\$/g, '<span style="font-family:\'Times New Roman\',Times,serif;font-size:14px;color:#e5c07b;font-style:italic;padding:0 2px;">$1</span>');
     return html;
 }
@@ -192,12 +192,12 @@ function parseMarkdown(text) {
     return htmlLines.join("\n");
 }
 
-export function createTextReader(textData, onSwitchMedia = () => {}, onDestroy = () => {}) {
+export function createTextReader(textData, onSwitchMedia = () => {}, onDestroy = () => {}, onUserClose = () => {}) {
     let rawText = typeof textData === "object" ? (textData.text || "") : String(textData);
     let pid = typeof textData === "object" ? textData.pid : "";
     let isMarkdownMode = true;
 
-    const overlay = new SidebarOverlay({ onDestroy });
+    const overlay = new SidebarOverlay({ onDestroy, onUserClose });
 
     const readerBox = document.createElement("div");
     Object.assign(readerBox.style, {

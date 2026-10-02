@@ -1,7 +1,7 @@
 [project]
 name = "comfy-sidebar"
 description = "A compact and powerful layout overhaul for ComfyUI that makes generation results easier to browse, preview, compare, and manage."
-version = "1.7.0"
+version = "1.7.1"
 license = { file = "LICENSE" }
 dependencies = [
     "send2trash>=1.8.0",

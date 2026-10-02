@@ -292,18 +292,18 @@ export function findTextsInOutputs(outputs, rawWorkflow) {
             const val = outputs[nodeId][key];
             if (Array.isArray(val)) {
                 val.forEach(item => {
-                    if (typeof item === 'string' && !FILE_EXT_REGEX.test(item.trim())) {
+                    if (typeof item === 'string' && item.trim().length > 0 && !FILE_EXT_REGEX.test(item.trim())) {
                         list.push(item);
                     } else if (item && typeof item === 'object' && item.text) {
-                        if (Array.isArray(item.text)) list.push(...item.text);
-                        else if (typeof item.text === 'string') list.push(item.text);
+                        if (Array.isArray(item.text)) list.push(...item.text.filter(t => typeof t === 'string' && t.trim().length > 0));
+                        else if (typeof item.text === 'string' && item.text.trim().length > 0) list.push(item.text);
                     }
                 });
-            } else if (typeof val === 'string' && !FILE_EXT_REGEX.test(val.trim())) {
+            } else if (typeof val === 'string' && val.trim().length > 0 && !FILE_EXT_REGEX.test(val.trim())) {
                 list.push(val);
             } else if (val && typeof val === 'object' && val.text) {
-                if (Array.isArray(val.text)) list.push(...val.text);
-                else if (typeof val.text === 'string') list.push(val.text);
+                if (Array.isArray(val.text)) list.push(...val.text.filter(t => typeof t === 'string' && t.trim().length > 0));
+                else if (typeof val.text === 'string' && val.text.trim().length > 0) list.push(val.text);
             }
         }
     }
@@ -314,7 +314,26 @@ export function getRunOutputs(nodeOutputs, rawWorkflow, promptGraph = null) {
     const workflow = parseWorkflow(rawWorkflow);
     const list = [];
     if (!nodeOutputs) return list;
-    for (const nodeId in nodeOutputs) {
+
+    // Track node execution order so the final executed node is always sorted last
+    const nodeOrderMap = new Map();
+    if (workflow && Array.isArray(workflow.nodes)) {
+        workflow.nodes.forEach((n, idx) => {
+            const order = typeof n.order === "number" ? n.order : idx;
+            nodeOrderMap.set(String(n.id), order);
+        });
+    }
+
+    const nodeIds = Object.keys(nodeOutputs);
+    // Sort node IDs by real execution order (lowest executes first; highest executes last)
+    nodeIds.sort((a, b) => {
+        const orderA = nodeOrderMap.has(String(a)) ? nodeOrderMap.get(String(a)) : Infinity;
+        const orderB = nodeOrderMap.has(String(b)) ? nodeOrderMap.get(String(b)) : Infinity;
+        if (orderA !== orderB) return orderA - orderB;
+        return 0;
+    });
+
+    for (const nodeId of nodeIds) {
         if (isNodeIgnored(nodeId, workflow)) continue;
         const nodeOut = nodeOutputs[nodeId];
         if (!nodeOut || (typeof nodeOut === "object" && Object.keys(nodeOut).length === 0)) {

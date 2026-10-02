@@ -96,6 +96,11 @@ export function setupExecutionTracker(onTargetedProgressUpdate) {
             const prompt = activeTasks[0];
             const newBlobUrl = URL.createObjectURL(e.detail);
 
+            // Clean up the previous unreferenced blob immediately to prevent browser memory leaks
+            if (prompt._oldPreviewBlobUrl && prompt._oldPreviewBlobUrl !== prompt._previewBlobUrl) {
+                try { URL.revokeObjectURL(prompt._oldPreviewBlobUrl); } catch (_) {}
+            }
+
             prompt._oldPreviewBlobUrl = prompt._previewBlobUrl;
             prompt._previewBlobUrl = newBlobUrl;
             prompt.images = [{ url: newBlobUrl }];
@@ -142,7 +147,10 @@ export function setupExecutionTracker(onTargetedProgressUpdate) {
         }
     };
 
-    const onExecutionSuccess = (e) => concludeRun(e.detail.prompt_id, PromptStatus.COMPLETED);
+    const onExecutionSuccess = (e) => {
+        const pid = e.detail?.prompt_id;
+        if (pid) concludeRun(pid, PromptStatus.COMPLETED);
+    };
     const onExecutionError = (e) => {
         const pid = e.detail?.prompt_id;
         const nodeId = e.detail?.node_id;
@@ -151,7 +159,7 @@ export function setupExecutionTracker(onTargetedProgressUpdate) {
             prompt.activeNodeId = String(nodeId);
             store.updatePrompt(String(pid), prompt);
         }
-        concludeRun(e.detail.prompt_id, PromptStatus.ERROR);
+        if (pid) concludeRun(pid, PromptStatus.ERROR);
     };
     const onExecutionInterrupted = () => {
         store.getAllPrompts()

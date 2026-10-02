@@ -132,17 +132,24 @@ export function setupVueNodeObserver() {
     };
 }
 
+function getSelectedCanvasNodes() {
+    const canvas = app.canvas;
+    if (!canvas) return [];
+    const raw = canvas.selected_nodes;
+    if (raw instanceof Map || raw instanceof Set) {
+        return Array.from(raw.values());
+    }
+    if (Array.isArray(raw)) return raw;
+    if (raw && typeof raw === "object") return Object.values(raw);
+    if (canvas.current_active_node) return [canvas.current_active_node];
+    return [];
+}
+
 export function toggleIgnoreActiveNode(onModified) {
     const canvas = app.canvas;
     if (!canvas) return;
     
-    let nodes = [];
-    if (canvas.selected_nodes && Object.keys(canvas.selected_nodes).length > 0) {
-        nodes = Object.values(canvas.selected_nodes);
-    } else if (canvas.current_active_node) {
-        nodes = [canvas.current_active_node];
-    }
-    
+    const nodes = getSelectedCanvasNodes();
     if (nodes.length === 0) return;
     
     nodes.forEach(node => {
