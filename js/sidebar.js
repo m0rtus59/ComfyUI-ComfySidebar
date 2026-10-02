@@ -98,10 +98,11 @@ function registerSettings() {
     });
 
     app.ui.settings.addSetting({
-        id: "Comfy Sidebar.Dock Canvas Controls",
-        name: "Dock bottom-right canvas controls to sidebar",
-        type: "boolean",
-        defaultValue: false,
+        id: "Comfy Sidebar.Hide Junk.Floating Canvas Controls",
+        name: "Floating Canvas Controls",
+        type: "combo",
+        options: ["Default", "Dock", "Hide"],
+        defaultValue: "Default",
         onChange: () => {
             setTimeout(() => { syncClassicLayout(); }, 0);
         }

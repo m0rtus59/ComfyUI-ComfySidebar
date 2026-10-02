@@ -135,8 +135,44 @@ function stripBorderRadius(canvasMenu) {
     });
 }
 
-function syncCanvasMenuPlacement(unfloat) {
-    if (unfloat) {
+function syncCanvasMenuPlacement(mode) {
+    const HIDE_CANVAS_MENU_STYLE_ID = "comfy-sidebar-hide-canvas-menu-override";
+    let hideStyleEl = document.getElementById(HIDE_CANVAS_MENU_STYLE_ID);
+
+    if (mode === "Hide") {
+        if (!hideStyleEl) {
+            hideStyleEl = document.createElement("style");
+            hideStyleEl.id = HIDE_CANVAS_MENU_STYLE_ID;
+            hideStyleEl.textContent = `
+                .p-buttongroup.z-1200,
+                .p-buttongroup.bottom-0.right-0,
+                [class*="bottom-0"][class*="right-0"][class*="p-buttongroup"],
+                .p-buttongroup:has([class*="w-15"]),
+                .comfy-sidebar-unfloated-canvas-menu {
+                    display: none !important;
+                }
+            `;
+            document.head.appendChild(hideStyleEl);
+        }
+
+        // Return to original parent if it was docked, so the sidebar doesn't have an empty slot
+        const canvasMenu = document.querySelector('.comfy-sidebar-unfloated-canvas-menu');
+        if (canvasMenu && canvasMenu._originalParent) {
+            canvasMenu._originalParent.insertBefore(canvasMenu, canvasMenu._originalNextSibling || null);
+            canvasMenu.classList.remove("comfy-sidebar-unfloated-canvas-menu");
+            const elements = canvasMenu.querySelectorAll("button, [role='button'], div, i, span");
+            elements.forEach((el) => {
+                el.style.removeProperty("border-radius");
+            });
+        }
+        return;
+    }
+
+    if (hideStyleEl) {
+        hideStyleEl.remove();
+    }
+
+    if (mode === "Dock" || mode === true) {
         const sidebar = document.querySelector('.comfyui-sidebar, .comfy-sidebar, .sidebar, [class*="sidebar-nav"], [class*="sidebar"]');
         if (!sidebar) return;
 
@@ -664,7 +700,13 @@ export function syncClassicLayout() {
 
     try {
         const isClassicLayoutEnabled = app.ui?.settings?.getSettingValue("Comfy Sidebar.Comfy Layout") ?? false;
-        const dockCanvasControls = app.ui?.settings?.getSettingValue("Comfy Sidebar.Dock Canvas Controls") ?? false;
+        let canvasControlsMode = app.ui?.settings?.getSettingValue("Comfy Sidebar.Hide Junk.Floating Canvas Controls");
+        if (canvasControlsMode === undefined || canvasControlsMode === null) {
+            const legacyDock = app.ui?.settings?.getSettingValue("Comfy Sidebar.Dock Canvas Controls");
+            canvasControlsMode = legacyDock ? "Dock" : "Default";
+        } else if (typeof canvasControlsMode === "boolean") {
+            canvasControlsMode = canvasControlsMode ? "Dock" : "Default";
+        }
 
         if (isClassicLayoutEnabled) {
             updateTopMetrics();
@@ -672,7 +714,7 @@ export function syncClassicLayout() {
 
         syncGraphButton();
         syncAvatarVisibility();
-        syncCanvasMenuPlacement(dockCanvasControls);
+        syncCanvasMenuPlacement(canvasControlsMode);
         syncExtensionsPanel(isClassicLayoutEnabled);
         syncPropertiesButton(isClassicLayoutEnabled);
         syncActiveQueueIndicator(isClassicLayoutEnabled);
@@ -949,7 +991,9 @@ export function setupPropertiesPanelToggleFix() {
 }
 
 export function destroyLayoutFix() {
-    syncCanvasMenuPlacement(false);
+    syncCanvasMenuPlacement("Default");
+    const hideCanvasStyle = document.getElementById("comfy-sidebar-hide-canvas-menu-override");
+    if (hideCanvasStyle) hideCanvasStyle.remove();
     if (domObserver) {
         domObserver.disconnect();
         domObserver = null;
