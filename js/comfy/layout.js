@@ -20,8 +20,8 @@ const STYLE_ID = "comfy-sidebar-classic-layout-override";
 const CLASSIC_LAYOUT_CSS_MEDIA = `
 /* Neutralize the leftover floating shell box to prevent empty dark square artifacts */
 .actionbar-container,
-.shadow-interface.rounded-lg.bg-comfy-menu-bg,
-.shadow-interface.rounded-lg.border-interface-stroke,
+.shadow-interface.rounded-lg.bg-comfy-menu-bg:not(.floating-panel):not([role="toolbar"]),
+.shadow-interface.rounded-lg.border-interface-stroke:not(.floating-panel):not([role="toolbar"]),
 .shadow-interface.border.rounded-lg:has([class*="actionbar-buttons"]),
 .shadow-interface.border.rounded-lg:has(.actionbar-buttons),
 div.border-interface-stroke.rounded-lg:has([class*="actionbar-buttons"]),
@@ -129,6 +129,7 @@ function findSidebarBottomTarget(sidebar) {
 
 function stripBorderRadius(canvasMenu) {
     if (!canvasMenu) return;
+    canvasMenu.style.setProperty("border-radius", "0px", "important");
     const elements = canvasMenu.querySelectorAll("button, [role='button'], div, i, span");
     elements.forEach((el) => {
         el.style.setProperty("border-radius", "0px", "important");
@@ -144,6 +145,7 @@ function syncCanvasMenuPlacement(mode) {
             hideStyleEl = document.createElement("style");
             hideStyleEl.id = HIDE_CANVAS_MENU_STYLE_ID;
             hideStyleEl.textContent = `
+                [role="toolbar"]:has([data-testid="zoom-controls-button"]):has([data-testid="toggle-minimap-button"]),
                 .p-buttongroup.z-1200,
                 .p-buttongroup.bottom-0.right-0,
                 [class*="bottom-0"][class*="right-0"][class*="p-buttongroup"],
@@ -160,7 +162,8 @@ function syncCanvasMenuPlacement(mode) {
         if (canvasMenu && canvasMenu._originalParent) {
             canvasMenu._originalParent.insertBefore(canvasMenu, canvasMenu._originalNextSibling || null);
             canvasMenu.classList.remove("comfy-sidebar-unfloated-canvas-menu");
-            const elements = canvasMenu.querySelectorAll("button, [role='button'], div, i, span");
+            canvasMenu.style.removeProperty("border-radius");
+            const elements = canvasMenu.querySelectorAll("*");
             elements.forEach((el) => {
                 el.style.removeProperty("border-radius");
             });
@@ -176,11 +179,22 @@ function syncCanvasMenuPlacement(mode) {
         const sidebar = document.querySelector('.comfyui-sidebar, .comfy-sidebar, .sidebar, [class*="sidebar-nav"], [class*="sidebar"]');
         if (!sidebar) return;
 
+        // Stamp sidebar position and width for instant CSS positioning of modals
+        document.documentElement.dataset.sidebarPosition = isSidebarOnLeft() ? "left" : "right";
+        const sidebarWidth = Math.round(sidebar.getBoundingClientRect().width) || 60;
+        document.documentElement.style.setProperty('--comfy-sidebar-dock-width', `${sidebarWidth}px`);
+
         const bottomTarget = findSidebarBottomTarget(sidebar);
         const targetParent = bottomTarget ? bottomTarget.parentNode : sidebar;
 
-        // Find any floating toolbar on the canvas
-        const floatingMenu = document.querySelector(
+        // Find floating canvas toolbar by semantic role and test IDs, with class fallback
+        const floatingMenu = Array.from(
+            document.querySelectorAll('[role="toolbar"]')
+        ).find((el) =>
+            !el.classList.contains("comfy-sidebar-unfloated-canvas-menu") &&
+            el.querySelector('[data-testid="zoom-controls-button"]') &&
+            el.querySelector('[data-testid="toggle-minimap-button"]')
+        ) || document.querySelector(
             '.p-buttongroup.z-1200:not(.comfy-sidebar-unfloated-canvas-menu), ' +
             '.p-buttongroup.bottom-0.right-0:not(.comfy-sidebar-unfloated-canvas-menu), ' +
             '[class*="bottom-0"][class*="right-0"][class*="p-buttongroup"]:not(.comfy-sidebar-unfloated-canvas-menu), ' +
@@ -215,25 +229,35 @@ function syncCanvasMenuPlacement(mode) {
             if (!canvasMenu._clickGuardAttached) {
                 canvasMenu._clickGuardAttached = true;
                 const enforce = () => {
+                    if (!canvasMenu.classList.contains("comfy-sidebar-unfloated-canvas-menu")) return;
                     requestAnimationFrame(() => stripBorderRadius(canvasMenu));
                 };
                 canvasMenu.addEventListener("click", enforce);
                 canvasMenu.addEventListener("pointerup", enforce);
+                canvasMenu.addEventListener("mouseenter", enforce, true);
             }
         } else {
             stripBorderRadius(canvasMenu);
         }
     } else {
-        const canvasMenu = document.querySelector('.comfy-sidebar-unfloated-canvas-menu');
-        if (canvasMenu && canvasMenu._originalParent) {
-            canvasMenu._originalParent.insertBefore(canvasMenu, canvasMenu._originalNextSibling || null);
+        // Return to floating mode: completely restore stock parent and enforce 8px rounded corners
+        const canvasMenu = document.querySelector('.comfy-sidebar-unfloated-canvas-menu') ||
+                           document.querySelector('[role="toolbar"]') ||
+                           document.querySelector('.floating-panel');
+        if (canvasMenu && canvasMenu.classList.contains("comfy-sidebar-unfloated-canvas-menu")) {
+            if (canvasMenu._originalParent) {
+                canvasMenu._originalParent.insertBefore(canvasMenu, canvasMenu._originalNextSibling || null);
+            }
             canvasMenu.classList.remove("comfy-sidebar-unfloated-canvas-menu");
-
-            const elements = canvasMenu.querySelectorAll("button, [role='button'], div, i, span");
-            elements.forEach((el) => {
+        }
+        if (canvasMenu) {
+            canvasMenu.style.setProperty("border-radius", "8px", "important");
+            canvasMenu.querySelectorAll("*").forEach((el) => {
                 el.style.removeProperty("border-radius");
             });
         }
+        delete document.documentElement.dataset.sidebarPosition;
+        document.documentElement.style.removeProperty('--comfy-sidebar-dock-width');
     }
 }
 
@@ -276,10 +300,41 @@ function setupCanvasMenuTooltipRelocator() {
     }, true);
 }
 
-// Popovers / Menus: positions popup on the screen side of the sidebar
+// Popovers / Menus: positions popups and modals next to the docked sidebar button
 function setupCanvasMenuPopoverRelocator() {
     if (window._canvasPopoverRelocatorReady) return;
     window._canvasPopoverRelocatorReady = true;
+
+    // Instantly pre-calculate coordinates on pointerdown so the Zoom modal renders in place with ZERO flash
+    const preAnchorZoomModal = (e) => {
+        const btn = e.target?.closest?.(
+            '.comfy-sidebar-unfloated-canvas-menu [data-testid="zoom-controls-button"], ' +
+            '.comfy-sidebar-unfloated-canvas-menu button[title*="Zoom"], ' +
+            '.comfy-sidebar-unfloated-canvas-menu button[aria-label*="Zoom"], ' +
+            '.comfy-sidebar-unfloated-canvas-menu [class*="w-15"]'
+        );
+        if (!btn) return;
+
+        const btnRect = btn.getBoundingClientRect();
+        const onLeft = btnRect.left < window.innerWidth / 2;
+        const modalWidth = 250;
+        const modalHeight = 165;
+
+        // Anchor 8px away from the button's edge
+        const leftPos = onLeft
+            ? Math.round(btnRect.right + 8)
+            : Math.round(btnRect.left - modalWidth - 8);
+
+        // Center vertically with the button, clamped to viewport bounds
+        const maxTop = window.innerHeight - modalHeight - 12;
+        const topPos = Math.max(12, Math.min(maxTop, Math.round(btnRect.top - (modalHeight / 2) + (btnRect.height / 2))));
+
+        document.documentElement.style.setProperty('--zoom-modal-left', `${leftPos}px`);
+        document.documentElement.style.setProperty('--zoom-modal-top', `${topPos}px`);
+    };
+
+    document.addEventListener("pointerdown", preAnchorZoomModal, true);
+    document.addEventListener("click", preAnchorZoomModal, true);
 
     document.addEventListener("click", (e) => {
         const btn = e.target?.closest?.(".comfy-sidebar-unfloated-canvas-menu button, .comfy-sidebar-unfloated-canvas-menu [role='button']");
@@ -766,6 +821,24 @@ export function setupPropertiesPanelToggleFix() {
                 display: inline-flex !important;
             }
 
+            /* Ensure floating canvas toolbar keeps its native rounded corners when undocked */
+            .floating-panel:not(.comfy-sidebar-unfloated-canvas-menu),
+            [role="toolbar"]:not(.comfy-sidebar-unfloated-canvas-menu),
+            .p-buttongroup:not(.comfy-sidebar-unfloated-canvas-menu) {
+                border-radius: 8px !important;
+            }
+
+            /* When docked, instantly anchor Zoom modal right beside the Zoom button with zero flash */
+            html:has(.comfy-sidebar-unfloated-canvas-menu) div.z-1300,
+            html:has(.comfy-sidebar-unfloated-canvas-menu) [class*="bottom-[62px]"],
+            html:has(.comfy-sidebar-unfloated-canvas-menu) [class*="bottom-\\[62px\\]"] {
+                position: fixed !important;
+                left: var(--zoom-modal-left, -9999px) !important;
+                top: var(--zoom-modal-top, -9999px) !important;
+                right: auto !important;
+                bottom: auto !important;
+            }
+
             /* Tooltip positioning: suppress top tooltip flash and show cleanly on left/right */
             body:has(.comfy-sidebar-unfloated-canvas-menu :hover) .p-tooltip-top {
                 visibility: hidden !important;
@@ -853,21 +926,28 @@ export function setupPropertiesPanelToggleFix() {
                 border-radius: 0 !important;
             }
 
-            /* Neutralize CanvasModeSelector's inner selected background and padding */
+            /* Neutralize CanvasModeSelector inner selected backgrounds so idle mode is clean and transparent */
+            .comfy-sidebar-unfloated-canvas-menu > div div,
+            .comfy-sidebar-unfloated-canvas-menu > div button,
+            .comfy-sidebar-unfloated-canvas-menu > div [role="button"],
             .comfy-sidebar-unfloated-canvas-menu [class*="bg-interface-panel-selected-surface"],
             .comfy-sidebar-unfloated-canvas-menu [class*="group-hover:bg-interface-button-hover-surface"] {
-                border-radius: 0 !important;
                 background: transparent !important;
-                padding: 0 !important;
+                border-radius: 0 !important;
+                box-shadow: none !important;
             }
 
-            /* Compact CanvasModeSelector padding and chevrons to eliminate extra sidebar width */
+            /* Compact CanvasModeSelector padding and chevrons to eliminate extra sidebar width and ensure full-width highlight */
             .comfy-sidebar-unfloated-canvas-menu [class*="pr-0.5"],
-            .comfy-sidebar-unfloated-canvas-menu div.flex.items-center {
+            .comfy-sidebar-unfloated-canvas-menu div.flex.items-center,
+            .comfy-sidebar-unfloated-canvas-menu > div,
+            .comfy-sidebar-unfloated-canvas-menu > div > button {
                 padding: 0 !important;
+                margin: 0 !important;
                 gap: 2px !important;
                 justify-content: center !important;
                 width: 100% !important;
+                border-radius: 0 !important;
             }
 
             /* Compact the Zoom button: strip w-15 (60px) and px-2 padding */
@@ -991,6 +1071,10 @@ export function setupPropertiesPanelToggleFix() {
 }
 
 export function destroyLayoutFix() {
+    delete document.documentElement.dataset.sidebarPosition;
+    document.documentElement.style.removeProperty('--comfy-sidebar-dock-width');
+    document.documentElement.style.removeProperty('--zoom-modal-left');
+    document.documentElement.style.removeProperty('--zoom-modal-top');
     syncCanvasMenuPlacement("Default");
     const hideCanvasStyle = document.getElementById("comfy-sidebar-hide-canvas-menu-override");
     if (hideCanvasStyle) hideCanvasStyle.remove();
