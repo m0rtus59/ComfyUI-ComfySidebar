@@ -155,6 +155,105 @@ function setupKeydownShortcuts() {
     document.addEventListener("keydown", activeKeydownHandler, true);
 }
 
+function setupWorkflowTabsPositionWatcher() {
+    let isSyncing = false;
+    const TARGET_SETTING = "Comfy.Workflow.WorkflowTabsPosition";
+
+    const checkAndDisableIfSidebar = (val) => {
+        if (isSyncing) return;
+        if (val === "Sidebar") {
+            const isClassicEnabled = app.ui?.settings?.getSettingValue(SettingIds.CLASSIC_LAYOUT) ?? false;
+            if (isClassicEnabled) {
+                isSyncing = true;
+                try {
+                    if (app.extensionManager?.setting) {
+                        try { app.extensionManager.setting.set(SettingIds.CLASSIC_LAYOUT, false); } catch (e) {}
+                    } else if (app.ui?.settings) {
+                        try { app.ui.settings.setSettingValue(SettingIds.CLASSIC_LAYOUT, false); } catch (e) {}
+                    }
+                    applyClassicLayout(false, false);
+                } finally {
+                    isSyncing = false;
+                }
+            }
+        }
+    };
+
+    const cleanups = [];
+
+    // 1. Hook the setting's native onChange callback directly (instant execution on click)
+    const attachNativeOnChange = (settingObj) => {
+        if (!settingObj || settingObj._classicWatcherAttached) return;
+        settingObj._classicWatcherAttached = true;
+        const origOnChange = settingObj.onChange;
+        settingObj.onChange = (val) => {
+            if (origOnChange) origOnChange(val);
+            checkAndDisableIfSidebar(val);
+        };
+        cleanups.push(() => {
+            settingObj.onChange = origOnChange;
+            delete settingObj._classicWatcherAttached;
+        });
+    };
+
+    // Check existing registered setting in legacy UI and modern extension manager
+    attachNativeOnChange(app.ui?.settings?.settings?.[TARGET_SETTING]);
+    attachNativeOnChange(app.extensionManager?.setting?.getSetting?.(TARGET_SETTING));
+    attachNativeOnChange(app.extensionManager?.setting?.settings?.[TARGET_SETTING]);
+
+    // 2. Hook Vue/Pinia reactive store subscription if available (zero polling, synchronous)
+    const settingStore = app.extensionManager?.setting?.settingStore;
+    if (settingStore?.$subscribe) {
+        const unsubscribe = settingStore.$subscribe(() => {
+            const val = app.extensionManager?.setting?.get?.(TARGET_SETTING) ??
+                        app.ui?.settings?.getSettingValue(TARGET_SETTING);
+            checkAndDisableIfSidebar(val);
+        });
+        cleanups.push(unsubscribe);
+    }
+
+    // 3. Hook addSetting in case core registers/re-registers the setting later
+    if (app.ui?.settings?.addSetting) {
+        const origAdd = app.ui.settings.addSetting.bind(app.ui.settings);
+        app.ui.settings.addSetting = (setting) => {
+            if (setting?.id === TARGET_SETTING) {
+                attachNativeOnChange(setting);
+            }
+            return origAdd(setting);
+        };
+        cleanups.push(() => {
+            app.ui.settings.addSetting = origAdd;
+        });
+    }
+
+    // 4. Hook API setters as fallback
+    if (app.ui?.settings?.setSettingValue) {
+        const origSetSettingValue = app.ui.settings.setSettingValue.bind(app.ui.settings);
+        app.ui.settings.setSettingValue = (id, value) => {
+            origSetSettingValue(id, value);
+            if (id === TARGET_SETTING) checkAndDisableIfSidebar(value);
+        };
+        cleanups.push(() => {
+            app.ui.settings.setSettingValue = origSetSettingValue;
+        });
+    }
+
+    if (app.extensionManager?.setting?.set) {
+        const origExtSet = app.extensionManager.setting.set.bind(app.extensionManager.setting);
+        app.extensionManager.setting.set = (id, value) => {
+            origExtSet(id, value);
+            if (id === TARGET_SETTING) checkAndDisableIfSidebar(value);
+        };
+        cleanups.push(() => {
+            app.extensionManager.setting.set = origExtSet;
+        });
+    }
+
+    return () => {
+        cleanups.forEach(fn => fn());
+    };
+}
+
 app.registerExtension({
     name: "ComfySidebar.ClassicRestore",
 
@@ -225,7 +324,20 @@ app.registerExtension({
     async setup() {
         if (!app.extensionManager || !app.extensionManager.registerSidebarTab) return;
 
-        const isClassicLayoutEnabled = app.ui.settings.getSettingValue(SettingIds.CLASSIC_LAYOUT) ?? false;
+        const tabsPos = app.extensionManager?.setting?.get?.("Comfy.Workflow.WorkflowTabsPosition") ??
+                        app.ui.settings.getSettingValue("Comfy.Workflow.WorkflowTabsPosition");
+        let isClassicLayoutEnabled = app.ui.settings.getSettingValue(SettingIds.CLASSIC_LAYOUT) ?? false;
+
+        // Startup safeguard: if workflows are set to Sidebar, disable Comfy Layout
+        if (isClassicLayoutEnabled && tabsPos === "Sidebar") {
+            isClassicLayoutEnabled = false;
+            if (app.extensionManager?.setting) {
+                try { app.extensionManager.setting.set(SettingIds.CLASSIC_LAYOUT, false); } catch (e) {}
+            } else if (app.ui?.settings) {
+                try { app.ui.settings.setSettingValue(SettingIds.CLASSIC_LAYOUT, false); } catch (e) {}
+            }
+        }
+
         applyClassicLayout(isClassicLayoutEnabled, false);
 
         const isHistoryOverrideEnabled = app.ui.settings.getSettingValue(SettingIds.OVERRIDE_STOCK_HISTORY) ?? false;
@@ -238,6 +350,7 @@ app.registerExtension({
         setupPropertiesPanelToggleFix();
         injectStyles();
 
+        cleanupFns.push(setupWorkflowTabsPositionWatcher());
         cleanupFns.push(setupDragAndDrop());
         cleanupFns.push(setupVueNodeObserver());
 

@@ -428,14 +428,6 @@ export function applyClassicLayout(enable, updateSetting = false) {
         window.removeEventListener("resize", updateTopMetrics);
         document.documentElement.style.removeProperty('--actionbar-width');
         document.documentElement.style.removeProperty('--topbar-height');
-
-        if (updateSetting) {
-            if (app.extensionManager?.setting) {
-                app.extensionManager.setting.set("Comfy.Workflow.WorkflowTabsPosition", "Sidebar");
-            } else if (app.ui?.settings) {
-                app.ui.settings.setSettingValue("Comfy.Workflow.WorkflowTabsPosition", "Sidebar");
-            }
-        }
     }
 }
 
@@ -755,6 +747,20 @@ export function syncClassicLayout() {
 
     try {
         const isClassicLayoutEnabled = app.ui?.settings?.getSettingValue("Comfy Sidebar.Comfy Layout") ?? false;
+        const tabsPos = app.extensionManager?.setting?.get?.("Comfy.Workflow.WorkflowTabsPosition") ??
+                        app.ui?.settings?.getSettingValue("Comfy.Workflow.WorkflowTabsPosition");
+
+        // Real-time safeguard: if tabs are in Sidebar, disable Comfy Layout immediately
+        if (isClassicLayoutEnabled && tabsPos === "Sidebar") {
+            applyClassicLayout(false, false);
+            if (app.extensionManager?.setting) {
+                try { app.extensionManager.setting.set("Comfy Sidebar.Comfy Layout", false); } catch (e) {}
+            } else if (app.ui?.settings) {
+                try { app.ui.settings.setSettingValue("Comfy Sidebar.Comfy Layout", false); } catch (e) {}
+            }
+            return;
+        }
+
         let canvasControlsMode = app.ui?.settings?.getSettingValue("Comfy Sidebar.Hide Junk.Floating Canvas Controls");
         if (canvasControlsMode === undefined || canvasControlsMode === null) {
             const legacyDock = app.ui?.settings?.getSettingValue("Comfy Sidebar.Dock Canvas Controls");
