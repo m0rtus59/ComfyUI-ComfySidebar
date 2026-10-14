@@ -4,6 +4,7 @@ import { stopAllAudioPlayback, isAudioViewerOpen, setCurrentlyPlayingAudio, getC
 import { showFullscreenPreview } from "../utils/comparison.js";
 import { store } from "../core/store.js";
 import { PromptStatus } from "../core/constants.js";
+import { deleteHistoryItem } from "../queue/queueService.js";
 
 export function findWorkflowBackgroundThumbnail(state, randParam = "") {
     if (!state) return null;
@@ -583,7 +584,11 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
                 if (parentState.nodeOutputs) {
                     removeImageFromNodeOutputs(parentState.nodeOutputs, img);
                 }
-                store.updatePrompt(parentPid, parentState);
+                if ((!parentState.images || parentState.images.length === 0) && parentState.status === PromptStatus.COMPLETED) {
+                    deleteHistoryItem(parentPid);
+                } else {
+                    store.updatePrompt(parentPid, parentState);
+                }
             }
             cardObj.element?.remove();
             const remaining = store.ui.cardStack?.querySelectorAll('.comfy-sidebar-card');
@@ -612,13 +617,15 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
                 return;
             }
 
-            if ((liveState.texts && liveState.texts.length > 0) || (liveState.status && liveState.status !== PromptStatus.COMPLETED)) {
+            // If the job is still actively generating/running, keep it
+            if (liveState.status && liveState.status !== PromptStatus.COMPLETED) {
                 cardObj.lastImagesSignature = "";
                 store.updatePrompt(liveState.pid, liveState);
                 return;
             }
 
-            store.deletePrompt(liveState.pid);
+            // Temp image preview was deleted and only intermediate prompt text remains: delete card for good
+            deleteHistoryItem(liveState.pid);
             cardObj.element?.remove();
             return;
         }
