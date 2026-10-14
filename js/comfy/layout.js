@@ -31,7 +31,7 @@ div.shadow-interface.py-1\\.75 {
     box-shadow: none !important;
 }
 
-/* Dock actionbar buttons in the topbar row with matching dark background and seamless border */
+/* Dock actionbar buttons in the topbar row with transparent background */
 [class*="actionbar"]:not(.actionbar),
 [class*="actionbar-buttons"],
 .actionbar-buttons {
@@ -42,9 +42,8 @@ div.shadow-interface.py-1\\.75 {
     height: var(--topbar-height, 40px) !important;
     transform: none !important;
     z-index: 1010 !important;
-    background: var(--comfy-menu-bg, #181818) !important;
+    background: transparent !important;
     border: none !important;
-    border-bottom: 1px solid var(--interface-stroke, var(--border-color, rgba(255, 255, 255, 0.12))) !important;
     box-shadow: none !important;
     border-radius: 0 !important;
     padding: 0 8px !important;
