@@ -96,5 +96,10 @@
   "Reset View": "إعادة ضبط المنظور",
   "Settings": "الإعدادات",
   "Export As...": "تصدير كـ...",
-  "Failed to load 3D format": "فشل تحميل تنسيق 3D"
+  "Failed to load 3D format": "فشل تحميل تنسيق 3D",
+  "Toggle Comfy Queue Sidebar": "تبديل الشريط الجانبي لـ Comfy Queue",
+  "Toggle Ignore Selected Node(s) in Queue": "تجاهل/تضمين العقد المحددة في قائمة الانتظار",
+  "Renumber All Nodes (Execution Order)": "إعادة ترقيم جميع العقد (ترتيب التنفيذ)",
+  "Set Selected Node ID...": "تعيين معرف العقدة المحددة...",
+  "Set Node ID...": "تعيين معرف العقدة..."
 }

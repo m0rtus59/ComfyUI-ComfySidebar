@@ -96,5 +96,10 @@
   "Reset View": "אפס תצוגה",
   "Settings": "הגדרות",
   "Export As...": "ייצא כ...",
-  "Failed to load 3D format": "טעינת פורמט 3D נכשלה"
+  "Failed to load 3D format": "טעינת פורמט 3D נכשלה",
+  "Toggle Comfy Queue Sidebar": "הפעל/השבת סרגל צד Comfy Queue",
+  "Toggle Ignore Selected Node(s) in Queue": "התעלם/כלול צמתים נבחרים בתור",
+  "Renumber All Nodes (Execution Order)": "מספר מחדש את כל הצמתים (סדר ביצוע)",
+  "Set Selected Node ID...": "הגדר מזהה צומת נבחר...",
+  "Set Node ID...": "הגדר מזהה צומת..."
 }

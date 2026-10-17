@@ -96,5 +96,10 @@
   "Reset View": "Reset View",
   "Settings": "Settings",
   "Export As...": "Export As...",
-  "Failed to load 3D format": "Failed to load 3D format"
+  "Failed to load 3D format": "Failed to load 3D format",
+  "Toggle Comfy Queue Sidebar": "Toggle Comfy Queue Sidebar",
+  "Toggle Ignore Selected Node(s) in Queue": "Toggle Ignore Selected Node(s) in Queue",
+  "Renumber All Nodes (Execution Order)": "Renumber All Nodes (Execution Order)",
+  "Set Selected Node ID...": "Set Selected Node ID...",
+  "Set Node ID...": "Set Node ID..."
 }

@@ -96,5 +96,10 @@
   "Reset View": "重設視角",
   "Settings": "設定",
   "Export As...": "匯出為...",
-  "Failed to load 3D format": "載入 3D 格式失敗"
+  "Failed to load 3D format": "載入 3D 格式失敗",
+  "Toggle Comfy Queue Sidebar": "切換 Comfy Queue 側邊欄",
+  "Toggle Ignore Selected Node(s) in Queue": "在隊列中忽略選取節點",
+  "Renumber All Nodes (Execution Order)": "重新編號所有節點 (按執行順序)",
+  "Set Selected Node ID...": "設定選取節點 ID...",
+  "Set Node ID...": "設定節點 ID..."
 }

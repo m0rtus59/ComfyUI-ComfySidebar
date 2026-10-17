@@ -96,5 +96,10 @@
   "Reset View": "Görünümü sıfırla",
   "Settings": "Ayarlar",
   "Export As...": "Farklı dışa aktar...",
-  "Failed to load 3D format": "3D formatı yüklenemedi"
+  "Failed to load 3D format": "3D formatı yüklenemedi",
+  "Toggle Comfy Queue Sidebar": "Comfy Queue Kenar Çubuğunu Aç/Kapat",
+  "Toggle Ignore Selected Node(s) in Queue": "Kuyrukta Seçili Düğümleri Yoksay/Etkinleştir",
+  "Renumber All Nodes (Execution Order)": "Tüm Düğümleri Yeniden Numaralandır (Çalıştırma Sırası)",
+  "Set Selected Node ID...": "Seçili Düğüm Kimliğini Belirle...",
+  "Set Node ID...": "Düğüm Kimliğini Belirle..."
 }

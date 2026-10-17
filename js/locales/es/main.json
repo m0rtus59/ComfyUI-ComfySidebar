@@ -96,5 +96,10 @@
   "Reset View": "Restablecer vista",
   "Settings": "Ajustes",
   "Export As...": "Exportar como...",
-  "Failed to load 3D format": "Error al cargar el formato 3D"
+  "Failed to load 3D format": "Error al cargar el formato 3D",
+  "Toggle Comfy Queue Sidebar": "Alternar barra lateral Comfy Queue",
+  "Toggle Ignore Selected Node(s) in Queue": "Ignorar/Incluir nodo(s) seleccionado(s) en la cola",
+  "Renumber All Nodes (Execution Order)": "Renumerar todos los nodos (orden de ejecución)",
+  "Set Selected Node ID...": "Establecer ID del nodo seleccionado...",
+  "Set Node ID...": "Establecer ID de nodo..."
 }

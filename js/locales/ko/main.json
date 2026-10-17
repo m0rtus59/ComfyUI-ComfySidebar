@@ -96,5 +96,10 @@
   "Reset View": "시점 초기화",
   "Settings": "설정",
   "Export As...": "내보내기...",
-  "Failed to load 3D format": "3D 형식 로드 실패"
+  "Failed to load 3D format": "3D 형식 로드 실패",
+  "Toggle Comfy Queue Sidebar": "Comfy Queue 사이드바 전환",
+  "Toggle Ignore Selected Node(s) in Queue": "대기열에서 선택한 노드 무시/해제",
+  "Renumber All Nodes (Execution Order)": "모든 노드 재번호 매기기 (실행 순서)",
+  "Set Selected Node ID...": "선택한 노드 ID 설정...",
+  "Set Node ID...": "노드 ID 설정..."
 }

@@ -96,5 +96,10 @@
   "Reset View": "視点をリセット",
   "Settings": "設定",
   "Export As...": "エクスポート...",
-  "Failed to load 3D format": "3D形式の読み込みに失敗しました"
+  "Failed to load 3D format": "3D形式の読み込みに失敗しました",
+  "Toggle Comfy Queue Sidebar": "Comfy Queue サイドバーの切り替え",
+  "Toggle Ignore Selected Node(s) in Queue": "キューで選択したノードを無視/解除",
+  "Renumber All Nodes (Execution Order)": "すべてのノード番号を再割り当て (実行順)",
+  "Set Selected Node ID...": "選択したノードIDを設定...",
+  "Set Node ID...": "ノードIDを設定..."
 }

@@ -20,34 +20,35 @@ let cleanupFns = [];
 function registerSettings() {
     app.ui.settings.addSetting({
         id: SettingIds.GRID_COLUMNS_THRESHOLD,
-        name: "Width Threshold for Queue Columns (px)",
+        name: t("Width Threshold for Queue Columns (px)"),
         type: "number",
         defaultValue: 350
     });
 
     app.ui.settings.addSetting({
         id: SettingIds.SHOW_PENDING_COUNT_ONLY,
-        name: "If disabled, each queued job will have a separate individual card",
+        name: t("If disabled, each queued job will have a separate individual card"),
         type: "boolean",
         defaultValue: true
     });
 
     app.ui.settings.addSetting({
         id: SettingIds.SHOW_WORKING_NODE_NAME,
-        name: "Shows the name of the node which is currently in the process",
+        name: t("Shows the name of the node which is currently in the process"),
         type: "boolean",
         defaultValue: true
     });
 
     app.ui.settings.addSetting({
         id: SettingIds.AUTO_CLEAR_INTERRUPTED,
-        name: "Auto-clear cancelled & failed jobs on new generation",
+        name: t("Auto-clear cancelled & failed jobs on new generation"),
         type: "boolean",
         defaultValue: false
     });
+
     app.ui.settings.addSetting({
         id: "Comfy Sidebar.Permanent Delete on Disk Deletion",
-        name: "Permanently delete files on disk deletion (bypasses Recycle Bin / Trash)",
+        name: t("Permanently delete files on disk deletion (bypasses Recycle Bin / Trash)"),
         type: "boolean",
         defaultValue: false
     });
@@ -56,7 +57,7 @@ function registerSettings() {
     sidebarTabs.forEach(tab => {
         app.ui.settings.addSetting({
             id: `Comfy Sidebar.Hide Junk.${tab}`,
-            name: `Hide Tab: ${tab}`,
+            name: t("Hide Tab: {tab}", { tab: t(tab) }),
             type: "boolean",
             defaultValue: false,
             onChange: () => {
@@ -67,7 +68,7 @@ function registerSettings() {
 
     app.ui.settings.addSetting({
         id: SettingIds.OVERRIDE_STOCK_HISTORY,
-        name: "Replace the stock Job History sidebar with Comfy Queue",
+        name: t("Replace the stock Job History sidebar with Comfy Queue"),
         type: "boolean",
         defaultValue: false,
         onChange: (value) => {
@@ -80,7 +81,7 @@ function registerSettings() {
 
     app.ui.settings.addSetting({
         id: SettingIds.HIDE_GRAPH_BUTTON,
-        name: "Hide floating 'Graph' (Workflow/Node Map) button",
+        name: t("Hide floating 'Graph' (Workflow/Node Map) button"),
         type: "boolean",
         defaultValue: false,
         onChange: () => {
@@ -90,7 +91,7 @@ function registerSettings() {
 
     app.ui.settings.addSetting({
         id: "Comfy Sidebar.Hide Junk.Avatar",
-        name: "Hide Avatar",
+        name: t("Hide Avatar"),
         type: "boolean",
         defaultValue: false,
         onChange: () => {
@@ -100,7 +101,7 @@ function registerSettings() {
 
     app.ui.settings.addSetting({
         id: "Comfy Sidebar.Hide Junk.Floating Canvas Controls",
-        name: "Floating Canvas Controls",
+        name: t("Floating Canvas Controls"),
         type: "combo",
         options: ["Default", "Dock", "Hide"],
         defaultValue: "Default",
@@ -111,7 +112,7 @@ function registerSettings() {
 
     app.ui.settings.addSetting({
         id: SettingIds.CLASSIC_LAYOUT,
-        name: "Places the controls and the open workflow tabs on a single unified top bar",
+        name: t("Places the controls and the open workflow tabs on a single unified top bar"),
         type: "boolean",
         defaultValue: false,
         onChange: (value) => {
@@ -120,6 +121,70 @@ function registerSettings() {
             }
         }
     });
+}
+
+function setupSettingsDialogObserver() {
+    const targetTexts = [
+        "Grid Columns Threshold",
+        "Show Pending Count Only",
+        "Show Working Node Name",
+        "Auto Clear Interrupted",
+        "Permanent Delete on Disk Deletion",
+        "Hide Junk",
+        "Override Stock History",
+        "Hide Graph Button",
+        "Hide Avatar",
+        "Floating Canvas Controls",
+        "Classic Layout",
+        "Comfy Layout",
+        "Default",
+        "Dock",
+        "Hide"
+    ];
+
+    const translateDOM = (rootEl) => {
+        if (!rootEl) return;
+        const walker = document.createTreeWalker(
+            rootEl,
+            NodeFilter.SHOW_TEXT,
+            {
+                acceptNode(node) {
+                    const text = node.nodeValue?.trim();
+                    return targetTexts.includes(text) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+                }
+            }
+        );
+
+        const nodesToTranslate = [];
+        while (walker.nextNode()) {
+            nodesToTranslate.push(walker.currentNode);
+        }
+
+        for (const textNode of nodesToTranslate) {
+            const raw = textNode.nodeValue.trim();
+            const translated = t(raw);
+            if (translated && translated !== raw) {
+                textNode.nodeValue = textNode.nodeValue.replace(raw, translated);
+            }
+        }
+    };
+
+    const observer = new MutationObserver(() => {
+        // 1. Translate headers and selected value inside the Settings dialog
+        const dialog = document.querySelector('.p-dialog, .comfy-settings-dialog, [role="dialog"]');
+        if (dialog) {
+            translateDOM(dialog);
+        }
+
+        // 2. Translate dropdown popup menu items (floated directly on document.body)
+        const overlay = document.querySelector('.p-select-overlay, .p-dropdown-panel, .p-select-list, [data-pc-name="selectoverlay"]');
+        if (overlay) {
+            translateDOM(overlay);
+        }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
 }
 
 function setupKeydownShortcuts() {
@@ -258,14 +323,15 @@ function setupWorkflowTabsPositionWatcher() {
 app.registerExtension({
     name: "ComfySidebar.ClassicRestore",
 
-    init() {
+    async init() {
+        await initI18n();
         registerSettings();
     },
 
     commands: [
         {
             id: "ComfySidebar.ToggleSidebar",
-            label: "Toggle Comfy Queue Sidebar",
+            label: t("Toggle Comfy Queue Sidebar"),
             function: () => {
                 const ourBtn = findOurSidebarButton();
                 if (ourBtn) ourBtn.click();
@@ -273,17 +339,17 @@ app.registerExtension({
         },
         {
             id: "ComfySidebar.ToggleIgnoreNode",
-            label: "Toggle Ignore Selected Node(s) in Queue",
+            label: t("Toggle Ignore Selected Node(s) in Queue"),
             function: () => toggleIgnoreActiveNode(() => renderSidebar())
         },
         {
             id: "ComfySidebar.RenumberNodes",
-            label: "Renumber All Nodes (Execution Order)",
+            label: t("Renumber All Nodes (Execution Order)"),
             function: () => renumberNodesTopologically()
         },
         {
             id: "ComfySidebar.SetNodeId",
-            label: "Set Selected Node ID...",
+            label: t("Set Selected Node ID..."),
             function: () => setManualNodeId()
         }
     ],
@@ -292,7 +358,7 @@ app.registerExtension({
         return [
             null,
             {
-                content: "Set Node ID...",
+                content: t("Set Node ID..."),
                 callback: () => setManualNodeId(node)
             }
         ];
@@ -302,7 +368,7 @@ app.registerExtension({
         return [
             null,
             {
-                content: "Renumber All Nodes (Execution Order)",
+                content: t("Renumber All Nodes (Execution Order)"),
                 callback: () => renumberNodesTopologically()
             }
         ];
@@ -355,6 +421,7 @@ app.registerExtension({
         cleanupFns.push(setupWorkflowTabsPositionWatcher());
         cleanupFns.push(setupDragAndDrop());
         cleanupFns.push(setupVueNodeObserver());
+        cleanupFns.push(setupSettingsDialogObserver());
 
         // Setup execution tracker with targeted fast-path update for active card
         cleanupFns.push(setupExecutionTracker((pid, progress, nodeName) => {
