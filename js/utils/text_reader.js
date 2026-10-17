@@ -1,4 +1,5 @@
 import { SidebarOverlay } from "./overlay.js";
+import { t } from "../core/i18n.js";
 
 // Global helper for code block copying in Markdown view
 window.moonCopyCode = function(button) {
@@ -10,23 +11,23 @@ window.moonCopyCode = function(button) {
         const text = codeEl.innerText;
 
         navigator.clipboard.writeText(text).then(() => {
-            button.innerText = "Copied!";
+            button.innerText = t("Copied!");
             button.style.backgroundColor = "#4CAF50";
             button.style.borderColor = "#45a049";
             button.style.color = "#ffffff";
             setTimeout(() => {
-                button.innerText = "Copy";
+                button.innerText = t("Copy");
                 button.style.backgroundColor = "#333333";
                 button.style.borderColor = "#555555";
                 button.style.color = "#aaaaaa";
             }, 1500);
         }).catch(() => {
-            button.innerText = "Error";
-            setTimeout(() => button.innerText = "Copy", 1500);
+            button.innerText = t("Error");
+            setTimeout(() => button.innerText = t("Copy"), 1500);
         });
     } catch (e) {
-        button.innerText = "Error";
-        setTimeout(() => button.innerText = "Copy", 1500);
+        button.innerText = t("Error");
+        setTimeout(() => button.innerText = t("Copy"), 1500);
     }
 };
 
@@ -91,7 +92,7 @@ function parseMarkdown(text) {
                 const rCode = codeContent.join("\n");
                 const langBadge = codeLang ? `<div style="position:absolute;top:6px;left:10px;color:#85c5ec;font-size:10px;font-family:sans-serif;font-weight:bold;text-transform:uppercase;opacity:0.8;user-select:none;">${codeLang}</div>` : '';
                 const btnStyle = "position:absolute;top:6px;right:6px;background:#333;color:#aaa;border:1px solid #555;border-radius:3px;padding:3px 8px;font-size:10px;cursor:pointer;";
-                htmlLines.push(`<div class="code-block-container" style="position:relative;margin:8px 0;">${langBadge}<button onclick="window.moonCopyCode(this)" style="${btnStyle}">Copy</button><pre style="background:#1e1e1e;padding:10px;padding-top:28px;border-radius:4px;border:1px solid #333;font-family:monospace;overflow-x:auto;margin:0;color:#85c5ec;"><code>${rCode}</code></pre></div>`);
+                htmlLines.push(`<div class="code-block-container" style="position:relative;margin:8px 0;">${langBadge}<button onclick="window.moonCopyCode(this)" style="${btnStyle}">${t("Copy")}</button><pre style="background:#1e1e1e;padding:10px;padding-top:28px;border-radius:4px;border:1px solid #333;font-family:monospace;overflow-x:auto;margin:0;color:#85c5ec;"><code>${rCode}</code></pre></div>`);
                 codeContent = []; codeLang = ""; inCodeBlock = false;
             } else {
                 inCodeBlock = true; codeLang = trimmed.slice(3).trim();
@@ -213,9 +214,9 @@ export function createTextReader(textData, onSwitchMedia = () => {}, onDestroy =
     });
 
     const formatTitle = (id) => {
-        if (!id) return "Text Output";
+        if (!id) return t("Text Output");
         const shortId = id.length > 10 ? `${id.slice(0, 8)}…` : id;
-        return `Text Output #${shortId}`;
+        return `${t("Text Output #")}${shortId}`;
     };
 
     const headerRow = document.createElement("div");
@@ -233,7 +234,7 @@ export function createTextReader(textData, onSwitchMedia = () => {}, onDestroy =
 
     const title = document.createElement("span");
     title.textContent = formatTitle(pid);
-    title.title = pid ? `Text Output #${pid}` : "Text Output";
+    title.title = pid ? `${t("Text Output #")}${pid}` : t("Text Output");
     Object.assign(title.style, { 
         fontSize: "14px", fontWeight: "bold", color: "#f8fafc", 
         whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flexShrink: "1" 
@@ -267,7 +268,7 @@ export function createTextReader(textData, onSwitchMedia = () => {}, onDestroy =
         display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px",
         whiteSpace: "nowrap", height: "28px", boxSizing: "border-box"
     });
-    copyBtn.innerHTML = `<i class="pi pi-copy"></i><span>Copy</span>`;
+    copyBtn.innerHTML = `<i class="pi pi-copy"></i><span>${t("Copy")}</span>`;
 
     const downloadBtn = document.createElement("button");
     Object.assign(downloadBtn.style, {
@@ -296,7 +297,7 @@ export function createTextReader(textData, onSwitchMedia = () => {}, onDestroy =
 
     const updateView = () => {
         const wc = rawText.trim() ? rawText.trim().split(/\s+/).length : 0;
-        statsBadge.textContent = `${wc} words • ${rawText.length} chars`;
+        statsBadge.textContent = t("{wc} words • {chars} chars", { wc, chars: rawText.length });
 
         if (isMarkdownMode) {
             modeBtn.innerHTML = `<i class="pi pi-code"></i><span>Markdown</span>`;
@@ -306,7 +307,7 @@ export function createTextReader(textData, onSwitchMedia = () => {}, onDestroy =
             textArea.style.whiteSpace = "normal";
             textArea.innerHTML = parseMarkdown(rawText);
         } else {
-            modeBtn.innerHTML = `<i class="pi pi-align-left"></i><span>Raw Text</span>`;
+            modeBtn.innerHTML = `<i class="pi pi-align-left"></i><span>${t("Raw Text")}</span>`;
             modeBtn.style.background = "#334155";
             modeBtn.style.borderColor = "#64748b";
             textArea.style.fontFamily = "monospace";
@@ -322,8 +323,8 @@ export function createTextReader(textData, onSwitchMedia = () => {}, onDestroy =
 
     copyBtn.onclick = () => {
         navigator.clipboard.writeText(rawText);
-        copyBtn.innerHTML = `<i class="pi pi-check" style="color:#10b981;"></i><span style="color:#10b981;">Copied!</span>`;
-        setTimeout(() => { copyBtn.innerHTML = `<i class="pi pi-copy"></i><span>Copy</span>`; }, 1800);
+        copyBtn.innerHTML = `<i class="pi pi-check" style="color:#10b981;"></i><span style="color:#10b981;">${t("Copied!")}</span>`;
+        setTimeout(() => { copyBtn.innerHTML = `<i class="pi pi-copy"></i><span>${t("Copy")}</span>`; }, 1800);
     };
 
     downloadBtn.onclick = () => {
@@ -352,7 +353,7 @@ export function createTextReader(textData, onSwitchMedia = () => {}, onDestroy =
             rawText = targetData.text || "";
             pid = targetData.pid || "";
             title.textContent = formatTitle(pid);
-            title.title = pid ? `Text Output #${pid}` : "Text Output";
+            title.title = pid ? `${t("Text Output #")}${pid}` : t("Text Output");
             updateView();
         },
         destroy: () => overlay.destroy()

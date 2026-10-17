@@ -1,5 +1,6 @@
 import { is3DFormat, getFilenameFromUrl } from "./utils.js";
 import { SidebarOverlay } from "./overlay.js";
+import { t } from "../core/i18n.js";
 
 let cachedThreeLibs = null;
 
@@ -70,7 +71,7 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
         boxShadow: "0 2px 6px rgba(0,0,0,0.4)", maxWidth: "85%", textAlign: "center"
     });
     const titleText = document.createElement("span");
-    titleText.textContent = getFilenameFromUrl(baseSrc) || "3D Model";
+    titleText.textContent = getFilenameFromUrl(baseSrc) || t("3D Model");
     header.appendChild(titleText);
     overlay.container.appendChild(header);
 
@@ -88,7 +89,7 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
         background: "rgba(0,0,0,0.8)", padding: "10px 18px", borderRadius: "8px",
         display: "flex", alignItems: "center", gap: "10px"
     });
-    loadingSpinner.innerHTML = `<span class="pi pi-spin pi-spinner" style="font-size: 18px;"></span> Loading 3D Asset...`;
+    loadingSpinner.innerHTML = `<span class="pi pi-spin pi-spinner" style="font-size: 18px;"></span> ${t("Loading 3D Asset...")}`;
     overlay.container.appendChild(loadingSpinner);
 
     const settingsPanel = document.createElement("div");
@@ -221,7 +222,7 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
 
         try {
             loadingSpinner.style.display = "flex";
-            loadingSpinner.innerHTML = `<span class="pi pi-spin pi-spinner"></span> Exporting ${format}...`;
+            loadingSpinner.innerHTML = `<span class="pi pi-spin pi-spinner"></span> ${t("Exporting {format}...", { format })}`;
 
             const base = window.__COMFY_SIDEBAR_THREE_BASE || "https://esm.sh/";
             if (format === "OBJ") {
@@ -268,16 +269,16 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
 
     const initSceneAndLoad = async (srcUrl) => {
         loadingSpinner.style.display = "flex";
-        loadingSpinner.innerHTML = `<span class="pi pi-spin pi-spinner" style="font-size: 18px;"></span> Loading 3D Asset...`;
-        titleText.textContent = getFilenameFromUrl(srcUrl) || "3D Model";
+        loadingSpinner.innerHTML = `<span class="pi pi-spin pi-spinner" style="font-size: 18px;"></span> ${t("Loading 3D Asset...")}`;
+        titleText.textContent = getFilenameFromUrl(srcUrl) || t("3D Model");
 
         THREE = await getThreeLibs();
         if (!THREE) {
             loadingSpinner.innerHTML = `
                 <div style="text-align: center; max-width: 340px; line-height: 1.4; padding: 6px;">
-                    <span style="color: #f87171; font-weight: bold; font-size: 13px;">Failed to load 3D engine.</span><br>
+                    <span style="color: #f87171; font-weight: bold; font-size: 13px;">${t("Failed to load 3D engine.")}</span><br>
                     <span style="font-size: 11px; color: #cbd5e1; display: inline-block; margin-top: 4px;">
-                        Unable to download 3D libraries. Make sure your computer is online, or check if <code>--disable-api-nodes</code> is blocking external network requests.
+                        ${t("Unable to download 3D libraries. Make sure your computer is online, or check if <code>--disable-api-nodes</code> is blocking external network requests.")}
                     </span>
                 </div>
             `;
@@ -331,26 +332,26 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
             bgColorInput.oninput = (e) => { scene.background.set(e.target.value); };
 
             const upDirSelect = createSelect([
-                { value: "y-up", label: "Original (Y-Up)" },
-                { value: "z-up", label: "Z-Up (+90°)" },
-                { value: "z-down", label: "Inverted (-90°)" }
+                { value: "y-up", label: t("Original (Y-Up)") },
+                { value: "z-up", label: t("Z-Up (+90°)") },
+                { value: "z-down", label: t("Inverted (-90°)") }
             ], currentUpDirection, (val) => {
                 currentUpDirection = val;
                 applyUpDirection();
             });
 
             const matModeSelect = createSelect([
-                { value: "original", label: "Original / Textured" },
-                { value: "clay", label: "Clay / Studio Matte" },
-                { value: "normal", label: "Normals" }
+                { value: "original", label: t("Original / Textured") },
+                { value: "clay", label: t("Clay / Studio Matte") },
+                { value: "normal", label: t("Normals") }
             ], currentMaterialMode, (val) => {
                 currentMaterialMode = val;
                 applyMaterialMode();
             });
 
             const camTypeSelect = createSelect([
-                { value: "perspective", label: "Perspective" },
-                { value: "orthographic", label: "Orthographic" }
+                { value: "perspective", label: t("Perspective") },
+                { value: "orthographic", label: t("Orthographic") }
             ], "perspective", (val) => {
                 const prevPos = camera.position.clone();
                 const prevTarget = controls.target.clone();
@@ -396,18 +397,18 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
             lightContainer.append(lightSlider, lightVal);
 
             settingsPanel.append(
-                createFormGroup("Background Color", bgColorInput),
-                createFormGroup("Up Direction", upDirSelect),
-                createFormGroup("Material Mode", matModeSelect),
-                createFormGroup("Camera Type", camTypeSelect),
-                createFormGroup("FOV", fovContainer),
-                createFormGroup("Light Intensity", lightContainer)
+                createFormGroup(t("Background Color"), bgColorInput),
+                createFormGroup(t("Up Direction"), upDirSelect),
+                createFormGroup(t("Material Mode"), matModeSelect),
+                createFormGroup(t("Camera Type"), camTypeSelect),
+                createFormGroup(t("FOV"), fovContainer),
+                createFormGroup(t("Light Intensity"), lightContainer)
             );
             overlay.container.appendChild(settingsPanel);
 
-            const btnGrid = createToolbarBtn("pi pi-table", "Grid", true, (v) => { gridHelper.visible = v; });
-            const btnRotate = createToolbarBtn("pi pi-sync", "Auto-Rotate", false, (v) => { autoRotate = v; });
-            const btnWire = createToolbarBtn("pi pi-box", "Wireframe", false, (v) => {
+            const btnGrid = createToolbarBtn("pi pi-table", t("Grid"), true, (v) => { gridHelper.visible = v; });
+            const btnRotate = createToolbarBtn("pi pi-sync", t("Auto-Rotate"), false, (v) => { autoRotate = v; });
+            const btnWire = createToolbarBtn("pi pi-box", t("Wireframe"), false, (v) => {
                 showWireframe = v;
                 applyMaterialMode();
             });
@@ -418,18 +419,18 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
                 borderRadius: "4px", padding: "4px 10px", fontSize: "11px", cursor: "pointer",
                 display: "flex", alignItems: "center", gap: "6px"
             });
-            btnResetCam.innerHTML = `<i class="pi pi-compass"></i><span>Reset View</span>`;
+            btnResetCam.innerHTML = `<i class="pi pi-compass"></i><span>${t("Reset View")}</span>`;
             btnResetCam.onclick = (e) => {
                 e.stopPropagation();
                 if (currentModel) fitCameraToObject(camera, currentModel, controls, THREE);
             };
 
-            const btnSettings = createToolbarBtn("pi pi-sliders-h", "Settings", false, (v) => {
+            const btnSettings = createToolbarBtn("pi pi-sliders-h", t("Settings"), false, (v) => {
                 settingsPanel.style.display = v ? "flex" : "none";
             });
 
             const exportSelect = createSelect([
-                { value: "", label: "Export As..." },
+                { value: "", label: t("Export As...") },
                 { value: "OBJ", label: "OBJ (.obj)" },
                 { value: "GLB", label: "GLB / GLTF" },
                 { value: "STL", label: "STL (.stl)" }
@@ -518,7 +519,7 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
             }
         } catch (err) {
             console.error("Comfy Sidebar: Failed to parse 3D model", err);
-            loadingSpinner.innerHTML = `<span style="color:#f87171;">Failed to load 3D format</span>`;
+            loadingSpinner.innerHTML = `<span style="color:#f87171;">${t("Failed to load 3D format")}</span>`;
             return;
         }
 

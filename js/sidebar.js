@@ -9,6 +9,7 @@ import { applyClassicLayout, setupPropertiesPanelToggleFix, syncClassicLayout, s
 import { initSessionAndHistory, syncQueue } from "./queue/queueService.js";
 import { setupExecutionTracker } from "./queue/executionTracker.js";
 import { setupSidebarView, renderSidebar, teardownSidebarView } from "./ui/sidebarView.js";
+import { initI18n, t } from "./core/i18n.js";
 import { updateCardProgressTargeted, cardPool } from "./ui/cardRenderer.js";
 import { store } from "./core/store.js";
 
@@ -323,6 +324,7 @@ app.registerExtension({
 
     async setup() {
         if (!app.extensionManager || !app.extensionManager.registerSidebarTab) return;
+        await initI18n();
 
         const tabsPos = app.extensionManager?.setting?.get?.("Comfy.Workflow.WorkflowTabsPosition") ??
                         app.ui.settings.getSettingValue("Comfy.Workflow.WorkflowTabsPosition");
@@ -376,8 +378,8 @@ app.registerExtension({
         app.extensionManager.registerSidebarTab({
             id: "classic-comfy-sidebar",
             icon: "pi pi-images",
-            title: "Queue",
-            tooltip: "Comfy Queue (Q)",
+            title: t("Queue"),
+            tooltip: `${t("Queue")} (Q)`,
             type: "custom",
             render: (el) => { el.appendChild(sidebarContainer); }
         });

@@ -1,6 +1,7 @@
 import { app } from "/scripts/app.js";
 import { PromptStatus, StoreEvents, SettingIds } from "../core/constants.js";
 import { store } from "../core/store.js";
+import { t } from "../core/i18n.js";
 import { getOrCreateCard, updateCardDOM, resetAllCardHoverStates, cardPool } from "./cardRenderer.js";
 import { clearCancelledOrFailed, clearAllHistory, cancelAllPending } from "../queue/queueService.js";
 import { updateSidebarBadge, centerAndSelectCanvasNode } from "../comfy/adapter.js";
@@ -177,10 +178,10 @@ export function setupSidebarView() {
 
     const searchIcon = document.createElement("span");
     searchIcon.className = "pi pi-search comfy-sidebar-icon-btn";
-    searchIcon.title = "Search History";
+    searchIcon.title = t("Search History");
 
     const title = document.createElement("h3");
-    title.textContent = "Queue";
+    title.textContent = t("Queue");
     Object.assign(title.style, { margin: "0", fontSize: "14px", fontWeight: "bold", opacity: "0.9", color: "var(--fg-color, #eee)" });
 
     titleGroup.appendChild(searchIcon);
@@ -235,7 +236,7 @@ export function setupSidebarView() {
         return btn;
     };
 
-    const btnToggleIgnore = createInstantBtn("pi pi-eye-slash", "Toggle Ignore Selected Node(s) in Queue (Ctrl+Q)", () => {
+    const btnToggleIgnore = createInstantBtn("pi pi-eye-slash", t("Toggle Ignore Selected Node(s) in Queue (Ctrl+Q)"), () => {
         const raw = app.canvas?.selected_nodes;
         const selected = raw instanceof Map || raw instanceof Set
             ? Array.from(raw.values())
@@ -243,14 +244,14 @@ export function setupSidebarView() {
         const selectedNodes = selected.length > 0 ? selected : (app.canvas?.selected_node ? [app.canvas.selected_node] : []);
 
         if (selectedNodes.length === 0) {
-            showNotification("No nodes selected. Click a node on the canvas first to toggle ignore.", "warn");
+            showNotification(t("No nodes selected. Click a node on the canvas first to toggle ignore."), "warn");
             return;
         }
 
         toggleIgnoreActiveNode(() => renderSidebar());
     });
 
-    const btnRenumber = createInstantBtn("pi pi-sort-numeric-down", "Renumber All Nodes by Execution Order (Alt+R)", async () => {
+    const btnRenumber = createInstantBtn("pi pi-sort-numeric-down", t("Renumber All Nodes by Execution Order (Alt+R)"), async () => {
         await renumberNodesTopologically();
     });
 
@@ -260,12 +261,12 @@ export function setupSidebarView() {
         margin: "0 2px", opacity: "0.6"
     });
 
-    const btnClearInterrupted = createActionBtn("pi pi-eraser", "Clear Cancelled & Failed", "#ffc107", async () => {
+    const btnClearInterrupted = createActionBtn("pi pi-eraser", t("Clear Cancelled & Failed"), "#ffc107", async () => {
         await clearCancelledOrFailed();
         renderSidebar();
     });
 
-    const btnClearAll = createActionBtn("pi pi-trash", "Clear All History", "#dc3545", async () => {
+    const btnClearAll = createActionBtn("pi pi-trash", t("Clear All History"), "#dc3545", async () => {
         await clearAllHistory();
         renderSidebar();
     });
@@ -288,14 +289,14 @@ export function setupSidebarView() {
     searchInputIcon.className = "pi pi-search";
     Object.assign(searchInputIcon.style, { fontSize: "11px", opacity: "0.5", marginRight: "6px" });
     const searchInput = document.createElement("input");
-    Object.assign(searchInput, { type: "text", placeholder: "Filter by text, images, nodes..." });
+    Object.assign(searchInput, { type: "text", placeholder: t("Filter by text, images, nodes...") });
     Object.assign(searchInput.style, {
         flex: "1", background: "transparent", border: "none", outline: "none",
         color: "var(--comfy-input-color, var(--fg-color, #eee))", fontSize: "11px", padding: "0"
     });
     const clearSearchBtn = document.createElement("span");
     clearSearchBtn.className = "pi pi-times comfy-sidebar-icon-btn";
-    clearSearchBtn.title = "Clear & Close Search";
+    clearSearchBtn.title = t("Clear & Close Search");
     Object.assign(clearSearchBtn.style, { marginLeft: "6px" });
 
     searchContainer.appendChild(searchInputIcon);
@@ -341,7 +342,7 @@ export function setupSidebarView() {
 
     scrollToTopBtnEl = document.createElement("button");
     scrollToTopBtnEl.className = "pi pi-chevron-up comfy-sidebar-scroll-top-btn";
-    scrollToTopBtnEl.title = "Scroll to Top";
+    scrollToTopBtnEl.title = t("Scroll to Top");
 
     scrollToTopBtnEl.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -406,9 +407,9 @@ export function renderSidebar() {
             const batchInfo = store.ui.activeSubmenuBatchImages;
 
             if (headerTitle) {
-                headerTitle.textContent = `Batch of #${batchInfo.pid}`;
+                headerTitle.textContent = `${t("Batch of #")}${batchInfo.pid}`;
                 headerTitle.style.cursor = "pointer";
-                headerTitle.title = "Go Back";
+                headerTitle.title = t("Go Back");
                 headerTitle.onclick = () => {
                     if (batchInfo.parentPromptId) {
                         store.openOutputsSubmenu(batchInfo.parentPromptId);
@@ -469,7 +470,7 @@ export function renderSidebar() {
 
                     const btnImg = document.createElement("span");
                     btnImg.className = "pi pi-image comfy-sidebar-card-action-btn";
-                    btnImg.title = "Download Object";
+                    btnImg.title = t("Download Object");
                     btnImg.onclick = (ev) => {
                         ev.stopPropagation();
                         const a = document.createElement("a");
@@ -480,10 +481,10 @@ export function renderSidebar() {
 
                     const btnDel = document.createElement("span");
                     btnDel.className = "pi pi-trash comfy-sidebar-card-action-btn comfy-sidebar-btn-del";
-                    btnDel.title = "Remove from batch (Hold Ctrl to delete file from disk)";
+                    btnDel.title = t("Remove from batch (Hold Ctrl to delete file from disk)");
                     const btnDelLabel = document.createElement("span");
                     btnDelLabel.className = "comfy-sidebar-del-label";
-                    btnDelLabel.textContent = "Delete File";
+                    btnDelLabel.textContent = t("Delete File");
                     btnDel.appendChild(btnDelLabel);
 
                     let isDeletePending = false, isDiskDelete = false, deleteTimeout = null;
@@ -491,7 +492,7 @@ export function renderSidebar() {
                         isDeletePending = false;
                         isDiskDelete = false;
                         btnDel.classList.remove("confirm-delete", "confirm-delete-disk");
-                        btnDel.title = "Remove from batch (Hold Ctrl to delete file from disk)";
+                        btnDel.title = t("Remove from batch (Hold Ctrl to delete file from disk)");
                         if (deleteTimeout) { clearTimeout(deleteTimeout); deleteTimeout = null; }
                     };
 
@@ -504,8 +505,8 @@ export function renderSidebar() {
                             isDiskDelete = wantsDiskDelete;
                             cardObj.btnDel.classList.add(wantsDiskDelete ? "confirm-delete-disk" : "confirm-delete");
                             cardObj.btnDel.title = wantsDiskDelete
-                                ? "Ctrl+Click again to delete file from DISK / TRASH"
-                                : "Click again to confirm removing from batch";
+                                ? t("Ctrl+Click again to delete file from DISK / TRASH")
+                                : t("Click again to confirm removing from batch");
                             deleteTimeout = setTimeout(resetDelete, 2000);
                         } else {
                             const shouldDeleteFromDisk = isDiskDelete || wantsDiskDelete;
@@ -514,8 +515,8 @@ export function renderSidebar() {
                             if (shouldDeleteFromDisk && img && img.filename) {
                                 const action = await deleteFileOnServer(img);
                                 if (action) {
-                                    const msg = action === "trashed" ? "Moved file to Recycle Bin." : "Permanently deleted file.";
-                                    showNotification(msg, "success", "Delete File");
+                                    const msg = action === "trashed" ? t("Moved file to Recycle Bin.") : t("Permanently deleted file.");
+                                    showNotification(msg, "success", t("Delete File"));
                                 }
                             }
 
@@ -565,7 +566,7 @@ export function renderSidebar() {
 
                     const btnCopy = document.createElement("span");
                     btnCopy.className = "pi pi-copy comfy-sidebar-card-action-btn";
-                    btnCopy.title = "Copy to Clipboard";
+                    btnCopy.title = t("Copy to Clipboard");
                     const isCopyable = isImageFormat(img.filename || img.url);
                     if (!isCopyable) {
                         btnCopy.style.display = "none";
@@ -587,7 +588,7 @@ export function renderSidebar() {
 
                     const btnFocus = document.createElement("span");
                     btnFocus.className = "pi pi-eye comfy-sidebar-card-action-btn";
-                    btnFocus.title = "Show Node";
+                    btnFocus.title = t("Show Node");
                     const nodeId = findNodeIdForImage({ nodeOutputs: batchInfo.nodeOutputs }, img);
                     if (nodeId) {
                         btnFocus.onclick = (ev) => {
@@ -649,9 +650,9 @@ export function renderSidebar() {
             }
 
             if (headerTitle) {
-                headerTitle.textContent = `Outputs of #${store.ui.activeSubmenuPromptId}`;
+                headerTitle.textContent = `${t("Outputs of #")}${store.ui.activeSubmenuPromptId}`;
                 headerTitle.style.cursor = "pointer";
-                headerTitle.title = "Go Back to Queue";
+                headerTitle.title = t("Go Back to Queue");
                 headerTitle.onclick = () => {
                     store.closeSubmenu();
                     resetAllCardHoverStates();
@@ -691,7 +692,7 @@ export function renderSidebar() {
                     padding: "16px", textAlign: "center", color: "var(--desc-color, #aaa)", fontSize: "12px",
                     gridColumn: "1 / -1"
                 });
-                emptyCard.textContent = "No separate intermediate outputs found.";
+                emptyCard.textContent = t("No separate intermediate outputs found.");
                 targetElements.push(emptyCard);
             } else {
                 outputs.forEach((out) => {
@@ -738,7 +739,7 @@ export function renderSidebar() {
 
                         const btnImg = document.createElement("span");
                         btnImg.className = "pi pi-image comfy-sidebar-card-action-btn";
-                        btnImg.title = "Download Object";
+                        btnImg.title = t("Download Object");
                         btnImg.onclick = (ev) => {
                             ev.stopPropagation();
                             out.images.forEach(img => {
@@ -751,10 +752,10 @@ export function renderSidebar() {
 
                         const btnDel = document.createElement("span");
                         btnDel.className = "pi pi-trash comfy-sidebar-card-action-btn comfy-sidebar-btn-del";
-                        btnDel.title = "Delete node output (Hold Ctrl to delete file from disk)";
+                        btnDel.title = t("Delete node output (Hold Ctrl to delete file from disk)");
                         const btnDelLabel = document.createElement("span");
                         btnDelLabel.className = "comfy-sidebar-del-label";
-                        btnDelLabel.textContent = "Delete File";
+                        btnDelLabel.textContent = t("Delete File");
                         btnDel.appendChild(btnDelLabel);
 
                         let isDeletePending = false, isDiskDelete = false, deleteTimeout = null;
@@ -762,7 +763,7 @@ export function renderSidebar() {
                             isDeletePending = false;
                             isDiskDelete = false;
                             btnDel.classList.remove("confirm-delete", "confirm-delete-disk");
-                            btnDel.title = "Delete node output (Hold Ctrl to delete file from disk)";
+                            btnDel.title = t("Delete node output (Hold Ctrl to delete file from disk)");
                             if (deleteTimeout) { clearTimeout(deleteTimeout); deleteTimeout = null; }
                         };
 
@@ -775,8 +776,8 @@ export function renderSidebar() {
                                 isDiskDelete = wantsDiskDelete;
                                 btnDel.classList.add(wantsDiskDelete ? "confirm-delete-disk" : "confirm-delete");
                                 btnDel.title = wantsDiskDelete
-                                    ? "Ctrl+Click again to delete this node's files from DISK / TRASH"
-                                    : "Click again to confirm removing output";
+                                    ? t("Ctrl+Click again to delete this node's files from DISK / TRASH")
+                                    : t("Click again to confirm removing output");
                                 deleteTimeout = setTimeout(resetDelete, 2000);
                             } else {
                                 const shouldDeleteFromDisk = isDiskDelete || wantsDiskDelete;
@@ -825,7 +826,7 @@ export function renderSidebar() {
 
                         const btnCopy = document.createElement("span");
                         btnCopy.className = "pi pi-copy comfy-sidebar-card-action-btn";
-                        btnCopy.title = "Copy to Clipboard";
+                        btnCopy.title = t("Copy to Clipboard");
                         const firstImg = out.images[0];
                         const isCopyable = firstImg && isImageFormat(firstImg.filename || firstImg.url);
                         if (!isCopyable) {
@@ -848,7 +849,7 @@ export function renderSidebar() {
 
                         const btnFocus = document.createElement("span");
                         btnFocus.className = "pi pi-eye comfy-sidebar-card-action-btn";
-                        btnFocus.title = "Show Node";
+                        btnFocus.title = t("Show Node");
                         btnFocus.onclick = (ev) => {
                             ev.stopPropagation();
                             centerAndSelectCanvasNode(out.nodeId);
@@ -901,7 +902,7 @@ export function renderSidebar() {
                         });
                     } else {
                         cardObj.placeholder.style.display = "block";
-                        cardObj.placeholder.textContent = "No Outputs";
+                        cardObj.placeholder.textContent = t("No Outputs");
                     }
 
                     targetElements.push(cardObj.element);
@@ -920,7 +921,7 @@ export function renderSidebar() {
 
         // Main Queue View
         if (headerTitle) {
-            headerTitle.textContent = "Queue";
+            headerTitle.textContent = t("Queue");
             headerTitle.style.cursor = "default";
             headerTitle.onclick = null;
         }
@@ -962,7 +963,7 @@ export function renderSidebar() {
                     const textDiv = document.createElement("div");
                     el.appendChild(textDiv);
                     const cancelBtn = document.createElement("button");
-                    cancelBtn.textContent = "Cancel All Pending";
+                    cancelBtn.textContent = t("Cancel All Pending");
                     Object.assign(cancelBtn.style, {
                         background: "#dc3545", color: "white", border: "none", borderRadius: "3px", padding: "4px",
                         cursor: "pointer", fontSize: "11px", fontWeight: "bold"
@@ -974,13 +975,13 @@ export function renderSidebar() {
                     pCard = { element: el, textDiv };
                     cardPool.set("pending-summary-card", pCard);
                 }
-                pCard.textDiv.textContent = `Pending Queue: ${pendingCount} tasks`;
+                pCard.textDiv.textContent = `${t("Pending Queue:")} ${pendingCount} ${t("tasks")}`;
                 bannerElements.push(pCard.element);
             } else {
                 let btnCard = cardPool.get("pending-cancel-all-standalone");
                 if (!btnCard) {
                     const btn = document.createElement("button");
-                    btn.textContent = "Cancel All Pending";
+                    btn.textContent = t("Cancel All Pending");
                     Object.assign(btn.style, {
                         background: "#dc3545", color: "white", border: "none", borderRadius: "3px", padding: "6px",
                         cursor: "pointer", fontSize: "11px", fontWeight: "bold", width: "100%"

@@ -5,6 +5,7 @@ import { stopAllAudioPlayback } from "../ui/audioController.js";
 import { SidebarOverlay } from "./overlay.js";
 import { store } from "../core/store.js";
 import { PromptStatus } from "../core/constants.js";
+import { t } from "../core/i18n.js";
 
 let activeComparisonViewer = null;
 let isRuntimePreviewActive = false;
@@ -213,7 +214,7 @@ function createAudioViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = () => 
         borderRadius: "4px", padding: "4px 8px", fontSize: "11px", cursor: "pointer"
     });
     loopBtn.innerHTML = `<i class="pi pi-replay"></i>`;
-    loopBtn.title = "Toggle Loop";
+    loopBtn.title = t("Toggle Loop");
 
     const speedSelect = document.createElement("select");
     Object.assign(speedSelect.style, {
@@ -501,8 +502,8 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
     });
     const infoText = document.createElement("span");
     infoText.textContent = isBaseVideo 
-        ? "Video playback. Press Esc to close." 
-        : "Click image to zoom (100%/Fit) | Shift+Click another card to compare.";
+        ? t("Video playback. Press Esc to close.") 
+        : t("Click image to zoom (100%/Fit) | Shift+Click another card to compare.");
     header.appendChild(infoText);
     overlay.container.appendChild(header);
 
@@ -667,12 +668,12 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
         const arDiff = Math.abs(arA - arB) / Math.max(arA, arB);
 
         if (arDiff > 0.05) {
-            infoText.textContent = `Aspect ratio mismatch (${wA}x${hA} vs ${wB}x${hB}). Images must have matching proportions to compare.`;
+            infoText.textContent = t("Aspect ratio mismatch ({wA}x{hA} vs {wB}x{hB}). Images must have matching proportions to compare.", { wA, hA, wB, hB });
             infoText.style.color = "#f87171";
             setTimeout(() => {
                 if (infoText) {
                     infoText.style.color = "#aaa";
-                    infoText.textContent = "Click image to zoom (100%/Fit) | Shift+Click another card to compare.";
+                    infoText.textContent = t("Click image to zoom (100%/Fit) | Shift+Click another card to compare.");
                 }
             }, 3500);
 
@@ -689,7 +690,7 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
         if (mediaA) mediaA.style.pointerEvents = "none";
         if (mediaB) mediaB.style.pointerEvents = "none";
         infoText.style.color = "#aaa";
-        infoText.textContent = "Click image to zoom | Drag image to compare slider | Esc to close.";
+        infoText.textContent = t("Click image to zoom | Drag image to compare slider | Esc to close.");
         updateSliderPosition(50);
 
         const maxW = Math.max(wA, wB);
@@ -891,7 +892,7 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
                 mediaA.onload = () => {
                     hidePlaceholder();
                     infoText.style.color = "#aaa";
-                    infoText.textContent = "Click image to zoom (100%/Fit) | Shift+Click another card to compare.";
+                    infoText.textContent = t("Click image to zoom (100%/Fit) | Shift+Click another card to compare.");
                     syncImageScales();
                 };
             }

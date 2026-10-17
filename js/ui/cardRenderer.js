@@ -1,5 +1,6 @@
 import { app } from "/scripts/app.js";
 import { PromptStatus } from "../core/constants.js";
+import { t } from "../core/i18n.js";
 import { store } from "../core/store.js";
 import { renderCardImages } from "./mediaPreview.js";
 import { copyImageToClipboard, openFileOrFolder, deleteFileOnServer, findNodeIdForImage, removeImageFromNodeOutputs } from "./mediaActions.js";
@@ -96,7 +97,7 @@ export function syncCardButtonVisibility(cardObj, state) {
                     if (wf) state.workflow = wf;
                 }
                 if (!wf) {
-                    alert("No workflow metadata found in this file.");
+                    alert(t("No workflow metadata found in this file."));
                     return;
                 }
                 const blob = new Blob([JSON.stringify(wf, null, 2)], { type: "application/json" });
@@ -121,8 +122,8 @@ export function syncCardButtonVisibility(cardObj, state) {
             cardObj.btnDelLabel.style.display = hasRealDiskFiles ? "" : "none";
         }
         cardObj.btnDel.title = hasRealDiskFiles 
-            ? "Delete Card (Hold Ctrl to delete file from disk)" 
-            : "Delete Card";
+            ? t("Delete Card (Hold Ctrl to delete file from disk)") 
+            : t("Delete Card");
     }
 
     if (cardObj.btnFocus) {
@@ -130,7 +131,7 @@ export function syncCardButtonVisibility(cardObj, state) {
         if (nodeId) {
             cardObj.btnFocus.style.removeProperty("display");
             cardObj.btnFocus.style.display = "inline-flex";
-            cardObj.btnFocus.title = (!currentImg && state.activeNodeId) ? "Show Stopped/Failed Node" : "Show Node";
+            cardObj.btnFocus.title = (!currentImg && state.activeNodeId) ? t("Show Stopped/Failed Node") : t("Show Node");
             cardObj.btnFocus.onclick = (ev) => {
                 ev.stopPropagation();
                 centerAndSelectCanvasNode(nodeId);
@@ -322,7 +323,7 @@ export function updateCardProgressTargeted(cardObj, progress, activeNodeName, sh
     }
     if (cardObj.statusText && showWorkingNode) {
         cardObj.statusText.style.display = "block";
-        const nodeText = activeNodeName ? (activeNodeName === "Finishing..." ? "Finishing..." : `[${activeNodeName}]`) : "Processing...";
+        const nodeText = activeNodeName ? (activeNodeName === "Finishing..." ? t("Finishing...") : `[${activeNodeName}]`) : t("Processing...");
         cardObj.statusText.textContent = `${nodeText} ${progress}%`;
     }
 
@@ -408,23 +409,23 @@ export function getOrCreateCard(state, callbacks = {}) {
 
     const btnImg = document.createElement("span");
     btnImg.className = "pi pi-image comfy-sidebar-card-action-btn";
-    btnImg.title = "Download Object";
+    btnImg.title = t("Download Object");
 
     const btnCopy = document.createElement("span");
     btnCopy.className = "pi pi-copy comfy-sidebar-card-action-btn";
-    btnCopy.title = "Copy to Clipboard";
+    btnCopy.title = t("Copy to Clipboard");
     btnCopy.style.display = "none";
 
     const btnJson = document.createElement("span");
     btnJson.className = "pi pi-file comfy-sidebar-card-action-btn";
-    btnJson.title = "Download JSON";
+    btnJson.title = t("Download JSON");
 
     const btnDel = document.createElement("span");
     btnDel.className = "pi pi-trash comfy-sidebar-card-action-btn comfy-sidebar-btn-del";
-    btnDel.title = "Delete Card (Hold Ctrl to delete file from disk)";
+    btnDel.title = t("Delete Card (Hold Ctrl to delete file from disk)");
     const btnDelLabel = document.createElement("span");
     btnDelLabel.className = "comfy-sidebar-del-label";
-    btnDelLabel.textContent = "Delete File";
+    btnDelLabel.textContent = t("Delete File");
     btnDel.appendChild(btnDelLabel);
 
     const leftHoverPanel = document.createElement("div");
@@ -435,11 +436,11 @@ export function getOrCreateCard(state, callbacks = {}) {
 
     const btnFocus = document.createElement("span");
     btnFocus.className = "pi pi-eye comfy-sidebar-card-action-btn";
-    btnFocus.title = "Show Node";
+    btnFocus.title = t("Show Node");
 
     const leftHoverBtn = document.createElement("span");
     leftHoverBtn.className = "pi pi-images comfy-sidebar-card-action-btn";
-    leftHoverBtn.title = "View all intermediate outputs";
+    leftHoverBtn.title = t("View all intermediate outputs");
 
     hoverPanel.append(btnImg, btnJson, btnDel);
     leftHoverPanel.append(btnCopy, btnFocus, leftHoverBtn);
@@ -507,7 +508,7 @@ export function getOrCreateCard(state, callbacks = {}) {
         isDeletePending = false;
         isDiskDelete = false;
         cardObj.btnDel.classList.remove("confirm-delete", "confirm-delete-disk");
-        cardObj.btnDel.title = "Delete Card (Ctrl+Click to delete from disk)";
+        cardObj.btnDel.title = t("Delete Card (Ctrl+Click to delete from disk)");
         if (deleteTimeout) { clearTimeout(deleteTimeout); deleteTimeout = null; }
     };
 
@@ -520,8 +521,8 @@ export function getOrCreateCard(state, callbacks = {}) {
             isDiskDelete = wantsDiskDelete;
             cardObj.btnDel.classList.add(wantsDiskDelete ? "confirm-delete-disk" : "confirm-delete");
             cardObj.btnDel.title = wantsDiskDelete
-                ? "Ctrl+Click again to delete file from DISK / TRASH"
-                : "Click again to confirm removing card";
+                ? t("Ctrl+Click again to delete file from DISK / TRASH")
+                : t("Click again to confirm removing card");
             deleteTimeout = setTimeout(resetDeleteBtn, 2000);
         } else {
             const shouldDeleteFromDisk = isDiskDelete || wantsDiskDelete;
@@ -600,7 +601,7 @@ export function updateCardDOM(cardObj, state, showPendingSummary = true, showWor
             color: "#000", 
             zIndex: "30" 
         });
-        cardObj.statusBadge.textContent = "Cancelled";
+        cardObj.statusBadge.textContent = t("Cancelled");
         if (cardObj.dimEl) cardObj.dimEl.style.display = "none";
     } else if (state.status === PromptStatus.ERROR) {
         Object.assign(cardObj.statusBadge.style, { 
@@ -609,7 +610,7 @@ export function updateCardDOM(cardObj, state, showPendingSummary = true, showWor
             color: "#fff", 
             zIndex: "30" 
         });
-        cardObj.statusBadge.textContent = "Error";
+        cardObj.statusBadge.textContent = t("Error");
         if (cardObj.dimEl) cardObj.dimEl.style.display = "none";
     } else {
         cardObj.statusBadge.style.display = "none";
@@ -617,14 +618,14 @@ export function updateCardDOM(cardObj, state, showPendingSummary = true, showWor
 
     if (state.status === PromptStatus.PENDING && !showPendingSummary) {
         cardObj.cancelBtn.style.display = "flex";
-        cardObj.cancelBtn.title = "Cancel Queued Task";
+        cardObj.cancelBtn.title = t("Cancel Queued Task");
         cardObj.cancelBtn.onclick = async (ev) => {
             ev.stopPropagation();
             cancelPendingTask(state.pid);
         };
     } else if (state.status === PromptStatus.ACTIVE) {
         cardObj.cancelBtn.style.display = "flex";
-        cardObj.cancelBtn.title = "Interrupt Execution";
+        cardObj.cancelBtn.title = t("Interrupt Execution");
         cardObj.cancelBtn.onclick = async (ev) => {
             ev.stopPropagation();
             interruptActive();
@@ -663,7 +664,7 @@ export function updateCardDOM(cardObj, state, showPendingSummary = true, showWor
         if (state.texts && state.texts.length > 0) {
             const fullText = state.texts.join("\n\n");
             cardObj.placeholder.textContent = fullText;
-            cardObj.placeholder.title = "Click to read full text";
+            cardObj.placeholder.title = t("Click to read full text");
             cardObj.placeholder.className = "comfy-sidebar-text-clamp";
             cardObj.placeholder.style.cssText = "";
             cardObj.placeholder.style.display = "-webkit-box";
@@ -673,7 +674,7 @@ export function updateCardDOM(cardObj, state, showPendingSummary = true, showWor
                 showFullscreenPreview([{ text: fullText, pid: state.pid }], false, state.pid);
             };
         } else {
-            cardObj.placeholder.textContent = state.progressText || "No Outputs";
+            cardObj.placeholder.textContent = state.progressText || t("No Outputs");
             cardObj.placeholder.className = "";
             Object.assign(cardObj.placeholder.style, {
                 fontSize: "11px", opacity: "0.5", textAlign: "center", padding: "12px", marginTop: "12px",
@@ -686,7 +687,7 @@ export function updateCardDOM(cardObj, state, showPendingSummary = true, showWor
     if (state.status === PromptStatus.ACTIVE) {
         if (showWorkingNode) {
             cardObj.statusText.style.display = "block";
-            const nodeText = state.activeNodeName ? (state.activeNodeName === "Finishing..." ? "Finishing..." : `[${state.activeNodeName}]`) : "Processing...";
+            const nodeText = state.activeNodeName ? (state.activeNodeName === "Finishing..." ? t("Finishing...") : `[${state.activeNodeName}]`) : t("Processing...");
             cardObj.statusText.textContent = `${nodeText}${state.progress ? ` ${state.progress}%` : ""}`;
         } else {
             cardObj.statusText.style.display = "none";

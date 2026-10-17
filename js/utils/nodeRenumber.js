@@ -1,8 +1,9 @@
 import { app } from "/scripts/app.js";
+import { t } from "../core/i18n.js";
 import { syncAllNodeBadges } from "../comfy/nodes.js";
 
 export function showNotification(message, type = "success", title = null) {
-    const summary = title || (type === "error" ? "Error" : type === "warn" ? "Warning" : "Comfy Sidebar");
+    const summary = title || (type === "error" ? t("Error") : type === "warn" ? t("Warning") : "Comfy Sidebar");
     
     if (app.extensionManager?.toast?.add) {
         app.extensionManager.toast.add({
@@ -57,14 +58,12 @@ export function showNotification(message, type = "success", title = null) {
 
 export async function renumberNodesTopologically() {
     if (!app.graph || !app.graph._nodes || app.graph._nodes.length === 0) {
-        showNotification("No nodes found on canvas to renumber.", "warn");
+        showNotification(t("No nodes found on canvas to renumber."), "warn");
         return;
     }
 
     const confirmed = confirm(
-        "Renumbering will rewrite all node IDs on the canvas in topological execution order.\n\n" +
-        "This will fix intermediate node outputs showing as the final result, but may break external scripts that rely on specific node IDs\n\n" +
-        "Do you want to proceed?"
+        t("Renumbering will rewrite all node IDs on the canvas in topological execution order.\n\nThis will fix intermediate node outputs showing as the final result, but may break external scripts that rely on specific node IDs\n\nDo you want to proceed?")
     );
     if (!confirmed) return;
 
@@ -137,10 +136,10 @@ export async function renumberNodesTopologically() {
 
         const lastNode = sortedNodes[sortedNodes.length - 1];
         const lastNodeName = lastNode ? (lastNode.title || lastNode.type) : "SaveImage";
-        showNotification(`Renumbered ${sortedNodes.length} nodes by execution order. Latest node: #${lastNode.id} (${lastNodeName}).`, "success");
+        showNotification(t("Renumbered {count} nodes by execution order. Latest node: #{id} ({name}).", { count: sortedNodes.length, id: lastNode ? lastNode.id : "", name: lastNodeName }), "success");
     } catch (err) {
         console.error("ComfySidebar: Failed to renumber nodes", err);
-        showNotification("Failed to renumber nodes: " + err.message, "error");
+        showNotification(t("Failed to renumber nodes: ") + err.message, "error");
     }
 }
 
@@ -152,17 +151,17 @@ export async function setManualNodeId(targetNode = null) {
         : (Array.isArray(rawSelected) ? rawSelected : (rawSelected && typeof rawSelected === "object" ? Object.values(rawSelected) : []));
     const node = targetNode || selectedList[0] || app.canvas?.current_active_node || null;
     if (!node) {
-        showNotification("Please select a node first to change its ID.", "warn");
+        showNotification(t("Please select a node first to change its ID."), "warn");
         return;
     }
 
     const currentId = node.id;
-    const input = prompt(`Enter new ID for node #${currentId} (${node.title || node.type}):`, String(currentId));
+    const input = prompt(t("Enter new ID for node #{id} ({name}):", { id: currentId, name: node.title || node.type }), String(currentId));
     if (!input) return;
 
     const newId = parseInt(input.trim(), 10);
     if (isNaN(newId) || newId <= 0) {
-        showNotification("Please enter a valid positive number.", "error");
+        showNotification(t("Please enter a valid positive number."), "error");
         return;
     }
     if (newId === currentId) return;
@@ -170,7 +169,7 @@ export async function setManualNodeId(targetNode = null) {
     try {
         const existingNode = app.graph.getNodeById ? app.graph.getNodeById(newId) : null;
         if (existingNode && existingNode !== node) {
-            const confirmSwap = confirm(`Node ID #${newId} is already used by "${existingNode.title || existingNode.type}". Swap their IDs?`);
+            const confirmSwap = confirm(t("Node ID #{id} is already used by \"{name}\". Swap their IDs?", { id: newId, name: existingNode.title || existingNode.type }));
             if (!confirmSwap) return;
         }
 
@@ -209,9 +208,9 @@ export async function setManualNodeId(targetNode = null) {
             app.canvas.draw(true, true);
         }
         syncAllNodeBadges();
-        showNotification(`Assigned node ID #${newId} to "${node.title || node.type}".`, "success");
+        showNotification(t("Assigned node ID #{id} to \"{name}\".", { id: newId, name: node.title || node.type }), "success");
     } catch (err) {
         console.error("ComfySidebar: Failed to set node ID", err);
-        showNotification("Failed to set node ID: " + err.message, "error");
+        showNotification(t("Failed to set node ID: ") + err.message, "error");
     }
 }

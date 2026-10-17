@@ -4,6 +4,7 @@ import { stopAllAudioPlayback, isAudioViewerOpen, setCurrentlyPlayingAudio, getC
 import { showFullscreenPreview } from "../utils/comparison.js";
 import { store } from "../core/store.js";
 import { PromptStatus } from "../core/constants.js";
+import { t } from "../core/i18n.js";
 import { deleteHistoryItem } from "../queue/queueService.js";
 
 export function findWorkflowBackgroundThumbnail(state, randParam = "") {
@@ -372,7 +373,7 @@ export function renderGenericFileCardPreview(cardObj, wrapper, src, img, state) 
 
         const openHint = document.createElement("div");
         openHint.className = "comfy-sidebar-file-subtext";
-        openHint.innerHTML = `<i class="pi pi-external-link" style="font-size: 9px;"></i><span>Open Folder</span>`;
+        openHint.innerHTML = `<i class="pi pi-external-link" style="font-size: 9px;"></i><span>${t("Open Folder")}</span>`;
 
         bottomRow.append(folderInfo, openHint);
 
@@ -455,7 +456,7 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
     if (!ctrlOverlay) {
         ctrlOverlay = document.createElement("div");
         ctrlOverlay.className = "comfy-sidebar-ctrl-overlay";
-        ctrlOverlay.innerHTML = `<i class="pi pi-folder-open"></i><span>Open Location</span>`;
+        ctrlOverlay.innerHTML = `<i class="pi pi-folder-open"></i><span>${t("Open Location")}</span>`;
         wrapper.appendChild(ctrlOverlay);
     }
 
@@ -791,7 +792,7 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
             label.className = "comfy-sidebar-batch-label";
             label.textContent = `${idx + 1}/${state.images.length}`;
             label.style.cursor = "pointer";
-            label.title = "View all images in this batch";
+            label.title = t("View all images in this batch");
             
             label.onclick = (ev) => {
                 ev.stopPropagation();
