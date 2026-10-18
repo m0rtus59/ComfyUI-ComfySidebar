@@ -578,10 +578,6 @@ function syncPropertiesButton(isClassicLayoutEnabled) {
     const openState = isPropertiesPanelOpen();
 
     if (originalBtn) {
-        if (!originalBtn.classList.contains("comfy-sidebar-hide-original-properties-btn")) {
-            originalBtn.classList.add("comfy-sidebar-hide-original-properties-btn");
-        }
-
         savedButtonData = {
             className: originalBtn.className.replace("comfy-sidebar-hide-original-properties-btn", "").trim(),
             innerHTML: originalBtn.innerHTML,
@@ -591,6 +587,26 @@ function syncPropertiesButton(isClassicLayoutEnabled) {
                 value: attr.value
             }))
         };
+
+        // When closed: keep originalBtn visible (ComfyUI renders error outlines & dot natively).
+        // When open: hide originalBtn so our customBtn takes its pinned place.
+        if (openState) {
+            if (!originalBtn.classList.contains("comfy-sidebar-hide-original-properties-btn")) {
+                originalBtn.classList.add("comfy-sidebar-hide-original-properties-btn");
+            }
+        } else {
+            if (originalBtn.classList.contains("comfy-sidebar-hide-original-properties-btn")) {
+                originalBtn.classList.remove("comfy-sidebar-hide-original-properties-btn");
+            }
+        }
+
+        // Clicking the native button to open the panel triggers an instant layout sync
+        if (!originalBtn._syncAttached) {
+            originalBtn._syncAttached = true;
+            originalBtn.addEventListener("click", () => {
+                requestAnimationFrame(() => syncClassicLayout());
+            });
+        }
     }
 
     let customBtn = document.querySelector(".comfy-sidebar-custom-properties-toggle");
@@ -621,31 +637,11 @@ function syncPropertiesButton(isClassicLayoutEnabled) {
     }
 
     if (customBtn) {
-        if (originalBtn) {
-            const cleanedHTML = cleanHTML(originalBtn.innerHTML);
-            if (cleanedHTML && customBtn.innerHTML !== cleanedHTML) {
-                const existingDot = customBtn.querySelector('.comfy-sidebar-error-dot');
-                customBtn.innerHTML = cleanedHTML;
-                if (existingDot) customBtn.appendChild(existingDot);
-            }
-
-            const titleVal = originalBtn.getAttribute("title") || originalBtn.getAttribute("aria-label") || "Toggle properties panel";
-            customBtn.setAttribute("title", titleVal);
-            customBtn.setAttribute("aria-label", titleVal);
-
-            for (const cls of originalBtn.classList) {
-                if (cls !== "comfy-sidebar-hide-original-properties-btn" && !customBtn.classList.contains(cls)) {
-                    customBtn.classList.add(cls);
-                }
-            }
-
-            syncErrorBadge(originalBtn, customBtn);
-        } else if (!customBtn.getAttribute("title")) {
+        if (!customBtn.getAttribute("title")) {
             customBtn.setAttribute("title", "Toggle properties panel");
             customBtn.setAttribute("aria-label", "Toggle properties panel");
         }
         customBtn.classList.toggle("comfy-panel-open", openState);
-        customBtn.style.display = "inline-flex";
     }
 }
 
@@ -812,15 +808,15 @@ export function setupPropertiesPanelToggleFix() {
                 order: 99999 !important;
                 position: relative !important;
                 overflow: visible !important;
-                margin-left: -8px !important;
+                margin-left: 0px !important;
                 margin-right: 0px !important;
-                display: inline-flex !important;
+                display: none !important;
                 align-items: center !important;
                 justify-content: center !important;
                 padding: 0 !important;
             }
             .comfy-sidebar-custom-properties-toggle.comfy-panel-open {
-                margin-left: 0px !important;
+                display: inline-flex !important;
             }
             .comfy-sidebar-custom-properties-toggle > span.comfy-sidebar-error-dot {
                 display: inline-flex !important;
