@@ -56,6 +56,106 @@ export function showNotification(message, type = "success", title = null) {
     }, 3500);
 }
 
+function remapWidgetValue(val, oldToNew) {
+    if (typeof val === "string") {
+        const match = val.match(/^\$([^-]+)-(.*)$/);
+        if (match) {
+            const mapped = oldToNew.get(match[1]) ?? oldToNew.get(Number(match[1]));
+            if (mapped != null) {
+                return `$${mapped}-${match[2]}`;
+            }
+        }
+    }
+    return val;
+}
+
+function applyIdMappingToGraph(oldToNew) {
+    if (!app.graph) return;
+    const graphData = app.graph.serialize();
+    if (!graphData) return;
+
+    // 1. Remap node IDs and internal widget references
+    if (Array.isArray(graphData.nodes)) {
+        for (const node of graphData.nodes) {
+            const oldId = node.id;
+            const newId = oldToNew.get(oldId) ?? oldToNew.get(String(oldId)) ?? oldToNew.get(Number(oldId));
+            if (newId != null) {
+                node.id = newId;
+            }
+            if (Array.isArray(node.widgets_values)) {
+                node.widgets_values = node.widgets_values.map(val => remapWidgetValue(val, oldToNew));
+            } else if (node.widgets_values && typeof node.widgets_values === "object") {
+                for (const key of Object.keys(node.widgets_values)) {
+                    node.widgets_values[key] = remapWidgetValue(node.widgets_values[key], oldToNew);
+                }
+            }
+        }
+    }
+
+    // 2. Remap link endpoints (both array tuples and object representations)
+    const linkList = Array.isArray(graphData.links)
+        ? graphData.links
+        : (graphData.links && typeof graphData.links === "object" ? Object.values(graphData.links) : []);
+
+    for (const link of linkList) {
+        if (!link) continue;
+        if (Array.isArray(link)) {
+            // [id, origin_id, origin_slot, target_id, target_slot, type]
+            const originId = link[1];
+            const targetId = link[3];
+            const newOrigin = oldToNew.get(originId) ?? oldToNew.get(String(originId)) ?? oldToNew.get(Number(originId));
+            if (newOrigin != null) link[1] = newOrigin;
+            const newTarget = oldToNew.get(targetId) ?? oldToNew.get(String(targetId)) ?? oldToNew.get(Number(targetId));
+            if (newTarget != null) link[3] = newTarget;
+        } else if (typeof link === "object") {
+            const originId = link.origin_id;
+            const targetId = link.target_id;
+            const newOrigin = oldToNew.get(originId) ?? oldToNew.get(String(originId)) ?? oldToNew.get(Number(originId));
+            if (newOrigin != null) link.origin_id = newOrigin;
+            const newTarget = oldToNew.get(targetId) ?? oldToNew.get(String(targetId)) ?? oldToNew.get(Number(targetId));
+            if (newTarget != null) link.target_id = newTarget;
+        }
+    }
+
+    // 3. Remap group membership if defined
+    if (Array.isArray(graphData.groups)) {
+        for (const group of graphData.groups) {
+            if (Array.isArray(group.nodes)) {
+                group.nodes = group.nodes.map(id => oldToNew.get(id) ?? oldToNew.get(String(id)) ?? oldToNew.get(Number(id)) ?? id);
+            }
+        }
+    }
+
+    // 4. Update graph last_node_id counter
+    let maxId = 0;
+    for (const val of oldToNew.values()) {
+        const num = Number(val);
+        if (!isNaN(num) && num > maxId) maxId = num;
+    }
+    graphData.last_node_id = Math.max(graphData.last_node_id || 0, maxId, graphData.nodes?.length || 0);
+
+    // 5. Preserve canvas pan/zoom coordinates so the screen doesn't jump
+    const currentScale = app.canvas?.ds?.scale;
+    const currentOffset = app.canvas?.ds?.offset ? [...app.canvas.ds.offset] : null;
+
+    app.graph.configure(graphData);
+
+    if (app.canvas?.ds && currentScale != null && currentOffset != null) {
+        app.canvas.ds.scale = currentScale;
+        app.canvas.ds.offset[0] = currentOffset[0];
+        app.canvas.ds.offset[1] = currentOffset[1];
+    }
+
+    if (typeof app.graph.afterChange === "function") {
+        app.graph.afterChange();
+    }
+    app.graph.setDirtyCanvas(true, true);
+    if (app.canvas?.draw) {
+        app.canvas.draw(true, true);
+    }
+    syncAllNodeBadges();
+}
+
 export async function renumberNodesTopologically() {
     if (!app.graph || !app.graph._nodes || app.graph._nodes.length === 0) {
         showNotification(t("No nodes found on canvas to renumber."), "warn");
@@ -88,55 +188,21 @@ export async function renumberNodesTopologically() {
             return posYA - posYB;
         });
 
+        const isStringId = typeof sortedNodes[0]?.id === "string";
         const oldToNew = new Map();
         sortedNodes.forEach((node, index) => {
-            const newId = index + 1;
+            const newId = isStringId ? String(index + 1) : (index + 1);
             oldToNew.set(node.id, newId);
             oldToNew.set(String(node.id), newId);
+            oldToNew.set(Number(node.id), newId);
         });
 
-        // 1. Remap node IDs in-place on app.graph
-        app.graph._nodes_by_id = {};
-        sortedNodes.forEach(node => {
-            const oldId = node.id;
-            const newId = oldToNew.get(oldId);
-            if (newId != null) {
-                // Update internal widget IDs like "$2034-0" (PreviewBridge)
-                if (Array.isArray(node.widgets)) {
-                    for (const w of node.widgets) {
-                        if (typeof w.value === "string" && w.value.startsWith(`$${oldId}-`)) {
-                            w.value = w.value.replace(`$${oldId}-`, `$${newId}-`);
-                        }
-                    }
-                }
-                node.id = newId;
-                app.graph._nodes_by_id[newId] = node;
-            }
-        });
-
-        // 2. Remap links
-        if (app.graph.links) {
-            const links = app.graph.links instanceof Map 
-                ? Array.from(app.graph.links.values()) 
-                : Object.values(app.graph.links);
-
-            links.forEach(link => {
-                if (!link) return;
-                if (oldToNew.has(link.origin_id)) link.origin_id = oldToNew.get(link.origin_id);
-                if (oldToNew.has(link.target_id)) link.target_id = oldToNew.get(link.target_id);
-            });
-        }
-
-        app.graph.last_node_id = sortedNodes.length;
-        app.graph.setDirtyCanvas(true, true);
-        if (app.canvas?.draw) {
-            app.canvas.draw(true, true);
-        }
-        syncAllNodeBadges();
+        applyIdMappingToGraph(oldToNew);
 
         const lastNode = sortedNodes[sortedNodes.length - 1];
         const lastNodeName = lastNode ? (lastNode.title || lastNode.type) : "SaveImage";
-        showNotification(t("Renumbered {count} nodes by execution order. Latest node: #{id} ({name}).", { count: sortedNodes.length, id: lastNode ? lastNode.id : "", name: lastNodeName }), "success");
+        const lastNewId = lastNode ? oldToNew.get(lastNode.id) : "";
+        showNotification(t("Renumbered {count} nodes by execution order. Latest node: #{id} ({name}).", { count: sortedNodes.length, id: lastNewId, name: lastNodeName }), "success");
     } catch (err) {
         console.error("ComfySidebar: Failed to renumber nodes", err);
         showNotification(t("Failed to renumber nodes: ") + err.message, "error");
@@ -159,55 +225,47 @@ export async function setManualNodeId(targetNode = null) {
     const input = prompt(t("Enter new ID for node #{id} ({name}):", { id: currentId, name: node.title || node.type }), String(currentId));
     if (!input) return;
 
-    const newId = parseInt(input.trim(), 10);
-    if (isNaN(newId) || newId <= 0) {
+    const newIdNum = parseInt(input.trim(), 10);
+    if (isNaN(newIdNum) || newIdNum <= 0) {
         showNotification(t("Please enter a valid positive number."), "error");
         return;
     }
-    if (newId === currentId) return;
+    if (String(newIdNum) === String(currentId)) return;
 
     try {
-        const existingNode = app.graph.getNodeById ? app.graph.getNodeById(newId) : null;
+        const existingNode = app.graph.getNodeById ? (app.graph.getNodeById(newIdNum) || app.graph.getNodeById(String(newIdNum))) : null;
         if (existingNode && existingNode !== node) {
-            const confirmSwap = confirm(t("Node ID #{id} is already used by \"{name}\". Swap their IDs?", { id: newId, name: existingNode.title || existingNode.type }));
+            const confirmSwap = confirm(t("Node ID #{id} is already used by \"{name}\". Swap their IDs?", { id: newIdNum, name: existingNode.title || existingNode.type }));
             if (!confirmSwap) return;
         }
 
+        const isStringId = typeof currentId === "string";
+        const newId = isStringId ? String(newIdNum) : newIdNum;
+        const oldId = currentId;
+
         const oldToNew = new Map();
         if (existingNode && existingNode !== node) {
-            oldToNew.set(currentId, newId);
-            oldToNew.set(newId, currentId);
-            existingNode.id = currentId;
+            const existingId = existingNode.id;
+            oldToNew.set(oldId, newId);
+            oldToNew.set(String(oldId), newId);
+            oldToNew.set(Number(oldId), newId);
+
+            oldToNew.set(existingId, oldId);
+            oldToNew.set(String(existingId), oldId);
+            oldToNew.set(Number(existingId), oldId);
         } else {
-            oldToNew.set(currentId, newId);
-        }
-        node.id = newId;
-
-        // Rebuild lookup map
-        app.graph._nodes_by_id = {};
-        for (const n of app.graph._nodes) {
-            app.graph._nodes_by_id[n.id] = n;
+            oldToNew.set(oldId, newId);
+            oldToNew.set(String(oldId), newId);
+            oldToNew.set(Number(oldId), newId);
         }
 
-        // Remap links
-        if (app.graph.links) {
-            const links = app.graph.links instanceof Map 
-                ? Array.from(app.graph.links.values()) 
-                : Object.values(app.graph.links);
+        applyIdMappingToGraph(oldToNew);
 
-            links.forEach(link => {
-                if (!link) return;
-                if (oldToNew.has(link.origin_id)) link.origin_id = oldToNew.get(link.origin_id);
-                if (oldToNew.has(link.target_id)) link.target_id = oldToNew.get(link.target_id);
-            });
+        const updatedNode = app.graph.getNodeById ? (app.graph.getNodeById(newId) || app.graph.getNodeById(String(newId))) : null;
+        if (updatedNode && app.canvas?.selectNode) {
+            app.canvas.selectNode(updatedNode);
         }
 
-        app.graph.last_node_id = Math.max(app.graph.last_node_id || 0, newId, app.graph._nodes.length);
-        app.graph.setDirtyCanvas(true, true);
-        if (app.canvas?.draw) {
-            app.canvas.draw(true, true);
-        }
-        syncAllNodeBadges();
         showNotification(t("Assigned node ID #{id} to \"{name}\".", { id: newId, name: node.title || node.type }), "success");
     } catch (err) {
         console.error("ComfySidebar: Failed to set node ID", err);
