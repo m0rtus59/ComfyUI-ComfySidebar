@@ -1,4 +1,5 @@
 import { app } from "/scripts/app.js";
+import { SettingIds } from "../core/constants.js";
 
 export function findOriginalPropertiesButton() {
     const byTestId = document.querySelector('[data-testid="properties-panel-toggle"]');
@@ -26,7 +27,7 @@ export function findOriginalPropertiesButton() {
 }
 
 export function findTopbarContainer() {
-    const container = document.querySelector('[data-testid="action-bar-buttons"], [class*="actionbar-buttons"], .actionbar-buttons, [class*="actionbar"]');
+    const container = document.querySelector('.actionbar-container, [data-testid="action-bar-buttons"], [class*="actionbar-buttons"], .actionbar-buttons, [class*="actionbar"]');
     if (container) return container;
 
     const orig = findOriginalPropertiesButton();
@@ -156,6 +157,11 @@ export function findNativeExtensionsPanel() {
 }
 
 export function findGraphButton() {
+    const byTestId = document.querySelector('[data-testid="view-mode-toggle"]');
+    if (byTestId && !byTestId.closest('.p-dialog, .comfy-modal, [role="dialog"], .p-sidebar, .comfy-settings, .comfyui-sidebar, .comfy-sidebar')) {
+        return byTestId;
+    }
+
     const elements = document.querySelectorAll('.p-1.bg-base-background.rounded-lg, .bg-base-background.rounded-lg, .bg-secondary-background.rounded-lg.items-center.inline-flex.pointer-events-auto, [data-testid="graph-view-button"]');
     for (const el of elements) {
         if (el.closest('.p-dialog, .comfy-modal, [role="dialog"], .p-sidebar, .comfy-settings, .comfyui-sidebar, .comfy-sidebar')) continue;
@@ -230,39 +236,135 @@ export function updateSidebarBadge(count) {
     }
 }
 
-export function applySidebarOverride() {
-    const overrideStock = app.ui.settings?.getSettingValue?.("Comfy Sidebar.Hide Junk.Override Stock Job History Tab") ?? false;
-    const stdBtn = findStandardQueueButton();
-    const ourBtn = findOurSidebarButton();
+let isApplyingSidebarOverride = false;
 
-    if (stdBtn) {
-        if (!stdBtn._originalDisplay) {
-            stdBtn._originalDisplay = window.getComputedStyle(stdBtn).display || "block";
+export function findSidebarMenuButton(sidebar) {
+    const root = sidebar || document.querySelector('[data-testid="sidebar-top-group"]') ||
+                 document.querySelector('.comfyui-sidebar, .comfy-sidebar, .sidebar');
+    if (!root) return null;
+
+    // 1. Look for explicit menu or logo test ID
+    const byTestId = root.querySelector(
+        '[data-testid*="menu-button"], [data-testid*="app-menu"], [data-testid*="comfy-logo"], [data-testid="sidebar-menu-button"]'
+    );
+    if (byTestId) {
+        return byTestId.closest('button, [role="button"], .comfyui-sidebar-tab, .comfyui-sidebar-item') || byTestId;
+    }
+
+    // 2. Look for title, tooltip, or aria-label containing "menu"
+    const candidates = Array.from(root.querySelectorAll('button, [role="button"], a, .comfyui-sidebar-tab, .comfyui-sidebar-item'));
+    const menuBtn = candidates.find(el => {
+        if (el.classList.contains('comfy-sidebar-tab') || el.id?.includes('classic-comfy-sidebar')) return false;
+        const title = (el.getAttribute('title') || el.getAttribute('aria-label') || el.textContent || '').trim().toLowerCase();
+        return title === 'menu' || title.startsWith('menu');
+    });
+    if (menuBtn) return menuBtn;
+
+    // 3. Fallback: the first child element that is not our button and not the stock queue button
+    const ourBtn = findOurSidebarButton();
+    const stdBtn = findStandardQueueButton();
+    for (const child of root.children) {
+        if (child !== ourBtn && child !== stdBtn) {
+            return child;
         }
+    }
+
+    return null;
+}
+
+export function applySidebarOverride() {
+    if (isApplyingSidebarOverride) return;
+    isApplyingSidebarOverride = true;
+
+    try {
+        const overrideStock = (
+            app.extensionManager?.setting?.get?.(SettingIds.OVERRIDE_STOCK_HISTORY) ??
+            app.ui?.settings?.getSettingValue?.(SettingIds.OVERRIDE_STOCK_HISTORY) ??
+            app.ui?.settings?.getSettingValue?.("Comfy Sidebar.Hide Junk.Override Stock Job History Tab") ??
+            app.ui?.settings?.getSettingValue?.("Comfy Sidebar.Override Stock History") ??
+            false
+        );
+        const stdBtn = findStandardQueueButton();
+        const ourBtn = findOurSidebarButton();
+        const topGroup = document.querySelector('[data-testid="sidebar-top-group"]') ||
+                         (ourBtn ? ourBtn.closest('[data-testid="sidebar-top-group"]') : null);
+
+        if (ourBtn && !ourBtn._capturedOriginal) {
+            ourBtn._capturedOriginal = true;
+            ourBtn._originalParent = ourBtn.parentNode;
+            ourBtn._originalNextSibling = ourBtn.nextSibling;
+        }
+
         if (overrideStock) {
-            stdBtn.style.setProperty("display", "none", "important");
-            if (!stdBtn._overrideClickListener) {
-                stdBtn._overrideClickListener = (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const b = findOurSidebarButton();
-                    if (b) b.click();
-                };
-                stdBtn.addEventListener('click', stdBtn._overrideClickListener, true);
+            if (stdBtn) {
+                if (!stdBtn._originalDisplay) {
+                    stdBtn._originalDisplay = window.getComputedStyle(stdBtn).display || "block";
+                }
+                if (stdBtn.style.display !== "none") {
+                    stdBtn.style.setProperty("display", "none", "important");
+                }
+                if (!stdBtn._overrideClickListener) {
+                    stdBtn._overrideClickListener = (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const b = findOurSidebarButton();
+                        if (b) b.click();
+                    };
+                    stdBtn.addEventListener('click', stdBtn._overrideClickListener, true);
+                }
             }
-            if (ourBtn && stdBtn.parentNode && ourBtn.nextSibling !== stdBtn) {
-                stdBtn.parentNode.insertBefore(ourBtn, stdBtn);
+
+            if (ourBtn) {
+                const parent = (topGroup && topGroup.contains(ourBtn)) ? topGroup : (stdBtn ? stdBtn.parentNode : ourBtn.parentNode);
+                if (parent) {
+                    const menuBtn = findSidebarMenuButton(parent);
+                    if (menuBtn && menuBtn.parentNode === parent) {
+                        // Place Queue immediately below the Menu button
+                        if (menuBtn.nextSibling !== ourBtn) {
+                            parent.insertBefore(ourBtn, menuBtn.nextSibling);
+                        }
+                    } else if (stdBtn && stdBtn.parentNode === parent) {
+                        // Place Queue right where stock Job History was
+                        if (stdBtn.previousSibling !== ourBtn && stdBtn !== ourBtn) {
+                            parent.insertBefore(ourBtn, stdBtn);
+                        }
+                    } else {
+                        // Fallback: top of the group
+                        const first = parent.firstElementChild;
+                        if (first && first !== ourBtn) {
+                            parent.insertBefore(ourBtn, first);
+                        }
+                    }
+                }
             }
         } else {
-            stdBtn.style.setProperty("display", stdBtn._originalDisplay === "none" ? "block" : stdBtn._originalDisplay);
-            if (stdBtn._overrideClickListener) {
-                stdBtn.removeEventListener('click', stdBtn._overrideClickListener, true);
-                stdBtn._overrideClickListener = null;
+            if (stdBtn) {
+                if (stdBtn.style.display === "none") {
+                    stdBtn.style.removeProperty("display");
+                    if (stdBtn._originalDisplay && stdBtn._originalDisplay !== "none") {
+                        stdBtn.style.display = stdBtn._originalDisplay;
+                    }
+                }
+                if (stdBtn._overrideClickListener) {
+                    stdBtn.removeEventListener('click', stdBtn._overrideClickListener, true);
+                    stdBtn._overrideClickListener = null;
+                }
             }
-            if (ourBtn && stdBtn.parentNode && ourBtn.parentNode === stdBtn.parentNode && ourBtn !== stdBtn.parentNode.lastChild) {
-                stdBtn.parentNode.appendChild(ourBtn);
+
+            if (ourBtn) {
+                if (ourBtn._originalNextSibling && ourBtn._originalNextSibling.parentNode === ourBtn.parentNode) {
+                    if (ourBtn.nextSibling !== ourBtn._originalNextSibling) {
+                        ourBtn.parentNode.insertBefore(ourBtn, ourBtn._originalNextSibling);
+                    }
+                } else if (ourBtn._originalParent && ourBtn.parentNode === ourBtn._originalParent) {
+                    if (ourBtn !== ourBtn.parentNode.lastElementChild) {
+                        ourBtn.parentNode.appendChild(ourBtn);
+                    }
+                }
             }
         }
+    } finally {
+        isApplyingSidebarOverride = false;
     }
 }
 

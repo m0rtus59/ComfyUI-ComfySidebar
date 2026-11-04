@@ -3,7 +3,7 @@ import { SettingIds } from "./core/constants.js";
 import { injectStyles } from "./utils/styles.js";
 import { setupDragAndDrop } from "./utils/dragdrop.js";
 import { renumberNodesTopologically, setManualNodeId } from "./utils/nodeRenumber.js";
-import { findOurSidebarButton } from "./comfy/adapter.js";
+import { findOurSidebarButton, applySidebarOverride } from "./comfy/adapter.js";
 import { syncAllNodeBadges, setupVueNodeObserver, toggleIgnoreActiveNode } from "./comfy/nodes.js";
 import { applyClassicLayout, setupPropertiesPanelToggleFix, syncClassicLayout, syncStockHistoryAndProgressSettings, destroyLayoutFix } from "./comfy/layout.js";
 import { initSessionAndHistory, syncQueue } from "./queue/queueService.js";
@@ -75,7 +75,11 @@ function registerSettings() {
             if (isInitialized && app.ui?.settings) {
                 syncStockHistoryAndProgressSettings(value);
             }
-            setTimeout(() => { syncClassicLayout(); }, 0);
+            applySidebarOverride();
+            setTimeout(() => {
+                applySidebarOverride();
+                syncClassicLayout();
+            }, 50);
         }
     });
 
@@ -449,6 +453,10 @@ app.registerExtension({
             tooltip: `${t("Queue")} (Q)`,
             type: "custom",
             render: (el) => { el.appendChild(sidebarContainer); }
+        });
+
+        requestAnimationFrame(() => {
+            applySidebarOverride();
         });
     },
 

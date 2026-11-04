@@ -6,8 +6,10 @@ import {
     findActiveQueueIndicator,
     findNativeExtensionsPanel,
     findGraphButton,
-    findPropertiesPanel
+    findPropertiesPanel,
+    applySidebarOverride
 } from "./adapter.js";
+import { SettingIds } from "../core/constants.js";
 import { isRuntimePreviewEnabled, setRuntimePreviewEnabled, setRuntimePreviewStateListener } from "../utils/comparison.js";
 
 // Listen for runtime preview state changes to keep button UI in sync
@@ -18,20 +20,22 @@ setRuntimePreviewStateListener(() => {
 const STYLE_ID = "comfy-sidebar-classic-layout-override";
 
 const CLASSIC_LAYOUT_CSS_MEDIA = `
-/* Neutralize the leftover floating shell box to prevent empty dark square artifacts */
-.actionbar-container,
-.shadow-interface.rounded-lg.bg-comfy-menu-bg:not(.floating-panel):not([role="toolbar"]),
-.shadow-interface.rounded-lg.border-interface-stroke:not(.floating-panel):not([role="toolbar"]),
-.shadow-interface.border.rounded-lg:has([class*="actionbar-buttons"]),
-.shadow-interface.border.rounded-lg:has(.actionbar-buttons),
-div.border-interface-stroke.rounded-lg:has([class*="actionbar-buttons"]),
-div.shadow-interface.py-1\\.75 {
+/* Neutralize the leftover floating shell box to prevent empty dark square/circle artifacts */
+[data-testid="action-bar-card"],
+.floating-panel:has(.actionbar-container),
+.floating-panel:has([class*="actionbar"]),
+div.shadow-interface:has(.actionbar-container),
+div.shadow-interface:has([class*="actionbar-buttons"]),
+div:has(> .actionbar-container):not(header):not(.topbar),
+div:has(> [class*="actionbar"]):not(header):not(.topbar):not(.actionbar-container) {
     border: none !important;
     background: transparent !important;
     box-shadow: none !important;
+    outline: none !important;
 }
 
 /* Dock actionbar buttons in the topbar row with transparent background */
+.actionbar-container,
 [class*="actionbar"]:not(.actionbar),
 [class*="actionbar-buttons"],
 .actionbar-buttons {
@@ -102,8 +106,26 @@ export function syncStockHistoryAndProgressSettings(enable) {
 
 let savedButtonData = null;
 let domObserver = null;
+let sidebarTopObserver = null;
 let syncScheduled = false;
 let actionbarResizeObserver = null;
+
+function setupSidebarTopObserver() {
+    if (sidebarTopObserver) return;
+    const target = document.querySelector('[data-testid="sidebar-top-group"]') ||
+                   document.querySelector('.comfyui-sidebar, .comfy-sidebar, .sidebar');
+    if (!target) return;
+
+    sidebarTopObserver = new MutationObserver(() => {
+        applySidebarOverride();
+        updateSidebarTabsVisibility();
+    });
+
+    sidebarTopObserver.observe(target, {
+        childList: true,
+        subtree: true
+    });
+}
 
 function isSidebarOnLeft() {
     const sidebar = document.querySelector('.comfyui-sidebar, .comfy-sidebar, .sidebar, [class*="sidebar-nav"], [class*="sidebar"]');
@@ -371,7 +393,7 @@ function setupCanvasMenuPopoverRelocator() {
 }
 
 function updateTopMetrics() {
-    const bar = document.querySelector('.actionbar-buttons, [class*="actionbar-buttons"]') || findTopbarContainer();
+    const bar = document.querySelector('.actionbar-container, .actionbar-buttons, [class*="actionbar-buttons"]') || findTopbarContainer();
     const tabsEl = document.querySelector('.workflow-tabs-container');
     const topbar = tabsEl?.closest('header, .topbar, [class*="topbar"]') || tabsEl;
 
@@ -491,7 +513,13 @@ function updateSidebarTabsVisibility() {
         }
     });
 
-    const hideStockHistory = app.ui?.settings?.getSettingValue("Comfy Sidebar.Hide Junk.Override Stock Job History Tab") ?? false;
+    const hideStockHistory = (
+        app.extensionManager?.setting?.get?.(SettingIds.OVERRIDE_STOCK_HISTORY) ??
+        app.ui?.settings?.getSettingValue?.(SettingIds.OVERRIDE_STOCK_HISTORY) ??
+        app.ui?.settings?.getSettingValue?.("Comfy Sidebar.Hide Junk.Override Stock Job History Tab") ??
+        app.ui?.settings?.getSettingValue?.("Comfy Sidebar.Override Stock History") ??
+        false
+    );
     const historyTarget = sidebar.querySelector('[data-testid="queue-tab-button"], [data-testid="job-history-tab-button"], [class*="lucide--history"]');
     if (historyTarget) {
         const historyBtn = historyTarget.closest('.comfyui-sidebar-tab, button, [role="tab"], li, a, .comfyui-sidebar-item') || historyTarget;
@@ -775,6 +803,10 @@ export function syncClassicLayout() {
         syncPropertiesButton(isClassicLayoutEnabled);
         syncActiveQueueIndicator(isClassicLayoutEnabled);
         updateSidebarTabsVisibility();
+        applySidebarOverride();
+        if (!sidebarTopObserver) {
+            setupSidebarTopObserver();
+        }
         syncRuntimePreviewButton();
 
     } catch (err) {
@@ -792,6 +824,7 @@ export function syncClassicLayout() {
 export function setupPropertiesPanelToggleFix() {
     setupCanvasMenuTooltipRelocator();
     setupCanvasMenuPopoverRelocator();
+    setupSidebarTopObserver();
 
     if (!document.getElementById("comfy-sidebar-layout-fix-styles")) {
         const style = document.createElement("style");
@@ -1082,6 +1115,10 @@ export function destroyLayoutFix() {
     if (domObserver) {
         domObserver.disconnect();
         domObserver = null;
+    }
+    if (sidebarTopObserver) {
+        sidebarTopObserver.disconnect();
+        sidebarTopObserver = null;
     }
     if (actionbarResizeObserver) {
         actionbarResizeObserver.disconnect();
