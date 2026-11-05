@@ -101,5 +101,18 @@
   "Toggle Ignore Selected Node(s) in Queue": "התעלם/כלול צמתים נבחרים בתור",
   "Renumber All Nodes (Execution Order)": "מספר מחדש את כל הצמתים (סדר ביצוע)",
   "Set Selected Node ID...": "הגדר מזהה צומת נבחר...",
-  "Set Node ID...": "הגדר מזהה צומת..."
+  "Set Node ID...": "הגדר מזהה צומת...",
+  "Gallery": "גלריה",
+  "Gallery (Outputs)": "גלריה (תוצרים)",
+  "Go Up One Level": "עלה שלב אחד למעלה",
+  "Open Current Folder in File Manager": "פתח תיקייה נוכחית בסייר הקבצים",
+  "Refresh Gallery": "רענן גלריה",
+  "Filter gallery files...": "סנן קבצי גלריה...",
+  "Loading files...": "טוען קבצים...",
+  "No files found in this folder.": "לא נמצאו קבצים בתיקייה זו.",
+  "Failed to load gallery from disk.": "טעינת הגלריה מהכונן נכשלה.",
+  "Sort: Newest First": "מיון: החדשים ביותר קודם",
+  "Sort: Oldest First": "מיון: הישנים ביותר קודם",
+  "Search Gallery (Filename or Prompt)": "חיפוש בגלריה (שם קובץ או פרומפט)",
+  "Search filenames or prompt metadata...": "חיפוש שמות קבצים או מטא-דאטה של פרומפט..."
 }

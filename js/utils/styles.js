@@ -584,6 +584,115 @@ export function injectStyles() {
             border-radius: 3px !important;
         }
 
+        /* Gallery Subfolders & Breadcrumb Styles */
+        .comfy-sidebar-breadcrumb-bar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--desc-color, #aaa);
+            overflow-x: auto;
+            white-space: nowrap;
+            padding: 4px 0 8px 0;
+            border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+            margin-bottom: 10px;
+        }
+        .comfy-sidebar-breadcrumb-item {
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.04);
+            transition: all 0.15s ease-in-out;
+            color: var(--fg-color, #eee);
+            text-decoration: none;
+        }
+        .comfy-sidebar-breadcrumb-item:hover {
+            background: var(--p-primary-color, rgba(59, 130, 246, 0.2));
+            color: #fff;
+        }
+        .comfy-sidebar-breadcrumb-sep {
+            opacity: 0.4;
+            font-size: 10px;
+        }
+
+        .comfy-sidebar-folders-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 8px;
+            margin-bottom: 12px;
+            width: 100%;
+        }
+        .comfy-sidebar-folder-card {
+            background: var(--comfy-input-bg, #181818);
+            border-radius: 4px;
+            padding: 8px 10px;
+            border: 1px solid var(--border-color, #333);
+            color: var(--comfy-input-color, var(--fg-color, #eee));
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+            user-select: none;
+            min-width: 0;
+        }
+        .comfy-sidebar-folder-card:hover {
+            border-color: var(--p-primary-color, #0ea5e9) !important;
+            background: rgba(14, 165, 233, 0.12);
+        }
+        .comfy-sidebar-folder-icon {
+            font-size: 16px;
+            color: var(--p-primary-color, #0ea5e9);
+            flex-shrink: 0;
+        }
+        body.comfy-sidebar-ctrl-active .comfy-sidebar-folder-card {
+            cursor: alias !important;
+            border-color: var(--p-primary-color, #0ea5e9) !important;
+        }
+        .comfy-sidebar-folder-name {
+            font-size: 11px;
+            font-weight: 600;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+        }
+
+        .comfy-sidebar-card-filename-badge {
+            position: absolute;
+            top: 6px;
+            right: 8px;
+            font-size: 10px;
+            font-family: monospace;
+            opacity: 0.7;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 2px 4px;
+            border-radius: 3px;
+            pointer-events: none;
+            z-index: 5;
+            color: #fff;
+            max-width: 62%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            transform: translateZ(0);
+        }
+
+        /* Folder card layout & Ctrl overlay support */
+        .comfy-sidebar-folder-card {
+            position: relative;
+            overflow: hidden;
+        }
+        body.comfy-sidebar-ctrl-active .comfy-sidebar-folder-card:hover .comfy-sidebar-ctrl-overlay {
+            display: flex;
+        }
+
+        /* Comparison selected image */
+        .comfy-sidebar-card.comfy-sidebar-comparison-source {
+            outline: 2px solid #eab308 !important;
+            box-shadow: 0 0 12px rgba(234, 179, 8, 0.5);
+        }
+
         /* Smooth animation for the circular loader */
         @keyframes comfy-sidebar-spin {
             from { transform: rotate(0deg); }

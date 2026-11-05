@@ -18,6 +18,8 @@ A compact and powerful layout overhaul for ComfyUI that makes generation results
 
   <img src="assets/compare.png" alt="ComfySidebar compare" width="100%">
 
+* **[NEW] Output Gallery sidebar:** Browse files and subfolders directly from your ComfyUI `output` directory without leaving the interface. Features dedicated cards for images, videos, audio, and 3D assets (`.glb`/`.gltf`), breadcrumb navigation, prompt metadata search across subfolders, and persistent sorting.
+
 * **Runtime preview mode** combined with workflow overview makes ComfyUI practical for running and monitoring workflows in a more streamlined, queue-oriented way.
 
   <img src="assets/runtime.png" alt="ComfySidebar runtime mode" width="100%">
@@ -58,6 +60,7 @@ Open **Settings → Comfy Sidebar** to configure:
 * Graph button visibility
 * Unified top bar layout
 * Permanent deletion behavior
+* Output Gallery sidebar toggle
 
 ## ⌨️ Controls
 

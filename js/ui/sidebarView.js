@@ -98,7 +98,11 @@ function getScrollContainer() {
 }
 
 function updateScrollTopBtnVisibility() {
-    if (!scrollToTopBtnEl || !store.ui.sidebarContainer || !store.ui.sidebarContainer.isConnected) return;
+    if (!scrollToTopBtnEl) return;
+    if (!store.ui.sidebarContainer || !store.ui.sidebarContainer.isConnected) {
+        scrollToTopBtnEl.style.display = "none";
+        return;
+    }
     const scrollEl = getScrollContainer();
     if (scrollEl) {
         const viewportEl = scrollEl.parentElement || store.ui.sidebarContainer;

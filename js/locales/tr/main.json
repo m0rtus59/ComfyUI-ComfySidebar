@@ -101,5 +101,18 @@
   "Toggle Ignore Selected Node(s) in Queue": "Kuyrukta Seçili Düğümleri Yoksay/Etkinleştir",
   "Renumber All Nodes (Execution Order)": "Tüm Düğümleri Yeniden Numaralandır (Çalıştırma Sırası)",
   "Set Selected Node ID...": "Seçili Düğüm Kimliğini Belirle...",
-  "Set Node ID...": "Düğüm Kimliğini Belirle..."
+  "Set Node ID...": "Düğüm Kimliğini Belirle...",
+  "Gallery": "Galeri",
+  "Gallery (Outputs)": "Galeri (Çıktılar)",
+  "Go Up One Level": "Bir Düzey Yukarı Çık",
+  "Open Current Folder in File Manager": "Mevcut Klasörü Dosya Yöneticisinde Aç",
+  "Refresh Gallery": "Galeriyi Yenile",
+  "Filter gallery files...": "Galeri dosyalarını filtrele...",
+  "Loading files...": "Dosyalar yükleniyor...",
+  "No files found in this folder.": "Bu klasörde dosya bulunamadı.",
+  "Failed to load gallery from disk.": "Galeri diskten yüklenemedi.",
+  "Sort: Newest First": "Sıralama: Önce En Yeniler",
+  "Sort: Oldest First": "Sıralama: Önce En Eskiler",
+  "Search Gallery (Filename or Prompt)": "Galeride Ara (Dosya Adı veya Prompt)",
+  "Search filenames or prompt metadata...": "Dosya adlarını veya prompt meta verilerini ara..."
 }

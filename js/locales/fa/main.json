@@ -101,5 +101,18 @@
   "Toggle Ignore Selected Node(s) in Queue": "نادیده گرفتن/فعال‌سازی گره‌های انتخاب‌شده در صف",
   "Renumber All Nodes (Execution Order)": "شماره‌گذاری مجدد همه گره‌ها (ترتیب اجرا)",
   "Set Selected Node ID...": "تنظیم شناسه گره انتخاب‌شده...",
-  "Set Node ID...": "تنظیم شناسه گره..."
+  "Set Node ID...": "تنظیم شناسه گره...",
+  "Gallery": "گالری",
+  "Gallery (Outputs)": "گالری (خروجی‌ها)",
+  "Go Up One Level": "یک سطح به بالا",
+  "Open Current Folder in File Manager": "باز کردن پوشه فعلی در مدیریت فایل",
+  "Refresh Gallery": "به‌روزرسانی گالری",
+  "Filter gallery files...": "فیلتر کردن فایل‌های گالری...",
+  "Loading files...": "در حال بارگذاری فایل‌ها...",
+  "No files found in this folder.": "هیچ فایلی در این پوشه یافت نشد.",
+  "Failed to load gallery from disk.": "بارگذاری گالری از دیسک ناموفق بود.",
+  "Sort: Newest First": "مرتب‌سازی: جدیدترین‌ها در ابتدا",
+  "Sort: Oldest First": "مرتب‌سازی: قدیمی‌ترین‌ها در ابتدا",
+  "Search Gallery (Filename or Prompt)": "جستجو در گالری (نام فایل یا پرامپت)",
+  "Search filenames or prompt metadata...": "جستجوی نام فایل‌ها یا متادیتای پرامپت..."
 }

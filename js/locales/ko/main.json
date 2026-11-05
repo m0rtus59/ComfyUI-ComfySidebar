@@ -101,5 +101,18 @@
   "Toggle Ignore Selected Node(s) in Queue": "대기열에서 선택한 노드 무시/해제",
   "Renumber All Nodes (Execution Order)": "모든 노드 재번호 매기기 (실행 순서)",
   "Set Selected Node ID...": "선택한 노드 ID 설정...",
-  "Set Node ID...": "노드 ID 설정..."
+  "Set Node ID...": "노드 ID 설정...",
+  "Gallery": "갤러리",
+  "Gallery (Outputs)": "갤러리 (출력)",
+  "Go Up One Level": "한 수준 위로",
+  "Open Current Folder in File Manager": "파일 탐색기에서 현재 폴더 열기",
+  "Refresh Gallery": "갤러리 새로고침",
+  "Filter gallery files...": "갤러리 파일 필터링...",
+  "Loading files...": "파일 로딩 중...",
+  "No files found in this folder.": "이 폴더에 파일이 없습니다.",
+  "Failed to load gallery from disk.": "디스크에서 갤러리를 불러오지 못했습니다.",
+  "Sort: Newest First": "정렬: 최신순",
+  "Sort: Oldest First": "정렬: 오래된순",
+  "Search Gallery (Filename or Prompt)": "갤러리 검색 (파일명 또는 프롬프트)",
+  "Search filenames or prompt metadata...": "파일명 또는 프롬프트 메타데이터 검색..."
 }

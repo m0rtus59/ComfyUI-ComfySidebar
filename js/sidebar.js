@@ -9,6 +9,7 @@ import { applyClassicLayout, setupPropertiesPanelToggleFix, syncClassicLayout, s
 import { initSessionAndHistory, syncQueue } from "./queue/queueService.js";
 import { setupExecutionTracker } from "./queue/executionTracker.js";
 import { setupSidebarView, renderSidebar, teardownSidebarView } from "./ui/sidebarView.js";
+import { setupGalleryView, teardownGalleryView } from "./ui/galleryView.js";
 import { initI18n, t } from "./core/i18n.js";
 import { updateCardProgressTargeted, cardPool } from "./ui/cardRenderer.js";
 import { store } from "./core/store.js";
@@ -44,6 +45,32 @@ function registerSettings() {
         name: t("Auto-clear cancelled & failed jobs on new generation"),
         type: "boolean",
         defaultValue: false
+    });
+
+    const setGalleryButtonVisible = (visible) => {
+        try {
+            const buttons = document.querySelectorAll(".side-bar-button, [data-tab-id]");
+            for (const btn of buttons) {
+                if (btn.getAttribute("data-tab-id") === "classic-comfy-gallery" ||
+                    btn.getAttribute("title")?.includes("Gallery") ||
+                    btn.querySelector(".pi-folder")) {
+                    btn.style.display = visible ? "" : "none";
+                    break;
+                }
+            }
+        } catch (e) {
+            console.warn("[ComfySidebar] Error toggling gallery tab button:", e);
+        }
+    };
+
+    app.ui.settings.addSetting({
+        id: "Comfy Sidebar.Enable Gallery",
+        name: t("Enable Output Gallery Sidebar"),
+        type: "boolean",
+        defaultValue: true,
+        onChange: (val) => {
+            setGalleryButtonVisible(val ?? true);
+        }
     });
 
     app.ui.settings.addSetting({
@@ -446,14 +473,64 @@ app.registerExtension({
 
         syncAllNodeBadges();
 
+        let queueScrollPos = 0;
+        let galleryScrollPos = 0;
+        let activeSidebarTab = "queue";
+
+        const getRealScrollEl = (childEl) => {
+            if (!childEl) return null;
+            return childEl.closest('.sidebar-content-container, [class*="sidebar-content-container"], [class*="overflow-y-auto"]')
+                || childEl.parentElement
+                || childEl;
+        };
+
         app.extensionManager.registerSidebarTab({
             id: "classic-comfy-sidebar",
             icon: "pi pi-images",
             title: t("Queue"),
             tooltip: `${t("Queue")} (Q)`,
             type: "custom",
-            render: (el) => { el.appendChild(sidebarContainer); }
+            render: (el) => {
+                document.querySelectorAll(".comfy-sidebar-scroll-top-btn").forEach(btn => { btn.style.display = "none"; });
+                const scrollParent = getRealScrollEl(el);
+                if (activeSidebarTab === "gallery" && scrollParent) {
+                    galleryScrollPos = scrollParent.scrollTop;
+                }
+                activeSidebarTab = "queue";
+                el.replaceChildren(sidebarContainer);
+                requestAnimationFrame(() => {
+                    const sp = getRealScrollEl(el);
+                    if (sp) sp.scrollTop = queueScrollPos;
+                });
+            }
         });
+
+        const galleryContainer = setupGalleryView();
+        app.extensionManager.registerSidebarTab({
+            id: "classic-comfy-gallery",
+            icon: "pi pi-folder",
+            title: t("Gallery"),
+            tooltip: t("Gallery (Outputs)"),
+            type: "custom",
+            render: (el) => {
+                document.querySelectorAll(".comfy-sidebar-scroll-top-btn").forEach(btn => { btn.style.display = "none"; });
+                const scrollParent = getRealScrollEl(el);
+                if (activeSidebarTab === "queue" && scrollParent) {
+                    queueScrollPos = scrollParent.scrollTop;
+                }
+                activeSidebarTab = "gallery";
+                el.replaceChildren(galleryContainer);
+                requestAnimationFrame(() => {
+                    const sp = getRealScrollEl(el);
+                    if (sp) sp.scrollTop = galleryScrollPos;
+                });
+            }
+        });
+
+        const isGalleryEnabled = app.ui.settings.getSettingValue("Comfy Sidebar.Enable Gallery") ?? true;
+        if (!isGalleryEnabled) {
+            setTimeout(() => setGalleryButtonVisible(false), 50);
+        }
 
         requestAnimationFrame(() => {
             applySidebarOverride();
@@ -466,6 +543,11 @@ app.registerExtension({
         }
         destroyLayoutFix();
         teardownSidebarView();
+        teardownGalleryView();
+
+        if (app.extensionManager?.unregisterSidebarTab) {
+            app.extensionManager.unregisterSidebarTab("classic-comfy-gallery");
+        }
 
         if (activeKeydownHandler) {
             document.removeEventListener("keydown", activeKeydownHandler, true);

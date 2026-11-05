@@ -101,5 +101,18 @@
   "Toggle Ignore Selected Node(s) in Queue": "Toggle Ignore Selected Node(s) in Queue",
   "Renumber All Nodes (Execution Order)": "Renumber All Nodes (Execution Order)",
   "Set Selected Node ID...": "Set Selected Node ID...",
-  "Set Node ID...": "Set Node ID..."
+  "Set Node ID...": "Set Node ID...",
+  "Gallery": "Gallery",
+  "Gallery (Outputs)": "Gallery (Outputs)",
+  "Go Up One Level": "Go Up One Level",
+  "Open Current Folder in File Manager": "Open Current Folder in File Manager",
+  "Refresh Gallery": "Refresh Gallery",
+  "Filter gallery files...": "Filter gallery files...",
+  "Loading files...": "Loading files...",
+  "No files found in this folder.": "No files found in this folder.",
+  "Failed to load gallery from disk.": "Failed to load gallery from disk.",
+  "Sort: Newest First": "Sort: Newest First",
+  "Sort: Oldest First": "Sort: Oldest First",
+  "Search Gallery (Filename or Prompt)": "Search Gallery (Filename or Prompt)",
+  "Search filenames or prompt metadata...": "Search filenames or prompt metadata..."
 }

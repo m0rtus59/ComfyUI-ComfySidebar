@@ -1,6 +1,7 @@
 import os
 import platform
 import subprocess
+import json
 from aiohttp import web
 from server import PromptServer
 import folder_paths
@@ -115,6 +116,138 @@ def open_file_in_os(target_path):
             subprocess.Popen(["xdg-open", folder], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         else:
             raise RuntimeError("Headless Linux server detected (no desktop GUI available).")
+
+
+def check_png_prompt_match(filepath, search_term):
+    """Checks PNG prompt metadata strictly for text inputs matching search."""
+    try:
+        with open(filepath, "rb") as f:
+            if f.read(8) != b"\x89PNG\r\n\x1a\n":
+                return False
+            while True:
+                len_b = f.read(4)
+                if len(len_b) < 4:
+                    break
+                length = int.from_bytes(len_b, "big")
+                ctype = f.read(4)
+                if ctype in (b"tEXt", b"iTXt"):
+                    data = f.read(length)
+                    if data.startswith(b"prompt\x00") or b'"inputs"' in data:
+                        text = data.decode("utf-8", errors="ignore")
+                        idx = text.find("{")
+                        if idx != -1:
+                            try:
+                                prompt_dict = json.loads(text[idx:])
+                                for node in prompt_dict.values():
+                                    if isinstance(node, dict) and "inputs" in node:
+                                        for val in node["inputs"].values():
+                                            if isinstance(val, str) and search_term in val.lower():
+                                                return True
+                            except Exception:
+                                pass
+                elif ctype in (b"IDAT", b"IEND"):
+                    break
+                else:
+                    f.seek(length, 1)
+                f.seek(4, 1)
+        return False
+    except Exception:
+        return False
+
+
+@PromptServer.instance.routes.get("/comfy-sidebar/gallery/list")
+async def gallery_list_handler(request):
+    try:
+        subfolder = request.query.get("subfolder", "").strip().strip("/\\")
+        search = request.query.get("search", "").strip().lower()
+        output_dir = folder_paths.get_output_directory()
+
+        target_dir = os.path.realpath(os.path.join(output_dir, subfolder)) if subfolder else os.path.realpath(output_dir)
+
+        if not is_path_safe(output_dir, target_dir):
+            return web.json_response({"error": "Unsafe path"}, status=403)
+
+        if not os.path.exists(target_dir) or not os.path.isdir(target_dir):
+            return web.json_response({"subfolder": subfolder, "folders": [], "files": []})
+
+        folders = []
+        files = []
+
+        supported_exts = {
+            ".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif",
+            ".mp4", ".webm", ".mov", ".mkv",
+            ".mp3", ".wav", ".ogg", ".flac", ".m4a", ".aac",
+            ".glb", ".gltf", ".obj", ".fbx", ".stl",
+            ".json"
+        }
+
+        if search:
+            # Recursive search in current directory and all subfolders
+            for root, dirs, fnames in os.walk(target_dir):
+                dirs[:] = [d for d in dirs if not d.startswith(".")]
+                for fname in fnames:
+                    if fname.startswith("."):
+                        continue
+                    ext = os.path.splitext(fname)[1].lower()
+                    if ext in supported_exts:
+                        fpath = os.path.join(root, fname)
+                        matched = search in fname.lower()
+                        if not matched and ext == ".png":
+                            matched = check_png_prompt_match(fpath, search)
+
+                        if matched:
+                            rel_sub = os.path.relpath(root, output_dir).replace("\\", "/")
+                            if rel_sub == ".":
+                                rel_sub = ""
+                            stat = os.stat(fpath)
+                            files.append({
+                                "filename": fname,
+                                "subfolder": rel_sub,
+                                "type": "output",
+                                "mtime": stat.st_mtime,
+                                "size": stat.st_size
+                            })
+        else:
+            # Instant single-directory listing without reading files from disk
+            with os.scandir(target_dir) as entries:
+                for entry in entries:
+                    if entry.name.startswith("."):
+                        continue
+                    try:
+                        if entry.is_dir(follow_symlinks=False):
+                            rel_sub = os.path.relpath(entry.path, output_dir).replace("\\", "/")
+                            folders.append({
+                                "name": entry.name,
+                                "subfolder": rel_sub,
+                                "mtime": entry.stat().st_mtime
+                            })
+                        elif entry.is_file(follow_symlinks=False):
+                            ext = os.path.splitext(entry.name)[1].lower()
+                            if ext in supported_exts:
+                                rel_sub = os.path.relpath(os.path.dirname(entry.path), output_dir).replace("\\", "/")
+                                if rel_sub == ".":
+                                    rel_sub = ""
+                                stat = entry.stat()
+                                files.append({
+                                    "filename": entry.name,
+                                    "subfolder": rel_sub,
+                                    "type": "output",
+                                    "mtime": stat.st_mtime,
+                                    "size": stat.st_size
+                                })
+                    except (PermissionError, FileNotFoundError):
+                        continue
+
+        folders.sort(key=lambda x: x["name"].lower())
+        files.sort(key=lambda x: x["mtime"], reverse=True)
+
+        return web.json_response({
+            "subfolder": subfolder.replace("\\", "/"),
+            "folders": folders,
+            "files": files
+        })
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
 
 
 @PromptServer.instance.routes.post("/comfy-sidebar/open-folder")

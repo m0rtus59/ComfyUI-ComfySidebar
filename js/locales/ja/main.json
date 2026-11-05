@@ -101,5 +101,18 @@
   "Toggle Ignore Selected Node(s) in Queue": "キューで選択したノードを無視/解除",
   "Renumber All Nodes (Execution Order)": "すべてのノード番号を再割り当て (実行順)",
   "Set Selected Node ID...": "選択したノードIDを設定...",
-  "Set Node ID...": "ノードIDを設定..."
+  "Set Node ID...": "ノードIDを設定...",
+  "Gallery": "ギャラリー",
+  "Gallery (Outputs)": "ギャラリー (出力)",
+  "Go Up One Level": "1つ上の階層へ",
+  "Open Current Folder in File Manager": "現在のフォルダーをファイルマネージャーで開く",
+  "Refresh Gallery": "ギャラリーを更新",
+  "Filter gallery files...": "ギャラリーファイルを絞り込み...",
+  "Loading files...": "ファイルを読み込み中...",
+  "No files found in this folder.": "このフォルダーにはファイルがありません。",
+  "Failed to load gallery from disk.": "ディスクからギャラリーを読み込めませんでした。",
+  "Sort: Newest First": "並び替え：新しい順",
+  "Sort: Oldest First": "並び替え：古い順",
+  "Search Gallery (Filename or Prompt)": "ギャラリーを検索 (ファイル名またはプロンプト)",
+  "Search filenames or prompt metadata...": "ファイル名またはプロンプトを検索..."
 }

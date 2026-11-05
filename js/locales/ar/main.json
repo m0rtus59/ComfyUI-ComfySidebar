@@ -101,5 +101,18 @@
   "Toggle Ignore Selected Node(s) in Queue": "تجاهل/تضمين العقد المحددة في قائمة الانتظار",
   "Renumber All Nodes (Execution Order)": "إعادة ترقيم جميع العقد (ترتيب التنفيذ)",
   "Set Selected Node ID...": "تعيين معرف العقدة المحددة...",
-  "Set Node ID...": "تعيين معرف العقدة..."
+  "Set Node ID...": "تعيين معرف العقدة...",
+  "Gallery": "المعرض",
+  "Gallery (Outputs)": "المعرض (المخرجات)",
+  "Go Up One Level": "الانتقال لمستوى أعلى",
+  "Open Current Folder in File Manager": "فتح المجلد الحالي في مدير الملفات",
+  "Refresh Gallery": "تحديث المعرض",
+  "Filter gallery files...": "تصفية ملفات المعرض...",
+  "Loading files...": "جاري تحميل الملفات...",
+  "No files found in this folder.": "لم يتم العثور على ملفات في هذا المجلد.",
+  "Failed to load gallery from disk.": "فشل تحميل المعرض من القرص.",
+  "Sort: Newest First": "الترتيب: الأحدث أولاً",
+  "Sort: Oldest First": "الترتيب: الأقدم أولاً",
+  "Search Gallery (Filename or Prompt)": "البحث في المعرض (اسم الملف أو الموجه)",
+  "Search filenames or prompt metadata...": "البحث في أسماء الملفات أو بيانات الموجه..."
 }
