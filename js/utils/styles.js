@@ -584,6 +584,19 @@ export function injectStyles() {
             border-radius: 3px !important;
         }
 
+        /* Sticky Header & Nav Reveal */
+        .comfy-sidebar-sticky-header-group {
+            position: sticky;
+            top: 0;
+            margin: -14px -14px 6px -14px;
+            padding: 14px 14px 0 14px;
+            background: var(--comfy-menu-bg, #121212);
+            z-index: 35;
+            transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+            will-change: transform;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+
         /* Gallery Subfolders & Breadcrumb Styles */
         .comfy-sidebar-breadcrumb-bar {
             display: flex;

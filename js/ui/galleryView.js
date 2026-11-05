@@ -12,6 +12,10 @@ let scrollToTopBtnEl = null;
 let currentColumnCount = 1;
 let currentSubfolder = "";
 let currentSearchQuery = "";
+let stickyHeaderGroupEl = null;
+let lastScrollTop = 0;
+let scrollDeltaAccumulator = 0;
+let isHeaderHidden = false;
 
 // Persistent sort order
 let sortOrder = "newest";
@@ -41,17 +45,67 @@ function getScrollContainer() {
 }
 
 function updateScrollTopVisibility() {
-    if (!scrollToTopBtnEl) return;
     if (!galleryContainerEl || !galleryContainerEl.isConnected) {
-        scrollToTopBtnEl.style.display = "none";
+        if (scrollToTopBtnEl) scrollToTopBtnEl.style.display = "none";
         return;
     }
     const scrollEl = getScrollContainer();
     if (scrollEl) {
-        scrollToTopBtnEl.style.display = scrollEl.scrollTop > 200 ? "flex" : "none";
+        if (scrollToTopBtnEl) {
+            scrollToTopBtnEl.style.display = scrollEl.scrollTop > 200 ? "flex" : "none";
+        }
+
+        // Handle smart scroll-up reveal for header & navigation
+        handleHeaderScroll(scrollEl);
 
         if (scrollEl.scrollTop + scrollEl.clientHeight >= scrollEl.scrollHeight - 300) {
             loadNextBatch();
+        }
+    }
+}
+
+function handleHeaderScroll(scrollEl) {
+    if (!stickyHeaderGroupEl) return;
+
+    // Never hide header if search bar is currently active
+    const searchContainer = stickyHeaderGroupEl.querySelector(".comfy-sidebar-search-container");
+    if (currentSearchQuery || (searchContainer && searchContainer.style.display !== "none")) {
+        stickyHeaderGroupEl.style.transform = "translateY(0)";
+        isHeaderHidden = false;
+        return;
+    }
+
+    const currentScroll = scrollEl.scrollTop;
+    const delta = currentScroll - lastScrollTop;
+    lastScrollTop = currentScroll;
+
+    // Near the very top: always keep visible
+    if (currentScroll <= 35) {
+        if (isHeaderHidden) {
+            stickyHeaderGroupEl.style.transform = "translateY(0)";
+            isHeaderHidden = false;
+        }
+        scrollDeltaAccumulator = 0;
+        return;
+    }
+
+    if (delta > 0) {
+        // Scrolling DOWN: hide after small buffer
+        if (scrollDeltaAccumulator < 0) scrollDeltaAccumulator = 0;
+        scrollDeltaAccumulator += delta;
+
+        if (scrollDeltaAccumulator > 25 && !isHeaderHidden) {
+            stickyHeaderGroupEl.style.transform = "translateY(-100%)";
+            isHeaderHidden = true;
+        }
+    } else if (delta < 0) {
+        // Scrolling UP: reveal as soon as user scrolls up a little bit (~15px)
+        if (scrollDeltaAccumulator > 0) scrollDeltaAccumulator = 0;
+        scrollDeltaAccumulator += delta;
+
+        if (scrollDeltaAccumulator < -15 && isHeaderHidden) {
+            stickyHeaderGroupEl.style.transform = "translateY(0)";
+            isHeaderHidden = false;
         }
     }
 }
@@ -513,6 +567,7 @@ export function setupGalleryView() {
     standardHeader.appendChild(actionsGroup);
 
     const searchContainer = document.createElement("div");
+    searchContainer.className = "comfy-sidebar-search-container";
     Object.assign(searchContainer.style, {
         display: "none", width: "100%", alignItems: "center", background: "var(--comfy-input-bg, #181818)",
         border: "1px solid var(--border-color, #555)", borderRadius: "4px", padding: "2px 8px",
@@ -534,10 +589,18 @@ export function setupGalleryView() {
 
     searchContainer.append(sIcon, sInput, sClear);
     header.append(standardHeader, searchContainer);
-    container.appendChild(header);
+
+    const stickyHeaderGroup = document.createElement("div");
+    stickyHeaderGroup.className = "comfy-sidebar-sticky-header-group";
+    stickyHeaderGroupEl = stickyHeaderGroup;
+    stickyHeaderGroup.appendChild(header);
+
+    let scrollBeforeSearch = 0;
 
     searchIcon.onclick = (e) => {
         e.stopPropagation();
+        const scrollEl = getScrollContainer();
+        scrollBeforeSearch = scrollEl ? scrollEl.scrollTop : 0;
         standardHeader.style.display = "none";
         searchContainer.style.display = "flex";
         sInput.focus();
@@ -545,12 +608,25 @@ export function setupGalleryView() {
 
     let searchDebounce = null;
     const closeSearch = () => {
+        const hadFilter = Boolean(currentSearchQuery || sInput.value.trim());
         sInput.value = "";
         currentSearchQuery = "";
         sIcon.className = "pi pi-search";
         searchContainer.style.display = "none";
         standardHeader.style.display = "flex";
-        fetchGalleryData(currentSubfolder, "").then(() => renderGallery());
+
+        // If the user didn't type a search query, do NOT re-fetch or wipe cards.
+        // The scroll position stays right where you are.
+        if (hadFilter) {
+            fetchGalleryData(currentSubfolder, "").then(() => {
+                renderGallery();
+                const scrollEl = getScrollContainer();
+                if (scrollEl && scrollBeforeSearch > 0) {
+                    scrollEl.scrollTop = scrollBeforeSearch;
+                    requestAnimationFrame(() => { scrollEl.scrollTop = scrollBeforeSearch; });
+                }
+            });
+        }
     };
 
     sClear.onclick = (e) => { e.stopPropagation(); closeSearch(); };
@@ -573,7 +649,8 @@ export function setupGalleryView() {
 
     const breadcrumbBar = document.createElement("div");
     breadcrumbBar.className = "comfy-sidebar-breadcrumb-bar";
-    container.appendChild(breadcrumbBar);
+    stickyHeaderGroup.appendChild(breadcrumbBar);
+    container.appendChild(stickyHeaderGroup);
 
     const cardStack = document.createElement("div");
     cardStackEl = cardStack;
@@ -627,6 +704,7 @@ export function teardownGalleryView() {
     document.removeEventListener("scroll", updateScrollTopVisibility, { capture: true, passive: true });
     cachedFolders = [];
     cachedFiles = [];
+    stickyHeaderGroupEl = null;
     galleryContainerEl = null;
     cardStackEl = null;
     scrollToTopBtnEl = null;
