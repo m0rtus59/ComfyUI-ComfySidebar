@@ -2,7 +2,7 @@ import { app } from "/scripts/app.js";
 import { SettingIds, PromptStatus } from "../core/constants.js";
 import { t } from "../core/i18n.js";
 import { deleteFileOnServer, openFileOrFolder } from "./mediaActions.js";
-import { extractWorkflowFromPng, isImageFormat } from "../utils/utils.js";
+import { extractWorkflowFromPng, isImageFormat, animateCardRemoval } from "../utils/utils.js";
 import { renderCardImages } from "./mediaPreview.js";
 import { showNotification } from "../utils/nodeRenumber.js";
 
@@ -79,8 +79,9 @@ function handleHeaderScroll(scrollEl) {
     const delta = currentScroll - lastScrollTop;
     lastScrollTop = currentScroll;
 
-    // Near the very top: always keep visible
+    // Near the very top: always keep visible & transparent
     if (currentScroll <= 35) {
+        stickyHeaderGroupEl.classList.remove("is-scrolled");
         if (isHeaderHidden) {
             stickyHeaderGroupEl.style.transform = "translateY(0)";
             isHeaderHidden = false;
@@ -88,6 +89,8 @@ function handleHeaderScroll(scrollEl) {
         scrollDeltaAccumulator = 0;
         return;
     }
+
+    stickyHeaderGroupEl.classList.add("is-scrolled");
 
     if (delta > 0) {
         // Scrolling DOWN: hide after small buffer
@@ -297,7 +300,7 @@ function createFileCard(file) {
     }
 
     const btnDel = document.createElement("span");
-    btnDel.className = "pi pi-trash comfy-sidebar-card-action-btn comfy-sidebar-btn-del";
+    btnDel.className = "pi pi-trash comfy-sidebar-card-action-btn comfy-sidebar-btn-del comfy-sidebar-gallery-btn-del";
     btnDel.title = t("Delete file (Hold Ctrl to delete file from disk)");
     const btnDelLabel = document.createElement("span");
     btnDelLabel.className = "comfy-sidebar-del-label";
@@ -332,7 +335,14 @@ function createFileCard(file) {
                 const msg = action === "trashed" ? t("Moved file to Recycle Bin.") : t("Permanently deleted file.");
                 showNotification(msg, "success", t("Delete File"));
                 cachedFiles = cachedFiles.filter(f => f.filename !== file.filename || f.subfolder !== file.subfolder);
-                renderGallery();
+                displayedFilesCount = Math.max(0, displayedFilesCount - 1);
+
+                animateCardRemoval(card, () => {
+                    card.remove();
+                    if (cachedFiles.length === 0) {
+                        renderGallery();
+                    }
+                });
             }
         }
     };
@@ -494,7 +504,8 @@ export function setupGalleryView() {
 
     Object.assign(container.style, {
         display: "flex", flexDirection: "column", height: "100%", padding: "14px", boxSizing: "border-box",
-        background: "var(--comfy-menu-bg, #121212)", color: "var(--fg-color, #eee)", position: "relative"
+        background: "transparent",
+        color: "var(--fg-color, var(--p-text-color, #eee))", position: "relative"
     });
 
     const header = document.createElement("div");
@@ -684,6 +695,16 @@ export function setupGalleryView() {
     window.addEventListener("keydown", handleCtrlDown);
     window.addEventListener("keyup", handleCtrlUp);
    
+    // Reveal Spotlight: track cursor position over Gallery card and folder borders
+    container.addEventListener("pointermove", (e) => {
+        const card = e.target.closest(".comfy-sidebar-card, .comfy-sidebar-folder-card");
+        if (card) {
+            const rect = card.getBoundingClientRect();
+            card.style.setProperty("--mouse-x", `${e.clientX - rect.left}px`);
+            card.style.setProperty("--mouse-y", `${e.clientY - rect.top}px`);
+        }
+    }, { passive: true });
+
     document.addEventListener("scroll", updateScrollTopVisibility, { capture: true, passive: true });
 
     new ResizeObserver((entries) => {

@@ -5,7 +5,7 @@ import { store } from "../core/store.js";
 import { renderCardImages } from "./mediaPreview.js";
 import { copyImageToClipboard, openFileOrFolder, deleteFileOnServer, findNodeIdForImage, removeImageFromNodeOutputs } from "./mediaActions.js";
 import { centerAndSelectCanvasNode } from "../comfy/adapter.js";
-import { getRunOutputs, extractWorkflowFromPng, isImageFormat } from "../utils/utils.js";
+import { getRunOutputs, extractWorkflowFromPng, isImageFormat, animateCardRemoval } from "../utils/utils.js";
 import { showFullscreenPreview } from "../utils/comparison.js";
 import { stopAllAudioPlayback } from "./audioController.js";
 import { deleteHistoryItem, cancelPendingTask, interruptActive } from "../queue/queueService.js";
@@ -528,44 +528,46 @@ export function getOrCreateCard(state, callbacks = {}) {
             const shouldDeleteFromDisk = isDiskDelete || wantsDiskDelete;
             resetDeleteBtn();
 
-            const liveState = store.getPrompt(state.pid) || state;
+            animateCardRemoval(card, async () => {
+                const liveState = store.getPrompt(state.pid) || state;
 
-            if (shouldDeleteFromDisk) {
-                const filesToDelete = [];
-                const seen = new Set();
-                const addFile = (item) => {
-                    if (item && item.filename) {
-                        const key = `${item.type || ""}/${item.subfolder || ""}/${item.filename}`;
-                        if (!seen.has(key)) {
-                            seen.add(key);
-                            filesToDelete.push(item);
+                if (shouldDeleteFromDisk) {
+                    const filesToDelete = [];
+                    const seen = new Set();
+                    const addFile = (item) => {
+                        if (item && item.filename) {
+                            const key = `${item.type || ""}/${item.subfolder || ""}/${item.filename}`;
+                            if (!seen.has(key)) {
+                                seen.add(key);
+                                filesToDelete.push(item);
+                            }
+                        }
+                    };
+
+                    (liveState.images || []).forEach(addFile);
+                    const allOutputs = getRunOutputs(liveState.nodeOutputs, liveState.workflow);
+                    allOutputs.forEach(out => (out.images || []).forEach(addFile));
+
+                    let deletedCount = 0;
+                    let lastAction = "trashed";
+                    for (const fileItem of filesToDelete) {
+                        const action = await deleteFileOnServer(fileItem);
+                        if (action) {
+                            deletedCount++;
+                            lastAction = action;
                         }
                     }
-                };
 
-                (liveState.images || []).forEach(addFile);
-                const allOutputs = getRunOutputs(liveState.nodeOutputs, liveState.workflow);
-                allOutputs.forEach(out => (out.images || []).forEach(addFile));
-
-                let deletedCount = 0;
-                let lastAction = "trashed";
-                for (const fileItem of filesToDelete) {
-                    const action = await deleteFileOnServer(fileItem);
-                    if (action) {
-                        deletedCount++;
-                        lastAction = action;
+                    if (deletedCount > 0) {
+                        const msg = lastAction === "trashed"
+                            ? `Moved ${deletedCount} file${deletedCount > 1 ? "s" : ""} to Recycle Bin.`
+                            : `Permanently deleted ${deletedCount} file${deletedCount > 1 ? "s" : ""}.`;
+                        showNotification(msg, "success", "Delete Files");
                     }
                 }
 
-                if (deletedCount > 0) {
-                    const msg = lastAction === "trashed"
-                        ? `Moved ${deletedCount} file${deletedCount > 1 ? "s" : ""} to Recycle Bin.`
-                        : `Permanently deleted ${deletedCount} file${deletedCount > 1 ? "s" : ""}.`;
-                    showNotification(msg, "success", "Delete Files");
-                }
-            }
-
-            deleteHistoryItem(state.pid);
+                deleteHistoryItem(state.pid);
+            });
         }
     };
 

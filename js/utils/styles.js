@@ -4,16 +4,68 @@ export function injectStyles() {
     style.id = "comfy-sidebar-styles";
     style.textContent = `
         .comfy-sidebar-card {
-            background: var(--comfy-input-bg, #181818);
+            background: var(--comfy-input-bg, var(--p-surface-800, rgba(128, 128, 128, 0.08)));
             border-radius: 4px; padding: 8px; position: relative;
             min-height: 80px; margin-bottom: 0px; break-inside: avoid;
             user-select: none; -webkit-user-select: none;
-            border: 2px solid var(--border-color, #333);
+            border: 2px solid var(--border-color, rgba(128, 128, 128, 0.25));
             color: var(--comfy-input-color, var(--fg-color, #eee));
+            overflow: hidden;
         }
+        /* Subtle neutral border hover (No blue clash with running jobs) */
         .comfy-sidebar-card:hover { 
-            border-color: var(--p-primary-color, var(--primary-color, #555)) !important; 
+            border-color: color-mix(in srgb, var(--border-color, #555) 50%, var(--fg-color, #fff) 50%) !important; 
+            background: color-mix(in srgb, var(--comfy-input-bg, var(--p-surface-800, rgba(128, 128, 128, 0.1))) 85%, var(--fg-color, #888) 15%) !important;
             transition: border-color 0.2s, background-color 0.2s;
+        }
+
+        /* Border & Frame Spotlight (Renders BEHIND the image so PNG is never washed out) */
+        .comfy-sidebar-card::before,
+        .comfy-sidebar-folder-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background: radial-gradient(
+                160px circle at var(--mouse-x, -999px) var(--mouse-y, -999px),
+                color-mix(in srgb, var(--p-primary-color, #38bdf8) 30%, var(--fg-color, #fff) 70%),
+                transparent 75%
+            );
+            opacity: 0;
+            transition: opacity 0.25s ease;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .comfy-sidebar-card:hover::before,
+        .comfy-sidebar-folder-card:hover::before {
+            opacity: 0.35;
+        }
+
+        /* Windows 10 Reveal Spotlight Effect (UI Folder Buttons Only) */
+        .comfy-sidebar-folder-card {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .comfy-sidebar-folder-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background: radial-gradient(
+                140px circle at var(--mouse-x, -999px) var(--mouse-y, -999px),
+                rgba(255, 255, 255, 0.16),
+                transparent 75%
+            );
+            opacity: 0;
+            transition: opacity 0.25s ease;
+            pointer-events: none;
+            z-index: 3;
+        }
+
+        .comfy-sidebar-folder-card:hover::before {
+            opacity: 1;
         }
         .comfy-sidebar-card.active { --border-color: #3b82f6; --hover-color: #60a5fa; }
         .comfy-sidebar-card.pending { --border-color: #6c757d; --hover-color: #adb5bd; }
@@ -555,9 +607,10 @@ export function injectStyles() {
             z-index: 1005 !important;
         }
 
-        /* Explicit card element layering so badges and [X] are ALWAYS on top of images */
+        /* Media wrapper sits on z-index 2 so the spotlight shines on the border behind it */
         .comfy-sidebar-card .comfy-sidebar-media-wrapper {
-            z-index: 1 !important;
+            z-index: 2 !important;
+            position: relative;
         }
         .comfy-sidebar-card-timer {
             z-index: 10 !important;
@@ -584,17 +637,33 @@ export function injectStyles() {
             border-radius: 3px !important;
         }
 
-        /* Sticky Header & Nav Reveal */
+        /* Gallery delete button only shows in the Ctrl alternative actions menu */
+        .comfy-sidebar-gallery-btn-del {
+            display: none !important;
+        }
+        body.comfy-sidebar-ctrl-active .comfy-sidebar-gallery-btn-del,
+        .comfy-sidebar-gallery-btn-del.confirm-delete,
+        .comfy-sidebar-gallery-btn-del.confirm-delete-disk {
+            display: inline-flex !important;
+        }
+
+        /* Sticky Header & Nav Reveal (Seamlessly transparent at rest, frosted on scroll) */
         .comfy-sidebar-sticky-header-group {
             position: sticky;
             top: 0;
             margin: -14px -14px 6px -14px;
             padding: 14px 14px 0 14px;
-            background: var(--comfy-menu-bg, #121212);
+            background: transparent;
             z-index: 35;
-            transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease, box-shadow 0.2s ease;
             will-change: transform;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+
+        .comfy-sidebar-sticky-header-group.is-scrolled {
+            background: color-mix(in srgb, var(--p-content-background, var(--bg-color, var(--comfy-menu-bg, #181818))) 65%, transparent);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
         }
 
         /* Gallery Subfolders & Breadcrumb Styles */
@@ -636,10 +705,10 @@ export function injectStyles() {
             width: 100%;
         }
         .comfy-sidebar-folder-card {
-            background: var(--comfy-input-bg, #181818);
+            background: var(--comfy-input-bg, var(--p-surface-800, rgba(128, 128, 128, 0.08)));
             border-radius: 4px;
             padding: 8px 10px;
-            border: 1px solid var(--border-color, #333);
+            border: 1px solid var(--border-color, rgba(128, 128, 128, 0.25));
             color: var(--comfy-input-color, var(--fg-color, #eee));
             cursor: pointer;
             display: flex;
@@ -648,19 +717,23 @@ export function injectStyles() {
             transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
             user-select: none;
             min-width: 0;
+            position: relative;
+            overflow: hidden;
         }
         .comfy-sidebar-folder-card:hover {
-            border-color: var(--p-primary-color, #0ea5e9) !important;
-            background: rgba(14, 165, 233, 0.12);
+            border-color: color-mix(in srgb, var(--border-color, #555) 50%, var(--fg-color, #fff) 50%);
+            background: color-mix(in srgb, var(--comfy-input-bg, var(--p-surface-800, rgba(128, 128, 128, 0.1))) 85%, var(--fg-color, #888) 15%);
         }
         .comfy-sidebar-folder-icon {
             font-size: 16px;
             color: var(--p-primary-color, #0ea5e9);
             flex-shrink: 0;
         }
-        body.comfy-sidebar-ctrl-active .comfy-sidebar-folder-card {
+        body.comfy-sidebar-ctrl-active .comfy-sidebar-folder-card:hover {
             cursor: alias !important;
             border-color: var(--p-primary-color, #0ea5e9) !important;
+            box-shadow: 0 0 0 1px var(--p-primary-color, #0ea5e9), 0 0 10px rgba(14, 165, 233, 0.3) !important;
+            background: rgba(14, 165, 233, 0.15) !important;
         }
         .comfy-sidebar-folder-name {
             font-size: 11px;

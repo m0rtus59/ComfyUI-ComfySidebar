@@ -5,7 +5,7 @@ import { t } from "../core/i18n.js";
 import { getOrCreateCard, updateCardDOM, resetAllCardHoverStates, cardPool } from "./cardRenderer.js";
 import { clearCancelledOrFailed, clearAllHistory, cancelAllPending } from "../queue/queueService.js";
 import { updateSidebarBadge, centerAndSelectCanvasNode } from "../comfy/adapter.js";
-import { matchesFilter, getRunOutputs, isImageFormat } from "../utils/utils.js";
+import { matchesFilter, getRunOutputs, isImageFormat, animateCardRemoval } from "../utils/utils.js";
 import { renderCardImages } from "./mediaPreview.js";
 import { deleteFileOnServer, removeImageFromNodeOutputs, copyImageToClipboard, findNodeIdForImage } from "./mediaActions.js";
 import { toggleIgnoreActiveNode } from "../comfy/nodes.js";
@@ -166,7 +166,8 @@ export function setupSidebarView() {
 
     Object.assign(container.style, {
         display: "flex", flexDirection: "column", height: "100%", padding: "14px", boxSizing: "border-box",
-        background: "var(--comfy-menu-bg, #121212)", color: "var(--fg-color, #eee)", position: "relative"
+        background: "transparent",
+        color: "var(--fg-color, var(--p-text-color, #eee))", position: "relative"
     });
 
     const header = document.createElement("div");
@@ -356,6 +357,16 @@ export function setupSidebarView() {
 
     container.appendChild(scrollToTopBtnEl);
 
+    // Reveal Spotlight: track cursor position over Queue card borders
+    container.addEventListener("pointermove", (e) => {
+        const card = e.target.closest(".comfy-sidebar-card");
+        if (card) {
+            const rect = card.getBoundingClientRect();
+            card.style.setProperty("--mouse-x", `${e.clientX - rect.left}px`);
+            card.style.setProperty("--mouse-y", `${e.clientY - rect.top}px`);
+        }
+    }, { passive: true });
+
     document.addEventListener("scroll", updateScrollTopBtnVisibility, { capture: true, passive: true });
 
     new ResizeObserver((entries) => {
@@ -516,46 +527,48 @@ export function renderSidebar() {
                             const shouldDeleteFromDisk = isDiskDelete || wantsDiskDelete;
                             resetDelete();
 
-                            if (shouldDeleteFromDisk && img && img.filename) {
-                                const action = await deleteFileOnServer(img);
-                                if (action) {
-                                    const msg = action === "trashed" ? t("Moved file to Recycle Bin.") : t("Permanently deleted file.");
-                                    showNotification(msg, "success", t("Delete File"));
+                            animateCardRemoval(card, async () => {
+                                if (shouldDeleteFromDisk && img && img.filename) {
+                                    const action = await deleteFileOnServer(img);
+                                    if (action) {
+                                        const msg = action === "trashed" ? t("Moved file to Recycle Bin.") : t("Permanently deleted file.");
+                                        showNotification(msg, "success", t("Delete File"));
+                                    }
                                 }
-                            }
 
-                            const pid = batchInfo.parentPromptId || batchInfo.pid;
-                            const state = store.getPrompt(pid);
-                            const imgIdx = batchInfo.images.indexOf(img);
-                            if (imgIdx > -1) batchInfo.images.splice(imgIdx, 1);
+                                const pid = batchInfo.parentPromptId || batchInfo.pid;
+                                const state = store.getPrompt(pid);
+                                const imgIdx = batchInfo.images.indexOf(img);
+                                if (imgIdx > -1) batchInfo.images.splice(imgIdx, 1);
 
-                            if (state) {
-                                if (Array.isArray(state.images)) {
-                                    const stIdx = state.images.findIndex(i => i.filename === img.filename && (i.subfolder || "") === (img.subfolder || ""));
-                                    if (stIdx > -1) state.images.splice(stIdx, 1);
+                                if (state) {
+                                    if (Array.isArray(state.images)) {
+                                        const stIdx = state.images.findIndex(i => i.filename === img.filename && (i.subfolder || "") === (img.subfolder || ""));
+                                        if (stIdx > -1) state.images.splice(stIdx, 1);
+                                    }
+                                    if (state.nodeOutputs) {
+                                        removeImageFromNodeOutputs(state.nodeOutputs, img);
+                                    }
+                                    state.rendered = false;
+                                    store.updatePrompt(pid, state);
                                 }
-                                if (state.nodeOutputs) {
-                                    removeImageFromNodeOutputs(state.nodeOutputs, img);
+
+                                const mainCardObj = cardPool.get(pid);
+                                if (mainCardObj) {
+                                    mainCardObj.currentImageIndex = 0;
+                                    mainCardObj.lastImagesSignature = "";
                                 }
-                                state.rendered = false;
-                                store.updatePrompt(pid, state);
-                            }
 
-                            const mainCardObj = cardPool.get(pid);
-                            if (mainCardObj) {
-                                mainCardObj.currentImageIndex = 0;
-                                mainCardObj.lastImagesSignature = "";
-                            }
-
-                            if (batchInfo.images.length === 0) {
-                                if (batchInfo.parentPromptId) {
-                                    store.openOutputsSubmenu(batchInfo.parentPromptId);
-                                } else {
-                                    store.closeSubmenu();
+                                if (batchInfo.images.length === 0) {
+                                    if (batchInfo.parentPromptId) {
+                                        store.openOutputsSubmenu(batchInfo.parentPromptId);
+                                    } else {
+                                        store.closeSubmenu();
+                                    }
                                 }
-                            }
 
-                            renderSidebar();
+                                renderSidebar();
+                            });
                         }
                     };
 
@@ -787,35 +800,37 @@ export function renderSidebar() {
                                 const shouldDeleteFromDisk = isDiskDelete || wantsDiskDelete;
                                 resetDelete();
 
-                                if (shouldDeleteFromDisk && out.images) {
-                                    let count = 0;
-                                    let lastAct = "trashed";
-                                    for (const imgItem of out.images) {
-                                        const action = await deleteFileOnServer(imgItem);
-                                        if (action) { count++; lastAct = action; }
+                                animateCardRemoval(card, async () => {
+                                    if (shouldDeleteFromDisk && out.images) {
+                                        let count = 0;
+                                        let lastAct = "trashed";
+                                        for (const imgItem of out.images) {
+                                            const action = await deleteFileOnServer(imgItem);
+                                            if (action) { count++; lastAct = action; }
+                                        }
+                                        if (count > 0) {
+                                            const msg = lastAct === "trashed"
+                                                ? `Moved ${count} file${count > 1 ? "s" : ""} to Recycle Bin.`
+                                                : `Permanently deleted ${count} file${count > 1 ? "s" : ""}.`;
+                                            showNotification(msg, "success", "Delete Files");
+                                        }
                                     }
-                                    if (count > 0) {
-                                        const msg = lastAct === "trashed"
-                                            ? `Moved ${count} file${count > 1 ? "s" : ""} to Recycle Bin.`
-                                            : `Permanently deleted ${count} file${count > 1 ? "s" : ""}.`;
-                                        showNotification(msg, "success", "Delete Files");
+
+                                    if (st.nodeOutputs && st.nodeOutputs[out.nodeId]) {
+                                        delete st.nodeOutputs[out.nodeId];
                                     }
-                                }
 
-                                if (st.nodeOutputs && st.nodeOutputs[out.nodeId]) {
-                                    delete st.nodeOutputs[out.nodeId];
-                                }
+                                    const remainingOutputs = getRunOutputs(st.nodeOutputs, st.workflow);
+                                    if (remainingOutputs.length > 0) {
+                                        st.images = remainingOutputs[remainingOutputs.length - 1].images || [];
+                                    } else {
+                                        st.images = [];
+                                        store.closeSubmenu();
+                                    }
 
-                                const remainingOutputs = getRunOutputs(st.nodeOutputs, st.workflow);
-                                if (remainingOutputs.length > 0) {
-                                    st.images = remainingOutputs[remainingOutputs.length - 1].images || [];
-                                } else {
-                                    st.images = [];
-                                    store.closeSubmenu();
-                                }
-
-                                store.updatePrompt(st.pid, st);
-                                renderSidebar();
+                                    store.updatePrompt(st.pid, st);
+                                    renderSidebar();
+                                });
                             }
                         };
 

@@ -432,3 +432,16 @@ export async function extractWorkflowFromPng(imageUrl) {
     }
     return null;
 }
+
+export function animateCardRemoval(cardEl, callback, duration = 200) {
+    if (!cardEl) {
+        if (callback) callback();
+        return;
+    }
+    cardEl.style.transition = `opacity ${duration}ms ease, transform ${duration}ms ease`;
+    cardEl.style.opacity = "0";
+    cardEl.style.transform = "scale(0.85)";
+    setTimeout(() => {
+        if (callback) callback();
+    }, duration);
+}
