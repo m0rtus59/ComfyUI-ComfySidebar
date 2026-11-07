@@ -126,6 +126,16 @@ export class SidebarOverlay {
         const midX = winW / 2;
 
         try {
+            // Dynamically detect any top header/tab bar docked to the top of the screen
+            const potentialTopBars = document.querySelectorAll("header, .comfyui-header, .comfyui-menu, .comfy-menu, [class*='tab-bar'], [class*='workflow-tab'], [class*='workspace-tab'], [class*='header']");
+            for (const bar of potentialTopBars) {
+                // Must be an element sitting at the top of the viewport
+                const r = bar.getBoundingClientRect();
+                if (r.top <= 2 && r.bottom > 20 && r.bottom < 120 && r.width > 200) {
+                    topOffset = Math.max(topOffset, Math.round(r.bottom));
+                }
+            }
+
             const { leftPanels, rightPanels } = findActiveSidebars();
 
             [...leftPanels, ...rightPanels].forEach(p => this.observeElement(p));
@@ -135,18 +145,12 @@ export class SidebarOverlay {
                 if (rect.right > 0 && rect.right < midX) {
                     leftOffset = Math.max(leftOffset, Math.round(rect.right));
                 }
-                if (rect.top > 0 && rect.top < 120) {
-                    topOffset = Math.max(topOffset, Math.round(rect.top));
-                }
             }
 
             for (const el of rightPanels) {
                 const rect = el.getBoundingClientRect();
                 if (rect.left > midX && rect.left < winW) {
                     rightOffset = Math.max(rightOffset, Math.round(winW - rect.left));
-                }
-                if (rect.top > 0 && rect.top < 120) {
-                    topOffset = Math.max(topOffset, Math.round(rect.top));
                 }
             }
         } catch (e) {

@@ -65,10 +65,14 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
     const header = document.createElement("div");
     Object.assign(header.style, {
         position: "absolute", top: "16px", left: "50%", transform: "translateX(-50%)",
-        display: "flex", gap: "16px", zIndex: "30", color: "#aaa", fontSize: "12px",
-        fontFamily: "monospace", pointerEvents: "none", background: "rgba(10,10,10,0.75)",
-        padding: "6px 14px", borderRadius: "6px", backdropFilter: "blur(4px)",
-        boxShadow: "0 2px 6px rgba(0,0,0,0.4)", maxWidth: "85%", textAlign: "center"
+        display: "flex", gap: "16px", zIndex: "30", 
+        color: "var(--muted-foreground, var(--desc-color, #aaa))", 
+        fontSize: "12px",
+        fontFamily: "monospace", pointerEvents: "none", 
+        background: "color-mix(in srgb, var(--card, var(--secondary, #181818)) 90%, transparent)",
+        border: "1px solid var(--border, var(--border-color, rgba(255, 255, 255, 0.15)))",
+        padding: "6px 14px", borderRadius: "6px", backdropFilter: "blur(8px)",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.4)", maxWidth: "85%", textAlign: "center"
     });
     const titleText = document.createElement("span");
     titleText.textContent = getFilenameFromUrl(baseSrc) || t("3D Model");
@@ -85,9 +89,13 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
     const loadingSpinner = document.createElement("div");
     Object.assign(loadingSpinner.style, {
         position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
-        color: "#60a5fa", fontSize: "14px", fontFamily: "sans-serif", zIndex: "20",
-        background: "rgba(0,0,0,0.8)", padding: "10px 18px", borderRadius: "8px",
-        display: "flex", alignItems: "center", gap: "10px"
+        color: "var(--primary, var(--p-primary-color, #ea580c))", 
+        fontSize: "14px", fontFamily: "sans-serif", zIndex: "20",
+        background: "color-mix(in srgb, var(--card, var(--secondary, #181818)) 92%, transparent)",
+        border: "1px solid var(--border, var(--border-color, rgba(255, 255, 255, 0.15)))",
+        padding: "10px 18px", borderRadius: "8px",
+        display: "flex", alignItems: "center", gap: "10px",
+        boxShadow: "0 8px 24px rgba(0,0,0,0.5)"
     });
     loadingSpinner.innerHTML = `<span class="pi pi-spin pi-spinner" style="font-size: 18px;"></span> ${t("Loading 3D Asset...")}`;
     overlay.container.appendChild(loadingSpinner);
@@ -95,9 +103,13 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
     const settingsPanel = document.createElement("div");
     Object.assign(settingsPanel.style, {
         position: "absolute", top: "60px", right: "20px", width: "230px",
-        background: "rgba(18, 18, 24, 0.9)", backdropFilter: "blur(8px)",
-        border: "1px solid rgba(255, 255, 255, 0.12)", borderRadius: "8px",
-        padding: "14px", zIndex: "35", color: "#e2e8f0", fontSize: "11px",
+        background: "color-mix(in srgb, var(--card, var(--secondary, #181818)) 94%, transparent)", 
+        backdropFilter: "blur(12px)",
+        border: "1px solid var(--border, var(--border-color, rgba(255, 255, 255, 0.15)))", 
+        borderRadius: "8px",
+        padding: "14px", zIndex: "35", 
+        color: "var(--foreground, #e2e8f0)", 
+        fontSize: "11px",
         boxShadow: "0 8px 24px rgba(0,0,0,0.6)", display: "none", flexDirection: "column", gap: "12px"
     });
 
@@ -106,7 +118,7 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
         Object.assign(row.style, { display: "flex", flexDirection: "column", gap: "4px" });
         const lbl = document.createElement("label");
         lbl.textContent = label;
-        Object.assign(lbl.style, { color: "#94a3b8", fontSize: "10px", textTransform: "uppercase", fontWeight: "bold" });
+        Object.assign(lbl.style, { color: "var(--muted-foreground, #94a3b8)", fontSize: "10px", textTransform: "uppercase", fontWeight: "bold" });
         row.append(lbl, inputEl);
         return row;
     };
@@ -114,7 +126,9 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
     const createSelect = (options, value, onChange) => {
         const sel = document.createElement("select");
         Object.assign(sel.style, {
-            background: "#252530", color: "#eee", border: "1px solid #444",
+            background: "var(--secondary, #252530)", 
+            color: "var(--foreground, #eee)", 
+            border: "1px solid var(--border, var(--border-color, #444))",
             borderRadius: "4px", padding: "4px 6px", fontSize: "11px", outline: "none"
         });
         options.forEach(opt => {
@@ -131,9 +145,11 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
     const toolbar = document.createElement("div");
     Object.assign(toolbar.style, {
         position: "absolute", bottom: "20px", left: "50%", transform: "translateX(-50%)",
-        display: "flex", gap: "8px", zIndex: "30", background: "rgba(20,20,25,0.85)",
-        padding: "6px 12px", borderRadius: "8px", backdropFilter: "blur(6px)",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.6)", border: "1px solid rgba(255,255,255,0.1)",
+        display: "flex", gap: "8px", zIndex: "30", 
+        background: "color-mix(in srgb, var(--card, var(--secondary, #181818)) 92%, transparent)",
+        padding: "6px 12px", borderRadius: "8px", backdropFilter: "blur(8px)",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.6)", 
+        border: "1px solid var(--border, var(--border-color, rgba(255, 255, 255, 0.15)))",
         alignItems: "center"
     });
 
@@ -141,19 +157,25 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
         const btn = document.createElement("button");
         let active = activeDefault;
         btn.className = "comfy-sidebar-3d-tool-btn";
+
+        const updateBtnTheme = () => {
+            btn.style.background = active ? "var(--primary, var(--p-primary-color, #ea580c))" : "transparent";
+            btn.style.color = active ? "#ffffff" : "var(--muted-foreground, #aaa)";
+            btn.style.borderColor = active ? "var(--primary, var(--p-primary-color, #ea580c))" : "var(--border, var(--border-color, #444))";
+        };
+
         Object.assign(btn.style, {
-            background: active ? "#3b82f6" : "transparent", color: active ? "#fff" : "#aaa",
-            border: "1px solid " + (active ? "#3b82f6" : "#444"), borderRadius: "4px",
-            padding: "4px 10px", fontSize: "11px", cursor: "pointer", display: "flex",
-            alignItems: "center", gap: "6px", transition: "all 0.15s ease"
+            borderRadius: "4px", padding: "4px 10px", fontSize: "11px", 
+            cursor: "pointer", display: "flex", alignItems: "center", gap: "6px", 
+            transition: "all 0.15s ease", border: "1px solid"
         });
+        updateBtnTheme();
+
         btn.innerHTML = `<i class="${iconClass}"></i><span>${label}</span>`;
         btn.onclick = (e) => {
             e.stopPropagation();
             active = !active;
-            btn.style.background = active ? "#3b82f6" : "transparent";
-            btn.style.color = active ? "#fff" : "#aaa";
-            btn.style.borderColor = active ? "#3b82f6" : "#444";
+            updateBtnTheme();
             onClick(active);
         };
         return btn;
@@ -321,7 +343,19 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
             dirLight2.position.set(-5, -5, -5);
             scene.add(dirLight2);
 
-            gridHelper = new THREE.GridHelper(10, 20, 0x3b82f6, 0x22222a);
+            let gridPrimaryColor = 0xea580c;
+            try {
+                const tempDiv = document.createElement("div");
+                tempDiv.style.color = "var(--primary, var(--p-primary-color, #ea580c))";
+                document.body.appendChild(tempDiv);
+                const rgb = getComputedStyle(tempDiv).color.match(/\d+/g);
+                tempDiv.remove();
+                if (rgb && rgb.length >= 3) {
+                    gridPrimaryColor = (Number(rgb[0]) << 16) + (Number(rgb[1]) << 8) + Number(rgb[2]);
+                }
+            } catch (e) {}
+
+            gridHelper = new THREE.GridHelper(10, 20, gridPrimaryColor, 0x22222a);
             gridHelper.position.y = 0;
             scene.add(gridHelper);
 
@@ -415,11 +449,21 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
 
             const btnResetCam = document.createElement("button");
             Object.assign(btnResetCam.style, {
-                background: "transparent", color: "#aaa", border: "1px solid #444",
+                background: "transparent", 
+                color: "var(--muted-foreground, #aaa)", 
+                border: "1px solid var(--border, var(--border-color, #444))",
                 borderRadius: "4px", padding: "4px 10px", fontSize: "11px", cursor: "pointer",
-                display: "flex", alignItems: "center", gap: "6px"
+                display: "flex", alignItems: "center", gap: "6px", transition: "all 0.15s ease"
             });
             btnResetCam.innerHTML = `<i class="pi pi-compass"></i><span>${t("Reset View")}</span>`;
+            btnResetCam.onmouseenter = () => {
+                btnResetCam.style.borderColor = "var(--primary, var(--border-color, #fff))";
+                btnResetCam.style.color = "var(--foreground, #fff)";
+            };
+            btnResetCam.onmouseleave = () => {
+                btnResetCam.style.borderColor = "var(--border, var(--border-color, #444))";
+                btnResetCam.style.color = "var(--muted-foreground, #aaa)";
+            };
             btnResetCam.onclick = (e) => {
                 e.stopPropagation();
                 if (currentModel) fitCameraToObject(camera, currentModel, controls, THREE);
@@ -440,9 +484,9 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
                     exportSelect.value = "";
                 }
             });
-            exportSelect.style.background = "#1e293b";
-            exportSelect.style.borderColor = "#3b82f6";
-            exportSelect.style.color = "#93c5fd";
+            exportSelect.style.background = "var(--secondary, var(--card, #1e293b))";
+            exportSelect.style.borderColor = "var(--primary, var(--p-primary-color, #ea580c))";
+            exportSelect.style.color = "var(--foreground, #fff)";
 
             toolbar.append(btnGrid, btnWire, btnRotate, btnResetCam, btnSettings, exportSelect);
             overlay.container.appendChild(toolbar);
@@ -493,12 +537,12 @@ export function create3DViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = ()
             } else if (ext === "stl" && THREE.STLLoader) {
                 const loader = new THREE.STLLoader();
                 const geometry = await loader.loadAsync(srcUrl);
-                const material = new THREE.MeshStandardMaterial({ color: 0x90caf9, roughness: 0.4, metalness: 0.2 });
+                const material = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.4, metalness: 0.2 });
                 loadedObj = new THREE.Mesh(geometry, material);
             } else if (ext === "ply" && THREE.PLYLoader) {
                 const loader = new THREE.PLYLoader();
                 const geometry = await loader.loadAsync(srcUrl);
-                const material = new THREE.MeshStandardMaterial({ color: 0x90caf9, roughness: 0.4 });
+                const material = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.4 });
                 loadedObj = new THREE.Mesh(geometry, material);
             } else if (THREE.GLTFLoader) {
                 const loader = new THREE.GLTFLoader();

@@ -367,11 +367,11 @@ const setupVideoPlayback = (vid, container) => {
     Object.assign(controlBar.style, {
         position: "absolute", bottom: "16px", left: "50%",
         display: "flex", alignItems: "center", gap: "12px", 
-        background: "var(--comfy-input-bg, rgba(18, 18, 18, 0.9))",
-        border: "1px solid var(--border-color, rgba(255, 255, 255, 0.15))",
+        background: "color-mix(in srgb, var(--card, var(--secondary, #181818)) 90%, transparent)",
+        border: "1px solid var(--border, var(--border-color, rgba(255, 255, 255, 0.15)))",
         padding: "8px 16px", borderRadius: "8px", zIndex: "40", fontSize: "11px",
         fontFamily: "monospace", 
-        color: "var(--fg-color, #eee)", 
+        color: "var(--foreground, var(--fg-color, #eee))", 
         width: "80%", maxWidth: "500px",
         boxShadow: "0 4px 12px rgba(0,0,0,0.3)", transform: "translate3d(-50%, 0, 0)",
         pointerEvents: "auto"
@@ -398,7 +398,7 @@ const setupVideoPlayback = (vid, container) => {
         position: "relative", cursor: "pointer"
     });
     const scrubberFill = document.createElement("div");
-    Object.assign(scrubberFill.style, { width: "0%", height: "100%", background: "#3b82f6", borderRadius: "2px" });
+    Object.assign(scrubberFill.style, { width: "0%", height: "100%", background: "var(--primary, var(--p-primary-color, #38bdf8))", borderRadius: "2px" });
     scrubberContainer.appendChild(scrubberFill);
 
     const timeLabel = document.createElement("span");
@@ -492,12 +492,12 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
     Object.assign(header.style, {
         position: "absolute", top: "16px", left: "50%", transform: "translateX(-50%)",
         display: "flex", gap: "16px", zIndex: "30", 
-        color: "var(--desc-color, #aaa)", 
+        color: "var(--muted-foreground, var(--desc-color, #aaa))", 
         fontSize: "12px",
         fontFamily: "sans-serif", pointerEvents: "none", 
-        background: "var(--comfy-input-bg, rgba(18, 18, 18, 0.85))",
-        border: "1px solid var(--border-color, rgba(255, 255, 255, 0.15))",
-        padding: "6px 14px", borderRadius: "6px", backdropFilter: "blur(6px)",
+        background: "color-mix(in srgb, var(--card, var(--secondary, #181818)) 90%, transparent)",
+        border: "1px solid var(--border, var(--border-color, rgba(255, 255, 255, 0.15)))",
+        padding: "6px 14px", borderRadius: "6px", backdropFilter: "blur(8px)",
         boxShadow: "0 2px 8px rgba(0,0,0,0.3)", maxWidth: "85%", textAlign: "center"
     });
     const infoText = document.createElement("span");
@@ -546,7 +546,7 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
                     to { transform: rotate(360deg); }
                 }
             </style>
-            <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation: comfy-sidebar-spin 1.3s linear infinite; filter: drop-shadow(0 0 12px rgba(59, 130, 246, 0.45));">
+            <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary, var(--p-primary-color, #38bdf8)); animation: comfy-sidebar-spin 1.3s linear infinite; filter: drop-shadow(0 0 12px rgba(168, 85, 247, 0.45));">
                 <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
             </svg>
         `;

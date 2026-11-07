@@ -394,7 +394,7 @@ function updateBreadcrumbUI() {
 
     const rootBtn = document.createElement("span");
     rootBtn.className = "comfy-sidebar-breadcrumb-item";
-    rootBtn.innerHTML = `<i class="pi pi-home" style="margin-right: 4px; font-size: 11px; color: var(--p-primary-color, #0ea5e9);"></i>output`;
+    rootBtn.innerHTML = `<i class="pi pi-home" style="margin-right: 4px; font-size: 11px; color: var(--primary, var(--p-primary-color, var(--primary-color, #a855f7)));"></i>output`;
     rootBtn.onclick = () => navigateToSubfolder("");
     breadcrumbBar.appendChild(rootBtn);
 
@@ -580,8 +580,9 @@ export function setupGalleryView() {
     const searchContainer = document.createElement("div");
     searchContainer.className = "comfy-sidebar-search-container";
     Object.assign(searchContainer.style, {
-        display: "none", width: "100%", alignItems: "center", background: "var(--comfy-input-bg, #181818)",
-        border: "1px solid var(--border-color, #555)", borderRadius: "4px", padding: "2px 8px",
+        display: "none", width: "100%", alignItems: "center",
+        background: "var(--card, var(--secondary, var(--comfy-input-bg, #181818)))",
+        border: "1px solid var(--border, var(--border-color, #555))", borderRadius: "4px", padding: "2px 8px",
         boxSizing: "border-box", height: "26px"
     });
     const sIcon = document.createElement("span");

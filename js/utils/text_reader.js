@@ -40,7 +40,7 @@ function parseInlineMarkdown(html) {
     html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
     html = html.replace(/_(.*?)_/g, '<em>$1</em>');
     html = html.replace(/~~(.*?)~~/g, '<span style="text-decoration:line-through;color:#888;">$1</span>');
-    html = html.replace(/\[([^\]]+)\]\(((?:https?:\/\/|\/)[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:#61afef;text-decoration:none;border-bottom:1px dashed #61afef;cursor:pointer;">$1</a>');
+    html = html.replace(/\[([^\]]+)\]\(((?:https?:\/\/|\/)[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:var(--primary, #ea580c);text-decoration:none;border-bottom:1px dashed var(--primary, #ea580c);cursor:pointer;">$1</a>');
     html = html.replace(/\$(?!\s)([^\$]+?)(?<!\s)\$/g, '<span style="font-family:\'Times New Roman\',Times,serif;font-size:14px;color:#e5c07b;font-style:italic;padding:0 2px;">$1</span>');
     return html;
 }
@@ -91,8 +91,8 @@ function parseMarkdown(text) {
             if (inCodeBlock) {
                 const rCode = codeContent.join("\n");
                 const langBadge = codeLang ? `<div style="position:absolute;top:6px;left:10px;color:#85c5ec;font-size:10px;font-family:sans-serif;font-weight:bold;text-transform:uppercase;opacity:0.8;user-select:none;">${codeLang}</div>` : '';
-                const btnStyle = "position:absolute;top:6px;right:6px;background:#333;color:#aaa;border:1px solid #555;border-radius:3px;padding:3px 8px;font-size:10px;cursor:pointer;";
-                htmlLines.push(`<div class="code-block-container" style="position:relative;margin:8px 0;">${langBadge}<button onclick="window.moonCopyCode(this)" style="${btnStyle}">${t("Copy")}</button><pre style="background:#1e1e1e;padding:10px;padding-top:28px;border-radius:4px;border:1px solid #333;font-family:monospace;overflow-x:auto;margin:0;color:#85c5ec;"><code>${rCode}</code></pre></div>`);
+                const btnStyle = "position:absolute;top:6px;right:6px;background:var(--secondary, #333);color:var(--muted-foreground, #aaa);border:1px solid var(--border, #555);border-radius:3px;padding:3px 8px;font-size:10px;cursor:pointer;";
+                htmlLines.push(`<div class="code-block-container" style="position:relative;margin:8px 0;">${langBadge}<button onclick="window.moonCopyCode(this)" style="${btnStyle}">${t("Copy")}</button><pre style="background:color-mix(in srgb, var(--card, #1e1e1e) 90%, black 10%);padding:10px;padding-top:28px;border-radius:4px;border:1px solid var(--border, #333);font-family:monospace;overflow-x:auto;margin:0;color:#85c5ec;"><code>${rCode}</code></pre></div>`);
                 codeContent = []; codeLang = ""; inCodeBlock = false;
             } else {
                 inCodeBlock = true; codeLang = trimmed.slice(3).trim();
@@ -202,14 +202,14 @@ export function createTextReader(textData, onSwitchMedia = () => {}, onDestroy =
 
     const readerBox = document.createElement("div");
     Object.assign(readerBox.style, {
-        background: "var(--comfy-menu-bg, rgba(18, 18, 24, 0.95))", 
-        backdropFilter: "blur(12px)",
-        border: "1px solid var(--border-color, rgba(255, 255, 255, 0.15))", 
+        background: "color-mix(in srgb, var(--card, var(--secondary, var(--p-surface-800, #181818))) 94%, var(--background, #000) 6%)", 
+        backdropFilter: "blur(16px)",
+        border: "1px solid var(--border, var(--border-color, rgba(255, 255, 255, 0.15)))", 
         borderRadius: "12px",
         padding: "20px 24px", width: "85%", maxWidth: "840px", height: "80vh",
-        boxShadow: "0 12px 40px rgba(0,0,0,0.4)", display: "flex",
+        boxShadow: "0 12px 40px rgba(0,0,0,0.5)", display: "flex",
         flexDirection: "column", gap: "14px", zIndex: "20",
-        color: "var(--fg-color, #eee)",
+        color: "var(--foreground, var(--fg-color, #eee))",
         pointerEvents: "auto"
     });
 
@@ -222,7 +222,7 @@ export function createTextReader(textData, onSwitchMedia = () => {}, onDestroy =
     const headerRow = document.createElement("div");
     Object.assign(headerRow.style, { 
         display: "flex", alignItems: "center", justifyContent: "space-between", 
-        borderBottom: "1px solid rgba(255,255,255,0.1)", paddingBottom: "12px",
+        borderBottom: "1px solid var(--border, var(--border-color, rgba(255, 255, 255, 0.12)))", paddingBottom: "12px",
         flexWrap: "wrap", gap: "10px"
     });
 
@@ -242,7 +242,9 @@ export function createTextReader(textData, onSwitchMedia = () => {}, onDestroy =
 
     const statsBadge = document.createElement("span");
     Object.assign(statsBadge.style, { 
-        fontSize: "10px", color: "#94a3b8", background: "rgba(255,255,255,0.06)", 
+        fontSize: "10px", color: "var(--muted-foreground, #94a3b8)", 
+        background: "var(--secondary, rgba(255,255,255,0.06))", 
+        border: "1px solid var(--border, transparent)",
         padding: "3px 8px", borderRadius: "4px", fontFamily: "monospace", 
         whiteSpace: "nowrap", flexShrink: "0" 
     });
@@ -254,7 +256,9 @@ export function createTextReader(textData, onSwitchMedia = () => {}, onDestroy =
 
     const modeBtn = document.createElement("button");
     Object.assign(modeBtn.style, {
-        background: "#334155", border: "1px solid #64748b", color: "#f8fafc",
+        background: "var(--primary, var(--p-primary-color, #a855f7))", 
+        border: "1px solid var(--primary, var(--p-primary-color, #a855f7))", 
+        color: "#ffffff",
         borderRadius: "6px", padding: "5px 12px", fontSize: "11px", cursor: "pointer",
         display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px",
         whiteSpace: "nowrap", minWidth: "96px", height: "28px", boxSizing: "border-box"
@@ -263,7 +267,9 @@ export function createTextReader(textData, onSwitchMedia = () => {}, onDestroy =
 
     const copyBtn = document.createElement("button");
     Object.assign(copyBtn.style, {
-        background: "#1e293b", border: "1px solid #475569", color: "#e2e8f0",
+        background: "var(--secondary, var(--p-surface-800, #1e293b))", 
+        border: "1px solid var(--border, var(--border-color, #475569))", 
+        color: "var(--foreground, #e2e8f0)",
         borderRadius: "6px", padding: "5px 10px", fontSize: "11px", cursor: "pointer",
         display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px",
         whiteSpace: "nowrap", height: "28px", boxSizing: "border-box"
@@ -272,7 +278,9 @@ export function createTextReader(textData, onSwitchMedia = () => {}, onDestroy =
 
     const downloadBtn = document.createElement("button");
     Object.assign(downloadBtn.style, {
-        background: "#1e293b", border: "1px solid #475569", color: "#e2e8f0",
+        background: "var(--secondary, var(--p-surface-800, #1e293b))", 
+        border: "1px solid var(--border, var(--border-color, #475569))", 
+        color: "var(--foreground, #e2e8f0)",
         borderRadius: "6px", padding: "5px 10px", fontSize: "11px", cursor: "pointer",
         display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "6px",
         whiteSpace: "nowrap", height: "28px", boxSizing: "border-box"
@@ -286,12 +294,12 @@ export function createTextReader(textData, onSwitchMedia = () => {}, onDestroy =
     Object.assign(textArea.style, {
         flex: "1", overflowY: "auto", fontSize: "13px",
         lineHeight: "1.6", 
-        color: "var(--fg-color, #e2e8f0)", 
+        color: "var(--foreground, var(--fg-color, #e2e8f0))", 
         wordBreak: "break-word",
         userSelect: "text", "-webkit-user-select": "text", 
-        background: "var(--comfy-input-bg, rgba(0, 0, 0, 0.2))",
+        background: "color-mix(in srgb, var(--background, var(--comfy-input-bg, #000)) 75%, transparent)",
         padding: "16px 20px", borderRadius: "6px", 
-        border: "1px solid var(--border-color, rgba(255, 255, 255, 0.08))",
+        border: "1px solid var(--border, var(--border-color, rgba(255, 255, 255, 0.1)))",
         scrollbarWidth: "thin"
     });
 
@@ -301,15 +309,17 @@ export function createTextReader(textData, onSwitchMedia = () => {}, onDestroy =
 
         if (isMarkdownMode) {
             modeBtn.innerHTML = `<i class="pi pi-code"></i><span>Markdown</span>`;
-            modeBtn.style.background = "#3b82f6";
-            modeBtn.style.borderColor = "#60a5fa";
+            modeBtn.style.background = "var(--primary, var(--p-primary-color, #a855f7))";
+            modeBtn.style.borderColor = "var(--primary, var(--p-primary-color, #a855f7))";
+            modeBtn.style.color = "#ffffff";
             textArea.style.fontFamily = "sans-serif";
             textArea.style.whiteSpace = "normal";
             textArea.innerHTML = parseMarkdown(rawText);
         } else {
             modeBtn.innerHTML = `<i class="pi pi-align-left"></i><span>${t("Raw Text")}</span>`;
-            modeBtn.style.background = "#334155";
-            modeBtn.style.borderColor = "#64748b";
+            modeBtn.style.background = "var(--secondary, #334155)";
+            modeBtn.style.borderColor = "var(--border, #64748b)";
+            modeBtn.style.color = "var(--muted-foreground, #f8fafc)";
             textArea.style.fontFamily = "monospace";
             textArea.style.whiteSpace = "pre-wrap";
             textArea.textContent = rawText;

@@ -218,8 +218,8 @@ export function setupSidebarView() {
         const reset = () => {
             isPending = false;
             Object.assign(btn.style, {
-                color: "var(--desc-color, #aaa)", background: "transparent",
-                borderColor: "var(--border-color, #555)", boxShadow: "none"
+                color: "", background: "",
+                borderColor: "", boxShadow: ""
             });
             if (timeout) { clearTimeout(timeout); timeout = null; }
         };
@@ -262,7 +262,7 @@ export function setupSidebarView() {
 
     const divider = document.createElement("div");
     Object.assign(divider.style, {
-        width: "1px", height: "14px", background: "var(--border-color, #444)",
+        width: "1px", height: "14px", background: "var(--border, var(--border-color, #444))",
         margin: "0 2px", opacity: "0.6"
     });
 
@@ -286,8 +286,9 @@ export function setupSidebarView() {
     const searchContainer = document.createElement("div");
     searchContainer.className = "comfy-sidebar-search-container";
     Object.assign(searchContainer.style, {
-        display: "none", width: "100%", alignItems: "center", background: "var(--comfy-input-bg, #181818)",
-        border: "1px solid var(--border-color, #555)", borderRadius: "4px", padding: "2px 8px",
+        display: "none", width: "100%", alignItems: "center",
+        background: "var(--card, var(--secondary, var(--comfy-input-bg, #181818)))",
+        border: "1px solid var(--border, var(--border-color, #555))", borderRadius: "4px", padding: "2px 8px",
         boxSizing: "border-box", height: "26px"
     });
     const searchInputIcon = document.createElement("span");
@@ -975,9 +976,9 @@ export function renderSidebar() {
                 if (!pCard) {
                     const el = document.createElement("div");
                     Object.assign(el.style, {
-                        background: "var(--comfy-input-bg, #181818)", border: "2px solid #6c757d", borderRadius: "4px", padding: "10px",
+                        background: "var(--card, var(--secondary, var(--comfy-input-bg, #181818)))", border: "2px solid var(--border, #6c757d)", borderRadius: "4px", padding: "10px",
                         textAlign: "center", fontSize: "12px", fontWeight: "bold",
-                        color: "var(--desc-color, #aaa)", display: "flex", flexDirection: "column", gap: "8px"
+                        color: "var(--muted-foreground, var(--desc-color, #aaa))", display: "flex", flexDirection: "column", gap: "8px"
                     });
                     const textDiv = document.createElement("div");
                     el.appendChild(textDiv);

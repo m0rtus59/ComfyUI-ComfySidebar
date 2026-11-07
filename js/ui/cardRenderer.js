@@ -386,18 +386,18 @@ export function getOrCreateCard(state, callbacks = {}) {
 
     const pt = document.createElement("div");
     Object.assign(pt.style, {
-        width: "100%", height: "4px", background: "#333", borderRadius: "2px", marginTop: "8px",
+        width: "100%", height: "4px", background: "var(--border, #333)", borderRadius: "2px", marginTop: "8px",
         overflow: "hidden", display: "none"
     });
     const pb = document.createElement("div");
     Object.assign(pb.style, {
-        width: "0%", height: "100%", background: "#3b82f6", transition: "width 0.1s linear"
+        width: "0%", height: "100%", background: "var(--primary, var(--p-primary-color, #ea580c))", transition: "width 0.1s linear"
     });
     pt.appendChild(pb);
 
     const statusText = document.createElement("div");
     Object.assign(statusText.style, {
-        fontSize: "11px", opacity: "0.9", color: "#3b82f6", textAlign: "center", marginTop: "6px",
+        fontSize: "11px", opacity: "0.9", color: "var(--primary, var(--p-primary-color, #ea580c))", textAlign: "center", marginTop: "6px",
         display: "none", fontWeight: "bold"
     });
 
