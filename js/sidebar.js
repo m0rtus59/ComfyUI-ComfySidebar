@@ -29,6 +29,7 @@ function setupKeydownShortcuts() {
             activeEl.tagName === "SELECT"
         )) return;
 
+        // Q: Toggle Queue Sidebar
         if (e.key.toLowerCase() === "q" && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
             e.preventDefault();
             e.stopPropagation();
@@ -40,6 +41,7 @@ function setupKeydownShortcuts() {
             }
         }
 
+        // Ctrl+Q / Cmd+Q: Toggle Ignore Selected Node
         if (e.key.toLowerCase() === "q" && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
             e.preventDefault();
             e.stopPropagation();
@@ -291,18 +293,6 @@ app.registerExtension({
     },
 
     commands: [
-        {
-            id: "ComfySidebar.ToggleSidebar",
-            label: t("Toggle Comfy Queue Sidebar"),
-            function: () => {
-                if (app.extensionManager?.command?.hasCommand?.("Workspace.ToggleSidebarTab.classic-comfy-sidebar")) {
-                    app.extensionManager.command.execute("Workspace.ToggleSidebarTab.classic-comfy-sidebar");
-                } else {
-                    const ourBtn = findOurSidebarButton();
-                    if (ourBtn) ourBtn.click();
-                }
-            }
-        },
         {
             id: "ComfySidebar.ToggleIgnoreNode",
             label: t("Toggle Ignore Selected Node(s) in Queue"),
