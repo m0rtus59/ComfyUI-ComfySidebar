@@ -1,3 +1,5 @@
+import { getSetting } from "../core/settings.js";
+
 export async function copyImageToClipboard(src) {
     try {
         const res = await fetch(src);
@@ -23,8 +25,6 @@ export async function copyImageToClipboard(src) {
         return false;
     }
 }
-
-import { app } from "/scripts/app.js";
 
 export async function openFileOrFolder(img) {
     if (!img) return;
@@ -54,7 +54,7 @@ export async function openFileOrFolder(img) {
 
 export async function deleteFileOnServer(fileItem) {
     if (!fileItem || !fileItem.filename) return null;
-    const isPermanent = app.ui?.settings?.getSettingValue?.("Comfy Sidebar.Permanent Delete on Disk Deletion") ?? false;
+    const isPermanent = getSetting("Comfy Sidebar.Permanent Delete on Disk Deletion", false);
     try {
         const res = await fetch("/comfy-sidebar/delete-file", {
             method: "POST",

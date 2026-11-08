@@ -1,4 +1,5 @@
 import { app } from "/scripts/app.js";
+import { t } from "../core/i18n.js";
 
 const FILE_EXT_REGEX = /\.(safetensors|ckpt|pt|pth|bin|latent|onnx|engine|gguf|lora|zip|tar|gz|7z|json|csv|parquet|txt|yaml|yml|xml|pdf|blend|fbx|obj|glb|gltf|stl|ply|splat|spz|ksplat|png|jpg|jpeg|webp|gif|bmp|tiff|svg|mp4|webm|wav|mp3|ogg|flac|m4a|aac|opus)$/i;
 
@@ -67,17 +68,59 @@ export function parseWorkflow(workflow) {
     return null;
 }
 
-export function isNodeIgnored(nodeId, rawWorkflow) {
+export function getWorkflowNodeMap(rawWorkflow) {
     const workflow = parseWorkflow(rawWorkflow);
-    if (workflow && Array.isArray(workflow.nodes)) {
-        const node = workflow.nodes.find(n => String(n.id) === String(nodeId));
-        if (node?.properties?.ignoreInQueue !== undefined) {
-            return !!node.properties.ignoreInQueue;
+    if (!workflow || !Array.isArray(workflow.nodes)) return null;
+
+    if (workflow._nodeMap instanceof Map) {
+        return workflow._nodeMap;
+    }
+
+    const map = new Map();
+    for (const node of workflow.nodes) {
+        if (node && node.id !== undefined && node.id !== null) {
+            map.set(String(node.id), node);
         }
     }
 
-    if (!workflow && app.graph) {
-        const canvasNode = app.graph.getNodeById ? (app.graph.getNodeById(Number(nodeId)) || app.graph.getNodeById(String(nodeId))) : null;
+    // Attach as non-enumerable so JSON.stringify and Object.keys never see it
+    if (typeof workflow === "object") {
+        try {
+            Object.defineProperty(workflow, "_nodeMap", {
+                value: map,
+                writable: true,
+                configurable: true,
+                enumerable: false
+            });
+        } catch (_) {
+            workflow._nodeMap = map;
+        }
+    }
+
+    return map;
+}
+
+export function isNodeIgnored(nodeId, rawWorkflow) {
+    const idStr = String(nodeId);
+    const nodeMap = getWorkflowNodeMap(rawWorkflow);
+
+    if (nodeMap) {
+        const node = nodeMap.get(idStr);
+        if (node?.properties?.ignoreInQueue !== undefined) {
+            return !!node.properties.ignoreInQueue;
+        }
+    } else {
+        const workflow = parseWorkflow(rawWorkflow);
+        if (workflow && Array.isArray(workflow.nodes)) {
+            const node = workflow.nodes.find(n => String(n.id) === idStr);
+            if (node?.properties?.ignoreInQueue !== undefined) {
+                return !!node.properties.ignoreInQueue;
+            }
+        }
+    }
+
+    if (app.graph) {
+        const canvasNode = app.graph.getNodeById ? (app.graph.getNodeById(Number(nodeId)) || app.graph.getNodeById(idStr)) : null;
         if (canvasNode?.properties?.ignoreInQueue !== undefined) {
             return !!canvasNode.properties.ignoreInQueue;
         }
@@ -87,12 +130,20 @@ export function isNodeIgnored(nodeId, rawWorkflow) {
 
 export function getNodeTitle(nodeId, rawWorkflow, promptGraph = null) {
     const idStr = String(nodeId);
+    const nodeMap = getWorkflowNodeMap(rawWorkflow);
 
-    const workflow = parseWorkflow(rawWorkflow);
-    if (workflow && Array.isArray(workflow.nodes)) {
-        const node = workflow.nodes.find(n => String(n.id) === idStr);
+    if (nodeMap) {
+        const node = nodeMap.get(idStr);
         if (node) {
             return node.title || node.type || null;
+        }
+    } else {
+        const workflow = parseWorkflow(rawWorkflow);
+        if (workflow && Array.isArray(workflow.nodes)) {
+            const node = workflow.nodes.find(n => String(n.id) === idStr);
+            if (node) {
+                return node.title || node.type || null;
+            }
         }
     }
 
@@ -233,9 +284,10 @@ export function findImagesInOutputs(outputs, rawWorkflow) {
     };
 
     if (outputs) {
+        const nodeMap = getWorkflowNodeMap(workflow);
         for (const nodeId in outputs) {
             if (isNodeIgnored(nodeId, workflow)) continue;
-            const node = workflow?.nodes?.find(n => String(n.id) === String(nodeId));
+            const node = nodeMap ? nodeMap.get(String(nodeId)) : workflow?.nodes?.find(n => String(n.id) === String(nodeId));
             const nodeType = node ? (node.type || "") : "";
             scan(outputs[nodeId], "", "output", nodeType);
         }
@@ -444,4 +496,89 @@ export function animateCardRemoval(cardEl, callback, duration = 200) {
     setTimeout(() => {
         if (callback) callback();
     }, duration);
+}
+
+export function getScrollContainer(element) {
+    if (!element) return null;
+    return element.closest('.sidebar-content-container, [class*="sidebar-content-container"], [class*="overflow-y-auto"]')
+        || element.parentElement
+        || element;
+}
+
+export function calculateGridColumns(width, threshold = 350) {
+    if (!width || width <= 0) return 1;
+    return Math.max(1, Math.floor(width / ((threshold || 350) / 2)));
+}
+
+export function downloadJson(data, filename) {
+    if (!data) return;
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename || "workflow.json";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+export function setupSpotlightTracker(container, cardSelector = ".comfy-sidebar-card") {
+    if (!container) return;
+    container.addEventListener("pointermove", (e) => {
+        const card = e.target.closest(cardSelector);
+        if (card) {
+            const rect = card.getBoundingClientRect();
+            card.style.setProperty("--mouse-x", `${e.clientX - rect.left}px`);
+            card.style.setProperty("--mouse-y", `${e.clientY - rect.top}px`);
+        }
+    }, { passive: true });
+}
+
+export function attachDeleteConfirmation(btn, options = {}) {
+    if (!btn) return () => {};
+    const {
+        canDiskDelete = true,
+        timeout = 2000,
+        idleTitle = t("Delete"),
+        confirmTitle = t("Click again to confirm"),
+        confirmDiskTitle = t("Ctrl+Click again to delete from disk"),
+        onConfirm
+    } = options;
+
+    let isPending = false;
+    let isDisk = false;
+    let timer = null;
+
+    const reset = () => {
+        isPending = false;
+        isDisk = false;
+        btn.classList.remove("confirm-delete", "confirm-delete-disk");
+        btn.title = typeof idleTitle === "function" ? idleTitle() : idleTitle;
+        if (timer) {
+            clearTimeout(timer);
+            timer = null;
+        }
+    };
+
+    reset();
+
+    btn.onclick = async (ev) => {
+        ev.stopPropagation();
+        const wantsDisk = (ev.ctrlKey || ev.metaKey) && (typeof canDiskDelete === "function" ? canDiskDelete() : !!canDiskDelete);
+
+        if (!isPending) {
+            isPending = true;
+            isDisk = wantsDisk;
+            btn.classList.add(wantsDisk ? "confirm-delete-disk" : "confirm-delete");
+            btn.title = wantsDisk
+                ? (typeof confirmDiskTitle === "function" ? confirmDiskTitle() : confirmDiskTitle)
+                : (typeof confirmTitle === "function" ? confirmTitle() : confirmTitle);
+            timer = setTimeout(reset, timeout);
+        } else {
+            const finalDisk = isDisk || wantsDisk;
+            reset();
+            if (onConfirm) await onConfirm(finalDisk);
+        }
+    };
+
+    return reset;
 }

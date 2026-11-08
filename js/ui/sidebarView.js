@@ -5,7 +5,8 @@ import { t } from "../core/i18n.js";
 import { getOrCreateCard, updateCardDOM, resetAllCardHoverStates, cardPool } from "./cardRenderer.js";
 import { clearCancelledOrFailed, clearAllHistory, cancelAllPending } from "../queue/queueService.js";
 import { updateSidebarBadge, centerAndSelectCanvasNode } from "../comfy/adapter.js";
-import { matchesFilter, getRunOutputs, isImageFormat, animateCardRemoval } from "../utils/utils.js";
+import { matchesFilter, getRunOutputs, isImageFormat, animateCardRemoval, getScrollContainer, calculateGridColumns, setupSpotlightTracker, attachDeleteConfirmation } from "../utils/utils.js";
+import { getSetting } from "../core/settings.js";
 import { renderCardImages } from "./mediaPreview.js";
 import { deleteFileOnServer, removeImageFromNodeOutputs, copyImageToClipboard, findNodeIdForImage } from "./mediaActions.js";
 import { toggleIgnoreActiveNode } from "../comfy/nodes.js";
@@ -90,20 +91,13 @@ function mountCards(cardStack, fullWidthEls, cardEls, cols = 1) {
     }
 }
 
-function getScrollContainer() {
-    if (!store.ui.cardStack) return null;
-    return store.ui.cardStack.closest('.sidebar-content-container, [class*="sidebar-content-container"], [class*="overflow-y-auto"]') 
-        || store.ui.cardStack.parentElement 
-        || store.ui.cardStack;
-}
-
 function updateScrollTopBtnVisibility() {
     if (!scrollToTopBtnEl) return;
     if (!store.ui.sidebarContainer || !store.ui.sidebarContainer.isConnected) {
         scrollToTopBtnEl.style.display = "none";
         return;
     }
-    const scrollEl = getScrollContainer();
+    const scrollEl = getScrollContainer(store.ui.cardStack);
     if (scrollEl) {
         const viewportEl = scrollEl.parentElement || store.ui.sidebarContainer;
         if (viewportEl && scrollToTopBtnEl.parentNode !== viewportEl) {
@@ -352,27 +346,20 @@ export function setupSidebarView() {
 
     scrollToTopBtnEl.addEventListener("click", (e) => {
         e.stopPropagation();
-        const scrollEl = getScrollContainer();
+        const scrollEl = getScrollContainer(store.ui.cardStack);
         if (scrollEl) scrollEl.scrollTo({ top: 0, behavior: "smooth" });
     });
 
     container.appendChild(scrollToTopBtnEl);
 
     // Reveal Spotlight: track cursor position over Queue card borders
-    container.addEventListener("pointermove", (e) => {
-        const card = e.target.closest(".comfy-sidebar-card");
-        if (card) {
-            const rect = card.getBoundingClientRect();
-            card.style.setProperty("--mouse-x", `${e.clientX - rect.left}px`);
-            card.style.setProperty("--mouse-y", `${e.clientY - rect.top}px`);
-        }
-    }, { passive: true });
+    setupSpotlightTracker(container, ".comfy-sidebar-card");
 
     document.addEventListener("scroll", updateScrollTopBtnVisibility, { capture: true, passive: true });
 
     new ResizeObserver((entries) => {
-        const threshold = app.ui?.settings?.getSettingValue?.(SettingIds.GRID_COLUMNS_THRESHOLD) ?? 350;
-        const cols = Math.max(1, Math.floor(entries[0].contentRect.width / (threshold / 2)));
+        const threshold = getSetting(SettingIds.GRID_COLUMNS_THRESHOLD, 350);
+        const cols = calculateGridColumns(entries[0].contentRect.width, threshold);
         if (cols !== currentColumnCount) {
             currentColumnCount = cols;
             renderSidebar();
@@ -411,8 +398,8 @@ export function renderSidebar() {
     renderAnimationFrameId = requestAnimationFrame(() => {
         if (!store.ui.sidebarContainer || !store.ui.cardStack) return;
 
-        const showPendingSummary = app.ui?.settings?.getSettingValue?.(SettingIds.SHOW_PENDING_COUNT_ONLY) ?? true;
-        const showWorkingNode = app.ui?.settings?.getSettingValue?.(SettingIds.SHOW_WORKING_NODE_NAME) ?? true;
+        const showPendingSummary = getSetting(SettingIds.SHOW_PENDING_COUNT_ONLY, true);
+        const showWorkingNode = getSetting(SettingIds.SHOW_WORKING_NODE_NAME, true);
 
         const headerTitle = store.ui.sidebarContainer.querySelector("h3");
         const headerSearchIcon = store.ui.sidebarContainer.querySelector(".comfy-sidebar-header-root .pi-search");
@@ -497,37 +484,16 @@ export function renderSidebar() {
 
                     const btnDel = document.createElement("span");
                     btnDel.className = "pi pi-trash comfy-sidebar-card-action-btn comfy-sidebar-btn-del";
-                    btnDel.title = t("Remove from batch (Hold Ctrl to delete file from disk)");
                     const btnDelLabel = document.createElement("span");
                     btnDelLabel.className = "comfy-sidebar-del-label";
                     btnDelLabel.textContent = t("Delete File");
                     btnDel.appendChild(btnDelLabel);
 
-                    let isDeletePending = false, isDiskDelete = false, deleteTimeout = null;
-                    const resetDelete = () => {
-                        isDeletePending = false;
-                        isDiskDelete = false;
-                        btnDel.classList.remove("confirm-delete", "confirm-delete-disk");
-                        btnDel.title = t("Remove from batch (Hold Ctrl to delete file from disk)");
-                        if (deleteTimeout) { clearTimeout(deleteTimeout); deleteTimeout = null; }
-                    };
-
-                    btnDel.onclick = async (ev) => {
-                        ev.stopPropagation();
-                        const wantsDiskDelete = ev.ctrlKey || ev.metaKey;
-
-                        if (!isDeletePending) {
-                            isDeletePending = true;
-                            isDiskDelete = wantsDiskDelete;
-                            cardObj.btnDel.classList.add(wantsDiskDelete ? "confirm-delete-disk" : "confirm-delete");
-                            cardObj.btnDel.title = wantsDiskDelete
-                                ? t("Ctrl+Click again to delete file from DISK / TRASH")
-                                : t("Click again to confirm removing from batch");
-                            deleteTimeout = setTimeout(resetDelete, 2000);
-                        } else {
-                            const shouldDeleteFromDisk = isDiskDelete || wantsDiskDelete;
-                            resetDelete();
-
+                    attachDeleteConfirmation(btnDel, {
+                        idleTitle: t("Remove from batch (Hold Ctrl to delete file from disk)"),
+                        confirmTitle: t("Click again to confirm removing from batch"),
+                        confirmDiskTitle: t("Ctrl+Click again to delete file from DISK / TRASH"),
+                        onConfirm: async (shouldDeleteFromDisk) => {
                             animateCardRemoval(card, async () => {
                                 if (shouldDeleteFromDisk && img && img.filename) {
                                     const action = await deleteFileOnServer(img);
@@ -571,7 +537,7 @@ export function renderSidebar() {
                                 renderSidebar();
                             });
                         }
-                    };
+                    });
 
                     hoverPanel.append(btnImg, btnDel);
 
@@ -652,7 +618,7 @@ export function renderSidebar() {
 
             mountCards(store.ui.cardStack, [], targetElements, currentColumnCount);
 
-            const scrollEl = getScrollContainer();
+            const scrollEl = getScrollContainer(store.ui.cardStack);
             if (scrollEl) scrollEl.scrollTop = 0;
             updateScrollTopBtnVisibility();
             return;
@@ -770,37 +736,16 @@ export function renderSidebar() {
 
                         const btnDel = document.createElement("span");
                         btnDel.className = "pi pi-trash comfy-sidebar-card-action-btn comfy-sidebar-btn-del";
-                        btnDel.title = t("Delete node output (Hold Ctrl to delete file from disk)");
                         const btnDelLabel = document.createElement("span");
                         btnDelLabel.className = "comfy-sidebar-del-label";
                         btnDelLabel.textContent = t("Delete File");
                         btnDel.appendChild(btnDelLabel);
 
-                        let isDeletePending = false, isDiskDelete = false, deleteTimeout = null;
-                        const resetDelete = () => {
-                            isDeletePending = false;
-                            isDiskDelete = false;
-                            btnDel.classList.remove("confirm-delete", "confirm-delete-disk");
-                            btnDel.title = t("Delete node output (Hold Ctrl to delete file from disk)");
-                            if (deleteTimeout) { clearTimeout(deleteTimeout); deleteTimeout = null; }
-                        };
-
-                        btnDel.onclick = async (ev) => {
-                            ev.stopPropagation();
-                            const wantsDiskDelete = ev.ctrlKey || ev.metaKey;
-
-                            if (!isDeletePending) {
-                                isDeletePending = true;
-                                isDiskDelete = wantsDiskDelete;
-                                btnDel.classList.add(wantsDiskDelete ? "confirm-delete-disk" : "confirm-delete");
-                                btnDel.title = wantsDiskDelete
-                                    ? t("Ctrl+Click again to delete this node's files from DISK / TRASH")
-                                    : t("Click again to confirm removing output");
-                                deleteTimeout = setTimeout(resetDelete, 2000);
-                            } else {
-                                const shouldDeleteFromDisk = isDiskDelete || wantsDiskDelete;
-                                resetDelete();
-
+                        attachDeleteConfirmation(btnDel, {
+                            idleTitle: t("Delete node output (Hold Ctrl to delete file from disk)"),
+                            confirmTitle: t("Click again to confirm removing output"),
+                            confirmDiskTitle: t("Ctrl+Click again to delete this node's files from DISK / TRASH"),
+                            onConfirm: async (shouldDeleteFromDisk) => {
                                 animateCardRemoval(card, async () => {
                                     if (shouldDeleteFromDisk && out.images) {
                                         let count = 0;
@@ -833,7 +778,7 @@ export function renderSidebar() {
                                     renderSidebar();
                                 });
                             }
-                        };
+                        });
 
                         hoverPanel.append(btnImg, btnDel);
 
@@ -907,7 +852,7 @@ export function renderSidebar() {
                             nodeOutputs: st.nodeOutputs
                         }, () => {
                             // Clicking (1/N) opens batch drill-down for this specific intermediate node
-                            const scrollEl = getScrollContainer();
+                            const scrollEl = getScrollContainer(store.ui.cardStack);
                             if (scrollEl) {
                                 store.ui.mainQueueScrollTop = scrollEl.scrollTop;
                             }
@@ -983,11 +928,8 @@ export function renderSidebar() {
                     const textDiv = document.createElement("div");
                     el.appendChild(textDiv);
                     const cancelBtn = document.createElement("button");
+                    cancelBtn.className = "comfy-sidebar-cancel-all-btn";
                     cancelBtn.textContent = t("Cancel All Pending");
-                    Object.assign(cancelBtn.style, {
-                        background: "#dc3545", color: "white", border: "none", borderRadius: "3px", padding: "4px",
-                        cursor: "pointer", fontSize: "11px", fontWeight: "bold"
-                    });
                     cancelBtn.onclick = async () => {
                         await cancelAllPending();
                     };
@@ -1001,11 +943,8 @@ export function renderSidebar() {
                 let btnCard = cardPool.get("pending-cancel-all-standalone");
                 if (!btnCard) {
                     const btn = document.createElement("button");
+                    btn.className = "comfy-sidebar-cancel-all-btn";
                     btn.textContent = t("Cancel All Pending");
-                    Object.assign(btn.style, {
-                        background: "#dc3545", color: "white", border: "none", borderRadius: "3px", padding: "6px",
-                        cursor: "pointer", fontSize: "11px", fontWeight: "bold", width: "100%"
-                    });
                     btn.onclick = async () => {
                         await cancelAllPending();
                     };
@@ -1020,10 +959,10 @@ export function renderSidebar() {
         activeTasks.forEach(st => cardElements.push(syncTaskCard(st)));
         completedTasks.forEach(st => cardElements.push(syncTaskCard(st)));
 
-        const threshold = app.ui?.settings?.getSettingValue?.(SettingIds.GRID_COLUMNS_THRESHOLD) ?? 350;
+        const threshold = getSetting(SettingIds.GRID_COLUMNS_THRESHOLD, 350);
         const containerWidth = store.ui.sidebarContainer?.clientWidth || 0;
         if (containerWidth > 0) {
-            currentColumnCount = Math.max(1, Math.floor(containerWidth / (threshold / 2)));
+            currentColumnCount = calculateGridColumns(containerWidth, threshold);
         }
 
         mountCards(store.ui.cardStack, bannerElements, cardElements, currentColumnCount);
@@ -1031,7 +970,7 @@ export function renderSidebar() {
         if (store.ui.mainQueueScrollTop !== null) {
             const restorePos = store.ui.mainQueueScrollTop;
             store.ui.mainQueueScrollTop = null;
-            const scrollEl = getScrollContainer();
+            const scrollEl = getScrollContainer(store.ui.cardStack);
             if (scrollEl) {
                 scrollEl.scrollTop = restorePos;
                 requestAnimationFrame(() => { scrollEl.scrollTop = restorePos; });

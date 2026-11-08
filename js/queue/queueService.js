@@ -1,7 +1,8 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { store } from "../core/store.js";
-import { PromptStatus, StoreEvents } from "../core/constants.js";
+import { PromptStatus, StoreEvents, SettingIds } from "../core/constants.js";
+import { getSetting } from "../core/settings.js";
 import { createPromptState, activatePrompt, finalizePrompt } from "../core/promptState.js";
 import { normalizeQueueItem, normalizeHistoryItem } from "./queueNormalizer.js";
 import { findImagesInOutputs, findTextsInOutputs, getPrimaryOutputImages, getNodeTitle } from "../utils/utils.js";
@@ -16,6 +17,14 @@ function extractNodeTitles(outputs, workflow, promptGraph = null) {
         }
     }
     return titles;
+}
+
+export function extractPromptOutputs(outputs, workflow, promptGraph = null) {
+    return {
+        images: getPrimaryOutputImages(outputs, workflow),
+        texts: findTextsInOutputs(outputs, workflow),
+        nodeTitles: extractNodeTitles(outputs, workflow, promptGraph)
+    };
 }
 
 export async function syncQueue() {
@@ -36,19 +45,17 @@ export async function syncQueue() {
 
             const existing = store.getPrompt(item.pid);
             const activeWorkflow = item.workflow || (app.graph?.serialize?.() || null);
-            const titles = extractNodeTitles(item.outputs, activeWorkflow);
 
             if (!existing) {
                 const seq = store.nextSequence();
-                const images = getPrimaryOutputImages(item.outputs, activeWorkflow);
-                const texts = findTextsInOutputs(item.outputs, activeWorkflow);
+                const { images, texts, nodeTitles } = extractPromptOutputs(item.outputs, activeWorkflow);
 
                 const newState = createPromptState(item.pid, {
                     status: PromptStatus.ACTIVE,
                     images,
                     texts,
                     nodeOutputs: item.outputs,
-                    nodeTitles: titles,
+                    nodeTitles,
                     progress: 0,
                     progressText: "Processing...",
                     timestamp: seq,
@@ -57,6 +64,7 @@ export async function syncQueue() {
                 });
                 store.setPrompt(item.pid, newState);
             } else {
+                const titles = extractNodeTitles(item.outputs, activeWorkflow);
                 if (existing.status !== PromptStatus.ACTIVE) {
                     activatePrompt(existing, { workflow: activeWorkflow, nodeTitles: titles });
                     store.updatePrompt(item.pid, existing);
@@ -145,10 +153,9 @@ export async function concludeRun(pid, fallbackStatus = PromptStatus.CANCELLED) 
                 state.status = norm.status;
 
                 const promptGraph = hItem[key].prompt?.[2] || null;
-                const titles = extractNodeTitles(state.nodeOutputs, state.workflow, promptGraph);
+                const { images: primaryImgs, texts: fetchedTexts, nodeTitles: titles } = extractPromptOutputs(norm.outputs, state.workflow, promptGraph);
                 Object.assign(state.nodeTitles, titles);
 
-                const primaryImgs = getPrimaryOutputImages(norm.outputs, state.workflow);
                 const hasActualSavedOutputs = primaryImgs.some(img => !img.isFallback);
 
                 // If cancelled while sampling, do NOT overwrite with older nodes; keep the exact step preview!
@@ -158,7 +165,6 @@ export async function concludeRun(pid, fallbackStatus = PromptStatus.CANCELLED) 
                     }
                 }
 
-                const fetchedTexts = findTextsInOutputs(norm.outputs, state.workflow);
                 if (fetchedTexts.length > 0) state.texts = fetchedTexts;
                 break;
             }
@@ -173,7 +179,7 @@ export async function concludeRun(pid, fallbackStatus = PromptStatus.CANCELLED) 
         }
     }
 
-    const maxItems = app.ui?.settings?.getSettingValue?.("Comfy.Queue.MaxHistoryItems") ?? 64;
+    const maxItems = getSetting(SettingIds.MAX_HISTORY_ITEMS, 64);
     store.pruneHistory(maxItems);
     store.updatePrompt(key, state);
     syncQueue();
@@ -204,9 +210,7 @@ export async function initSessionAndHistory() {
         normalized.sort((a, b) => a.norm.queueNumber - b.norm.queueNumber);
 
         normalized.forEach(({ norm: item, promptGraph }) => {
-            const images = getPrimaryOutputImages(item.outputs, item.workflow);
-            const texts = findTextsInOutputs(item.outputs, item.workflow);
-            const titles = extractNodeTitles(item.outputs, item.workflow, promptGraph);
+            const { images, texts, nodeTitles: titles } = extractPromptOutputs(item.outputs, item.workflow, promptGraph);
 
             if (images.length === 0 && texts.length === 0 && item.status === PromptStatus.COMPLETED) {
                 return;
@@ -253,7 +257,7 @@ export async function initSessionAndHistory() {
             store.setPrompt(item.pid, newState);
         });
 
-        const maxItems = app.ui?.settings?.getSettingValue?.("Comfy.Queue.MaxHistoryItems") ?? 64;
+        const maxItems = getSetting(SettingIds.MAX_HISTORY_ITEMS, 64);
         store.pruneHistory(maxItems);
         await syncQueue();
     } catch (err) {

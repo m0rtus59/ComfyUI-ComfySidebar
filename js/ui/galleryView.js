@@ -2,7 +2,8 @@ import { app } from "/scripts/app.js";
 import { SettingIds, PromptStatus } from "../core/constants.js";
 import { t } from "../core/i18n.js";
 import { deleteFileOnServer, openFileOrFolder } from "./mediaActions.js";
-import { extractWorkflowFromPng, isImageFormat, animateCardRemoval } from "../utils/utils.js";
+import { extractWorkflowFromPng, isImageFormat, animateCardRemoval, getScrollContainer, calculateGridColumns, downloadJson, setupSpotlightTracker, attachDeleteConfirmation } from "../utils/utils.js";
+import { getSetting } from "../core/settings.js";
 import { renderCardImages } from "./mediaPreview.js";
 import { showNotification } from "../utils/nodeRenumber.js";
 
@@ -37,19 +38,12 @@ function formatFileSize(bytes) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
 }
 
-function getScrollContainer() {
-    if (!cardStackEl) return null;
-    return cardStackEl.closest('.sidebar-content-container, [class*="sidebar-content-container"], [class*="overflow-y-auto"]')
-        || cardStackEl.parentElement
-        || cardStackEl;
-}
-
 function updateScrollTopVisibility() {
     if (!galleryContainerEl || !galleryContainerEl.isConnected) {
         if (scrollToTopBtnEl) scrollToTopBtnEl.style.display = "none";
         return;
     }
-    const scrollEl = getScrollContainer();
+    const scrollEl = getScrollContainer(cardStackEl);
     if (scrollEl) {
         if (scrollToTopBtnEl) {
             scrollToTopBtnEl.style.display = scrollEl.scrollTop > 200 ? "flex" : "none";
@@ -289,47 +283,22 @@ function createFileCard(file) {
                 alert(t("No workflow metadata found in this file."));
                 return;
             }
-            const blob = new Blob([JSON.stringify(wf, null, 2)], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `workflow_${file.filename.replace(/\.[^/.]+$/, "")}.json`;
-            a.click();
-            setTimeout(() => URL.revokeObjectURL(url), 1500);
+            downloadJson(wf, `workflow_${file.filename.replace(/\.[^/.]+$/, "")}.json`);
         };
     }
 
     const btnDel = document.createElement("span");
     btnDel.className = "pi pi-trash comfy-sidebar-card-action-btn comfy-sidebar-btn-del comfy-sidebar-gallery-btn-del";
-    btnDel.title = t("Delete file (Hold Ctrl to delete file from disk)");
     const btnDelLabel = document.createElement("span");
     btnDelLabel.className = "comfy-sidebar-del-label";
     btnDelLabel.textContent = t("Delete File");
     btnDel.appendChild(btnDelLabel);
 
-    let isDeletePending = false, isDiskDelete = false, deleteTimeout = null;
-    const resetDelete = () => {
-        isDeletePending = false;
-        isDiskDelete = false;
-        btnDel.classList.remove("confirm-delete", "confirm-delete-disk");
-        btnDel.title = t("Delete file (Hold Ctrl to delete file from disk)");
-        if (deleteTimeout) { clearTimeout(deleteTimeout); deleteTimeout = null; }
-    };
-
-    btnDel.onclick = async (ev) => {
-        ev.stopPropagation();
-        const wantsDiskDelete = ev.ctrlKey || ev.metaKey;
-
-        if (!isDeletePending) {
-            isDeletePending = true;
-            isDiskDelete = wantsDiskDelete;
-            btnDel.classList.add(wantsDiskDelete ? "confirm-delete-disk" : "confirm-delete");
-            btnDel.title = wantsDiskDelete
-                ? t("Ctrl+Click again to delete file from DISK / TRASH")
-                : t("Click again to confirm deleting file");
-            deleteTimeout = setTimeout(resetDelete, 2000);
-        } else {
-            resetDelete();
+    attachDeleteConfirmation(btnDel, {
+        idleTitle: t("Delete file (Hold Ctrl to delete file from disk)"),
+        confirmTitle: t("Click again to confirm deleting file"),
+        confirmDiskTitle: t("Ctrl+Click again to delete file from DISK / TRASH"),
+        onConfirm: async () => {
             const action = await deleteFileOnServer(fileAsset);
             if (action) {
                 const msg = action === "trashed" ? t("Moved file to Recycle Bin.") : t("Permanently deleted file.");
@@ -345,7 +314,7 @@ function createFileCard(file) {
                 });
             }
         }
-    };
+    });
 
     hoverPanel.appendChild(btnDownload);
     if (btnJson) hoverPanel.appendChild(btnJson);
@@ -472,10 +441,10 @@ export function renderGallery() {
         });
     }
 
-    const threshold = app.ui?.settings?.getSettingValue?.(SettingIds.GRID_COLUMNS_THRESHOLD) ?? 350;
+    const threshold = getSetting(SettingIds.GRID_COLUMNS_THRESHOLD, 350);
     const containerWidth = galleryContainerEl.clientWidth || 0;
     if (containerWidth > 0) {
-        currentColumnCount = Math.max(1, Math.floor(containerWidth / (threshold / 2)));
+        currentColumnCount = calculateGridColumns(containerWidth, threshold);
     }
 
     let columnsWrapper = cardStackEl.querySelector(".comfy-sidebar-masonry-wrapper");
@@ -493,7 +462,7 @@ async function navigateToSubfolder(subfolder) {
     currentSubfolder = (subfolder || "").replace(/\\/g, "/");
     currentSearchQuery = "";
     await fetchGalleryData(currentSubfolder);
-    const scrollEl = getScrollContainer();
+    const scrollEl = getScrollContainer(cardStackEl);
     if (scrollEl) scrollEl.scrollTop = 0;
     renderGallery();
 }
@@ -611,7 +580,7 @@ export function setupGalleryView() {
 
     searchIcon.onclick = (e) => {
         e.stopPropagation();
-        const scrollEl = getScrollContainer();
+        const scrollEl = getScrollContainer(cardStackEl);
         scrollBeforeSearch = scrollEl ? scrollEl.scrollTop : 0;
         standardHeader.style.display = "none";
         searchContainer.style.display = "flex";
@@ -632,7 +601,7 @@ export function setupGalleryView() {
         if (hadFilter) {
             fetchGalleryData(currentSubfolder, "").then(() => {
                 renderGallery();
-                const scrollEl = getScrollContainer();
+                const scrollEl = getScrollContainer(cardStackEl);
                 if (scrollEl && scrollBeforeSearch > 0) {
                     scrollEl.scrollTop = scrollBeforeSearch;
                     requestAnimationFrame(() => { scrollEl.scrollTop = scrollBeforeSearch; });
@@ -682,7 +651,7 @@ export function setupGalleryView() {
     });
     scrollToTopBtnEl.onclick = (e) => {
         e.stopPropagation();
-        const scrollEl = getScrollContainer();
+        const scrollEl = getScrollContainer(cardStackEl);
         if (scrollEl) scrollEl.scrollTo({ top: 0, behavior: "smooth" });
     };
     container.appendChild(scrollToTopBtnEl);
@@ -697,20 +666,13 @@ export function setupGalleryView() {
     window.addEventListener("keyup", handleCtrlUp);
    
     // Reveal Spotlight: track cursor position over Gallery card and folder borders
-    container.addEventListener("pointermove", (e) => {
-        const card = e.target.closest(".comfy-sidebar-card, .comfy-sidebar-folder-card");
-        if (card) {
-            const rect = card.getBoundingClientRect();
-            card.style.setProperty("--mouse-x", `${e.clientX - rect.left}px`);
-            card.style.setProperty("--mouse-y", `${e.clientY - rect.top}px`);
-        }
-    }, { passive: true });
+    setupSpotlightTracker(container, ".comfy-sidebar-card, .comfy-sidebar-folder-card");
 
     document.addEventListener("scroll", updateScrollTopVisibility, { capture: true, passive: true });
 
     new ResizeObserver((entries) => {
-        const threshold = app.ui?.settings?.getSettingValue?.(SettingIds.GRID_COLUMNS_THRESHOLD) ?? 350;
-        const cols = Math.max(1, Math.floor(entries[0].contentRect.width / (threshold / 2)));
+        const threshold = getSetting(SettingIds.GRID_COLUMNS_THRESHOLD, 350);
+        const cols = calculateGridColumns(entries[0].contentRect.width, threshold);
         if (cols !== currentColumnCount) {
             currentColumnCount = cols;
             renderGallery();

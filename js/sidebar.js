@@ -12,6 +12,7 @@ import { setupSidebarView, renderSidebar, teardownSidebarView } from "./ui/sideb
 import { setupGalleryView, teardownGalleryView } from "./ui/galleryView.js";
 import { initI18n, t } from "./core/i18n.js";
 import { updateCardProgressTargeted, cardPool } from "./ui/cardRenderer.js";
+import { getScrollContainer } from "./utils/utils.js";
 import { store } from "./core/store.js";
 import { getSetting, setSetting } from "./core/settings.js";
 
@@ -394,13 +395,6 @@ app.registerExtension({
         let galleryScrollPos = 0;
         let activeSidebarTab = "queue";
 
-        const getRealScrollEl = (childEl) => {
-            if (!childEl) return null;
-            return childEl.closest('.sidebar-content-container, [class*="sidebar-content-container"], [class*="overflow-y-auto"]')
-                || childEl.parentElement
-                || childEl;
-        };
-
         app.extensionManager.registerSidebarTab({
             id: "classic-comfy-sidebar",
             icon: "pi pi-images",
@@ -409,14 +403,14 @@ app.registerExtension({
             type: "custom",
             render: (el) => {
                 document.querySelectorAll(".comfy-sidebar-scroll-top-btn").forEach(btn => { btn.style.display = "none"; });
-                const scrollParent = getRealScrollEl(el);
+                const scrollParent = getScrollContainer(el);
                 if (activeSidebarTab === "gallery" && scrollParent) {
                     galleryScrollPos = scrollParent.scrollTop;
                 }
                 activeSidebarTab = "queue";
                 el.replaceChildren(sidebarContainer);
                 requestAnimationFrame(() => {
-                    const sp = getRealScrollEl(el);
+                    const sp = getScrollContainer(el);
                     if (sp) sp.scrollTop = queueScrollPos;
                 });
             }
@@ -431,14 +425,14 @@ app.registerExtension({
             type: "custom",
             render: (el) => {
                 document.querySelectorAll(".comfy-sidebar-scroll-top-btn").forEach(btn => { btn.style.display = "none"; });
-                const scrollParent = getRealScrollEl(el);
+                const scrollParent = getScrollContainer(el);
                 if (activeSidebarTab === "queue" && scrollParent) {
                     queueScrollPos = scrollParent.scrollTop;
                 }
                 activeSidebarTab = "gallery";
                 el.replaceChildren(galleryContainer);
                 requestAnimationFrame(() => {
-                    const sp = getRealScrollEl(el);
+                    const sp = getScrollContainer(el);
                     if (sp) sp.scrollTop = galleryScrollPos;
                 });
             }

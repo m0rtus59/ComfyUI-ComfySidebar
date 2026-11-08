@@ -5,7 +5,7 @@ import { store } from "../core/store.js";
 import { renderCardImages } from "./mediaPreview.js";
 import { copyImageToClipboard, openFileOrFolder, deleteFileOnServer, findNodeIdForImage, removeImageFromNodeOutputs } from "./mediaActions.js";
 import { centerAndSelectCanvasNode } from "../comfy/adapter.js";
-import { getRunOutputs, extractWorkflowFromPng, isImageFormat, animateCardRemoval } from "../utils/utils.js";
+import { getRunOutputs, extractWorkflowFromPng, isImageFormat, animateCardRemoval, downloadJson, getScrollContainer, attachDeleteConfirmation } from "../utils/utils.js";
 import { showFullscreenPreview } from "../utils/comparison.js";
 import { stopAllAudioPlayback } from "./audioController.js";
 import { deleteHistoryItem, cancelPendingTask, interruptActive } from "../queue/queueService.js";
@@ -100,13 +100,7 @@ export function syncCardButtonVisibility(cardObj, state) {
                     alert(t("No workflow metadata found in this file."));
                     return;
                 }
-                const blob = new Blob([JSON.stringify(wf, null, 2)], { type: "application/json" });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `workflow_${state.pid || "comfy"}.json`;
-                a.click();
-                setTimeout(() => URL.revokeObjectURL(url), 1500);
+                downloadJson(wf, `workflow_${state.pid || "comfy"}.json`);
             };
         } else {
             cardObj.btnJson.style.setProperty("display", "none", "important");
@@ -304,9 +298,7 @@ export function syncCardButtonVisibility(cardObj, state) {
                     }
                 }
 
-                const scrollEl = document.querySelector('.sidebar-content-container, [class*="sidebar-content-container"], [class*="overflow-y-auto"]') 
-                    || store.ui.cardStack?.parentElement 
-                    || store.ui.cardStack;
+                const scrollEl = getScrollContainer(store.ui.cardStack);
                 if (scrollEl) {
                     store.ui.mainQueueScrollTop = scrollEl.scrollTop;
                 }
@@ -503,31 +495,12 @@ export function getOrCreateCard(state, callbacks = {}) {
         }
     });
 
-    let deleteTimeout = null, isDeletePending = false, isDiskDelete = false;
-    const resetDeleteBtn = () => {
-        isDeletePending = false;
-        isDiskDelete = false;
-        cardObj.btnDel.classList.remove("confirm-delete", "confirm-delete-disk");
-        cardObj.btnDel.title = t("Delete Card (Ctrl+Click to delete from disk)");
-        if (deleteTimeout) { clearTimeout(deleteTimeout); deleteTimeout = null; }
-    };
-
-    btnDel.onclick = async (ev) => {
-        ev.stopPropagation();
-        const wantsDiskDelete = (ev.ctrlKey || ev.metaKey) && cardObj.canDeleteFromDisk !== false;
-
-        if (!isDeletePending) {
-            isDeletePending = true;
-            isDiskDelete = wantsDiskDelete;
-            cardObj.btnDel.classList.add(wantsDiskDelete ? "confirm-delete-disk" : "confirm-delete");
-            cardObj.btnDel.title = wantsDiskDelete
-                ? t("Ctrl+Click again to delete file from DISK / TRASH")
-                : t("Click again to confirm removing card");
-            deleteTimeout = setTimeout(resetDeleteBtn, 2000);
-        } else {
-            const shouldDeleteFromDisk = isDiskDelete || wantsDiskDelete;
-            resetDeleteBtn();
-
+    attachDeleteConfirmation(btnDel, {
+        canDiskDelete: () => cardObj.canDeleteFromDisk !== false,
+        idleTitle: () => cardObj.canDeleteFromDisk ? t("Delete Card (Hold Ctrl to delete file from disk)") : t("Delete Card"),
+        confirmTitle: t("Click again to confirm removing card"),
+        confirmDiskTitle: t("Ctrl+Click again to delete file from DISK / TRASH"),
+        onConfirm: async (shouldDeleteFromDisk) => {
             animateCardRemoval(card, async () => {
                 const liveState = store.getPrompt(state.pid) || state;
 
@@ -569,7 +542,7 @@ export function getOrCreateCard(state, callbacks = {}) {
                 deleteHistoryItem(state.pid);
             });
         }
-    };
+    });
 
     cardPool.set(state.pid, cardObj);
     return cardObj;
@@ -645,9 +618,7 @@ export function updateCardDOM(cardObj, state, showPendingSummary = true, showWor
         } else {
             cardObj.placeholder.style.display = "none";
             renderCardImages(cardObj, state, (st) => {
-                const scrollEl = document.querySelector('.sidebar-content-container, [class*="sidebar-content-container"], [class*="overflow-y-auto"]') 
-                    || store.ui.cardStack?.parentElement 
-                    || store.ui.cardStack;
+                const scrollEl = getScrollContainer(store.ui.cardStack);
                 if (scrollEl) {
                     store.ui.mainQueueScrollTop = scrollEl.scrollTop;
                 }

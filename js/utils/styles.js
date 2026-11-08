@@ -27,8 +27,8 @@ export function injectStyles() {
             inset: 0;
             border-radius: inherit;
             background: radial-gradient(
-                150px circle at var(--mouse-x, -999px) var(--mouse-y, -999px),
-                color-mix(in srgb, var(--border, var(--secondary, #a855f7)) 75%, white 25%),
+                160px circle at var(--mouse-x, -999px) var(--mouse-y, -999px),
+                color-mix(in srgb, var(--primary, var(--p-primary-color, var(--primary-color, var(--accent, currentColor)))) 60%, transparent),
                 transparent 70%
             );
             opacity: 0;
@@ -39,7 +39,7 @@ export function injectStyles() {
 
         .comfy-sidebar-card:hover::before,
         .comfy-sidebar-folder-card:hover::before {
-            opacity: 0.55;
+            opacity: 0.65;
         }
         /* Active job uses the theme accent (orange); Cancelled & Error remain standout Yellow & Red */
         .comfy-sidebar-card.active { border-color: var(--primary, var(--p-primary-color, #ea580c)) !important; --hover-color: var(--primary, var(--p-primary-color, #ea580c)); }
@@ -78,25 +78,53 @@ export function injectStyles() {
             padding: 2px 4px; border-radius: 3px; pointer-events: none; z-index: 10; color: #fff;
         }
 
+        /* Card Cancel / Interrupt Button - matches native ComfyUI Topbar Cancel */
         .comfy-sidebar-queue-cancel-btn {
             display: none;
             align-items: center !important;
             justify-content: center !important;
-            width: 32px !important;
-            height: 32px !important;
-            background-color: #7f1d1d !important;
-            color: #e2e8f0 !important;
-            font-size: 11px !important;
+            width: 28px !important;
+            height: 28px !important;
+            background: var(--destructive, var(--p-button-danger-background, #ef4444)) !important;
+            color: var(--foreground, var(--fg-color, inherit)) !important;
+            border: 1px solid var(--destructive-border, transparent) !important;
+            font-size: 12px !important;
             border-radius: 6px !important;
             cursor: pointer !important;
-            transition: background-color 0.15s ease, color 0.15s ease !important;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+            transition: background-color 0.15s ease, filter 0.15s ease !important;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25) !important;
             z-index: 25 !important;
         }
 
         .comfy-sidebar-queue-cancel-btn:hover {
-            background-color: #991b1b !important;
-            color: #ffffff !important;
+            background: color-mix(in srgb, var(--destructive, var(--p-button-danger-background, #ef4444)) 88%, var(--foreground, #fff) 12%) !important;
+            color: var(--foreground, var(--fg-color, inherit)) !important;
+            filter: brightness(1.06);
+        }
+
+        /* Cancel All Pending Button */
+        .comfy-sidebar-cancel-all-btn {
+            background: var(--destructive, var(--p-button-danger-background, #ef4444)) !important;
+            color: var(--foreground, var(--fg-color, inherit)) !important;
+            border: 1px solid var(--destructive-border, transparent) !important;
+            border-radius: 6px !important;
+            padding: 6px 12px !important;
+            cursor: pointer !important;
+            font-size: 11px !important;
+            font-weight: bold !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+            transition: background-color 0.15s ease, filter 0.15s ease !important;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+        }
+
+        .comfy-sidebar-cancel-all-btn:hover {
+            background: color-mix(in srgb, var(--destructive, var(--p-button-danger-background, #ef4444)) 88%, var(--foreground, #fff) 12%) !important;
+            filter: brightness(1.06);
+        }
+
+        .comfy-sidebar-cancel-all-btn:active {
+            filter: brightness(0.95);
         }
 
         .comfy-sidebar-hover-panel,

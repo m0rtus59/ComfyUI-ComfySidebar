@@ -363,9 +363,8 @@ function setupCanvasMenuPopoverRelocator() {
             const sidebar = document.querySelector('.comfyui-sidebar, .comfy-sidebar, .sidebar, [class*="sidebar-nav"], [class*="sidebar"]');
             if (!sidebar || !popovers.length) return;
 
-            const sidebarRect = sidebar.getBoundingClientRect();
             const btnRect = btn.getBoundingClientRect();
-            const onLeft = sidebarRect.left < window.innerWidth / 2;
+            const onLeft = isSidebarOnLeft();
 
             popovers.forEach((pop) => {
                 if (pop.style.display !== "none" && !pop.classList.contains("p-overlay-hidden")) {
