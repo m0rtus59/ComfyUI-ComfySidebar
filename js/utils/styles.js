@@ -861,6 +861,63 @@ export function injectStyles() {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
         }
+
+        /* Runtime Preview Dock in Properties Panel */
+        .comfy-sidebar-runtime-preview-dock {
+            position: sticky;
+            bottom: 0px;
+            left: 0px;
+            width: 100%;
+            padding: 8px 12px;
+            box-sizing: border-box;
+            background: color-mix(in srgb, var(--card, var(--bg-color, var(--comfy-menu-bg, #181818))) 85%, transparent);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-top: 1px solid var(--border, var(--border-color, rgba(255, 255, 255, 0.12)));
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: auto;
+        }
+
+        .comfy-sidebar-runtime-preview-btn {
+            width: 100%;
+            height: 34px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            font-family: inherit;
+            transition: all 0.15s ease-in-out;
+            outline: none;
+            box-sizing: border-box;
+            background: var(--card, var(--secondary, rgba(255, 255, 255, 0.05)));
+            border: 1px solid var(--border, var(--border-color, rgba(255, 255, 255, 0.15)));
+            color: var(--muted-foreground, var(--desc-color, #aaa));
+            box-shadow: none;
+        }
+
+        .comfy-sidebar-runtime-preview-btn:hover {
+            border-color: color-mix(in srgb, var(--primary, var(--p-primary-color, #ea580c)) 65%, var(--border, #666) 35%);
+            color: var(--foreground, #fff);
+            background: color-mix(in srgb, var(--primary, var(--p-primary-color, #ea580c)) 8%, var(--card, rgba(255, 255, 255, 0.08)) 92%);
+        }
+
+        .comfy-sidebar-runtime-preview-btn.active {
+            background: color-mix(in srgb, var(--primary, var(--p-primary-color, var(--primary-color, #ea580c))) 18%, transparent) !important;
+            border: 1px solid var(--primary, var(--p-primary-color, var(--primary-color, #ea580c))) !important;
+            color: var(--primary, var(--p-primary-color, var(--primary-color, #ea580c))) !important;
+            box-shadow: 0 0 10px color-mix(in srgb, var(--primary, var(--p-primary-color, var(--primary-color, #ea580c))) 35%, transparent) !important;
+        }
+
+        .comfy-sidebar-runtime-preview-btn.active:hover {
+            filter: brightness(1.1);
+        }
     `;
     document.head.appendChild(style);
 }
