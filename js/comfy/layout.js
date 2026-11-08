@@ -11,6 +11,7 @@ import {
 } from "./adapter.js";
 import { SettingIds } from "../core/constants.js";
 import { isRuntimePreviewEnabled, setRuntimePreviewEnabled, setRuntimePreviewStateListener } from "../utils/comparison.js";
+import { getSetting, setSetting } from "../core/settings.js";
 
 // Listen for runtime preview state changes to keep button UI in sync
 setRuntimePreviewStateListener(() => {
@@ -88,20 +89,11 @@ div:has(> [class*="actionbar"]):not(header):not(.topbar):not(.actionbar-containe
 export function syncStockHistoryAndProgressSettings(enable) {
     const dockedVal = !!enable;
     const progressVal = !enable;
-    const QPOV2_ID = "Comfy.Queue.QPOV2";
-    const progressKey = "Comfy.Queue.ShowRunProgressBar";
+    const QPOV2_ID = SettingIds.DOCK_QUEUE || "Comfy.Queue.QPOV2";
+    const progressKey = SettingIds.SHOW_PROGRESS_BAR || "Comfy.Queue.ShowRunProgressBar";
 
-    if (app.extensionManager?.setting) {
-        try { app.extensionManager.setting.set(QPOV2_ID, dockedVal); } catch (e) {}
-        try { app.extensionManager.setting.set(progressKey, progressVal); } catch (e) {}
-    } else if (app.ui?.settings) {
-        try { app.ui.settings.setSettingValue(QPOV2_ID, dockedVal); } catch (e) {}
-        try { app.ui.settings.setSettingValue(progressKey, progressVal); } catch (e) {}
-    }
-
-    try { localStorage.setItem(QPOV2_ID, JSON.stringify(dockedVal)); } catch (e) {}
-    try { localStorage.setItem(progressKey, JSON.stringify(progressVal)); } catch (e) {}
-    try { window.dispatchEvent(new Event("storage")); } catch (e) {}
+    setSetting(QPOV2_ID, dockedVal);
+    setSetting(progressKey, progressVal);
 }
 
 let savedButtonData = null;
@@ -128,6 +120,11 @@ function setupSidebarTopObserver() {
 }
 
 function isSidebarOnLeft() {
+    const location = getSetting("Comfy.Sidebar.Location");
+    if (location === "left" || location === "right") {
+        return location === "left";
+    }
+
     const sidebar = document.querySelector('.comfyui-sidebar, .comfy-sidebar, .sidebar, [class*="sidebar-nav"], [class*="sidebar"]');
     if (!sidebar) return false;
     return sidebar.getBoundingClientRect().left < window.innerWidth / 2;
@@ -425,11 +422,7 @@ export function applyClassicLayout(enable, updateSetting = false) {
     
     if (enable) {
         if (updateSetting) {
-            if (app.extensionManager?.setting) {
-                app.extensionManager.setting.set("Comfy.Workflow.WorkflowTabsPosition", "Topbar");
-            } else if (app.ui?.settings) {
-                app.ui.settings.setSettingValue("Comfy.Workflow.WorkflowTabsPosition", "Topbar");
-            }
+            setSetting("Comfy.Workflow.WorkflowTabsPosition", "Topbar");
         }
         if (!styleEl) {
             styleEl = document.createElement("style");
@@ -453,7 +446,7 @@ export function applyClassicLayout(enable, updateSetting = false) {
 }
 
 function syncAvatarVisibility() {
-    const hideAvatar = app.ui?.settings?.getSettingValue("Comfy Sidebar.Hide Junk.Avatar") ?? false;
+    const hideAvatar = getSetting("Comfy Sidebar.Hide Junk.Avatar", false);
     const STYLE_AVATAR_ID = "comfy-sidebar-hide-avatar-override";
     let styleEl = document.getElementById(STYLE_AVATAR_ID);
 
@@ -501,7 +494,7 @@ function updateSidebarTabsVisibility() {
     };
 
     Object.entries(tabSelectors).forEach(([tab, selector]) => {
-        const shouldHide = app.ui?.settings?.getSettingValue(`Comfy Sidebar.Hide Junk.${tab}`) ?? false;
+        const shouldHide = getSetting(`Comfy Sidebar.Hide Junk.${tab}`, false);
         const target = sidebar.querySelector(selector);
         if (target) {
             const tabBtn = target.closest('.comfyui-sidebar-tab, button, [role="tab"], li, a, .comfyui-sidebar-item') || target;
@@ -514,11 +507,9 @@ function updateSidebarTabsVisibility() {
     });
 
     const hideStockHistory = (
-        app.extensionManager?.setting?.get?.(SettingIds.OVERRIDE_STOCK_HISTORY) ??
-        app.ui?.settings?.getSettingValue?.(SettingIds.OVERRIDE_STOCK_HISTORY) ??
-        app.ui?.settings?.getSettingValue?.("Comfy Sidebar.Hide Junk.Override Stock Job History Tab") ??
-        app.ui?.settings?.getSettingValue?.("Comfy Sidebar.Override Stock History") ??
-        false
+        getSetting(SettingIds.OVERRIDE_STOCK_HISTORY) ??
+        getSetting("Comfy Sidebar.Hide Junk.Override Stock Job History Tab") ??
+        getSetting("Comfy Sidebar.Override Stock History", false)
     );
     const historyTarget = sidebar.querySelector('[data-testid="queue-tab-button"], [data-testid="job-history-tab-button"], [class*="lucide--history"]');
     if (historyTarget) {
@@ -558,7 +549,7 @@ function cleanHTML(html) {
 }
 
 function syncGraphButton() {
-    const hideGraphBtn = app.ui?.settings?.getSettingValue("Comfy Sidebar.Hide Junk.Graph Button") ?? false;
+    const hideGraphBtn = getSetting("Comfy Sidebar.Hide Junk.Graph Button", false);
     const graphBtn = findGraphButton();
     if (graphBtn) {
         if (hideGraphBtn) {
@@ -653,11 +644,17 @@ function syncPropertiesButton(isClassicLayoutEnabled) {
         customBtn.addEventListener("click", (e) => {
             e.preventDefault();
             e.stopPropagation();
-            
-            const nativeBtn = findOriginalPropertiesButton();
-            if (nativeBtn) {
-                nativeBtn.click();
+
+            const isOpen = getSetting("Comfy.RightSidePanel.IsOpen");
+            if (typeof isOpen === "boolean") {
+                setSetting("Comfy.RightSidePanel.IsOpen", !isOpen);
                 requestAnimationFrame(() => syncClassicLayout());
+            } else {
+                const nativeBtn = findOriginalPropertiesButton();
+                if (nativeBtn) {
+                    nativeBtn.click();
+                    requestAnimationFrame(() => syncClassicLayout());
+                }
             }
         });
 
@@ -674,7 +671,7 @@ function syncPropertiesButton(isClassicLayoutEnabled) {
 }
 
 function syncActiveQueueIndicator(isClassicLayoutEnabled) {
-    const hideQueueIndicator = app.ui?.settings?.getSettingValue("Comfy Sidebar.Hide Junk.Override Stock Job History Tab") ?? false;
+    const hideQueueIndicator = getSetting("Comfy Sidebar.Hide Junk.Override Stock Job History Tab", false);
     const indicator = findActiveQueueIndicator();
     if (indicator) {
         if (isClassicLayoutEnabled && hideQueueIndicator) {
@@ -769,24 +766,19 @@ export function syncClassicLayout() {
     if (domObserver) domObserver.disconnect();
 
     try {
-        const isClassicLayoutEnabled = app.ui?.settings?.getSettingValue("Comfy Sidebar.Comfy Layout") ?? false;
-        const tabsPos = app.extensionManager?.setting?.get?.("Comfy.Workflow.WorkflowTabsPosition") ??
-                        app.ui?.settings?.getSettingValue("Comfy.Workflow.WorkflowTabsPosition");
+        const isClassicLayoutEnabled = getSetting("Comfy Sidebar.Comfy Layout", false);
+        const tabsPos = getSetting("Comfy.Workflow.WorkflowTabsPosition");
 
         // Real-time safeguard: if tabs are in Sidebar, disable Comfy Layout immediately
         if (isClassicLayoutEnabled && tabsPos === "Sidebar") {
             applyClassicLayout(false, false);
-            if (app.extensionManager?.setting) {
-                try { app.extensionManager.setting.set("Comfy Sidebar.Comfy Layout", false); } catch (e) {}
-            } else if (app.ui?.settings) {
-                try { app.ui.settings.setSettingValue("Comfy Sidebar.Comfy Layout", false); } catch (e) {}
-            }
+            setSetting("Comfy Sidebar.Comfy Layout", false);
             return;
         }
 
-        let canvasControlsMode = app.ui?.settings?.getSettingValue("Comfy Sidebar.Hide Junk.Floating Canvas Controls");
+        let canvasControlsMode = getSetting("Comfy Sidebar.Hide Junk.Floating Canvas Controls");
         if (canvasControlsMode === undefined || canvasControlsMode === null) {
-            const legacyDock = app.ui?.settings?.getSettingValue("Comfy Sidebar.Dock Canvas Controls");
+            const legacyDock = getSetting("Comfy Sidebar.Dock Canvas Controls");
             canvasControlsMode = legacyDock ? "Dock" : "Default";
         } else if (typeof canvasControlsMode === "boolean") {
             canvasControlsMode = canvasControlsMode ? "Dock" : "Default";
@@ -961,14 +953,19 @@ export function setupPropertiesPanelToggleFix() {
             }
 
             /* Neutralize CanvasModeSelector inner selected backgrounds so idle mode is clean and transparent */
+            .comfy-sidebar-unfloated-canvas-menu [class*="bg-muted"],
+            .comfy-sidebar-unfloated-canvas-menu [class*="group-hover:bg-accent"],
+            .comfy-sidebar-unfloated-canvas-menu > button div,
             .comfy-sidebar-unfloated-canvas-menu > div div,
             .comfy-sidebar-unfloated-canvas-menu > div button,
             .comfy-sidebar-unfloated-canvas-menu > div [role="button"],
             .comfy-sidebar-unfloated-canvas-menu [class*="bg-interface-panel-selected-surface"],
             .comfy-sidebar-unfloated-canvas-menu [class*="group-hover:bg-interface-button-hover-surface"] {
                 background: transparent !important;
+                background-color: transparent !important;
                 border-radius: 0 !important;
                 box-shadow: none !important;
+                padding: 0 !important;
             }
 
             /* Compact CanvasModeSelector padding and chevrons to eliminate extra sidebar width and ensure full-width highlight */

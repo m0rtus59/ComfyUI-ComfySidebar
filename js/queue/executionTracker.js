@@ -6,6 +6,7 @@ import { createPromptState, activatePrompt, updatePromptProgress } from "../core
 import { syncQueue, concludeRun, initSessionAndHistory, clearCancelledOrFailed } from "./queueService.js";
 import { findImagesInOutputs, findTextsInOutputs } from "../utils/utils.js";
 import { updateActiveComparisonPreview, isRuntimePreviewEnabled, focusRuntimePreviewTarget, getActiveComparisonViewer, showFullscreenPreview } from "../utils/comparison.js";
+import { getSetting } from "../core/settings.js";
 
 export function setupExecutionTracker(onTargetedProgressUpdate) {
     const onStatus = () => syncQueue();
@@ -17,7 +18,7 @@ export function setupExecutionTracker(onTargetedProgressUpdate) {
     };
 
     const onExecutionStart = (e) => {
-        const autoClear = app.ui?.settings?.getSettingValue?.("Comfy Sidebar.Auto Clear Interrupted") ?? false;
+        const autoClear = getSetting(SettingIds.AUTO_CLEAR_INTERRUPTED, false);
         if (autoClear) {
             clearCancelledOrFailed();
         }
@@ -70,7 +71,7 @@ export function setupExecutionTracker(onTargetedProgressUpdate) {
 
     const onExecuting = (e) => {
         const nodeId = e.detail;
-        const showWorkingNode = app.ui?.settings?.getSettingValue?.("Comfy Sidebar.Show Working Node Name") ?? true;
+        const showWorkingNode = getSetting(SettingIds.SHOW_WORKING_NODE_NAME, true);
         const activePid = store.ui.currentlyActivePromptId;
 
         if (activePid && store.hasPrompt(activePid)) {

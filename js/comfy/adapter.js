@@ -1,5 +1,6 @@
 import { app } from "/scripts/app.js";
 import { SettingIds } from "../core/constants.js";
+import { getSetting } from "../core/settings.js";
 
 export function findOriginalPropertiesButton() {
     const byTestId = document.querySelector('[data-testid="properties-panel-toggle"]');
@@ -71,6 +72,11 @@ export function findPropertiesPanel() {
 }
 
 export function isPropertiesPanelOpen() {
+    const modernOpen = getSetting("Comfy.RightSidePanel.IsOpen");
+    if (typeof modernOpen === "boolean") {
+        return modernOpen;
+    }
+
     const panel = findPropertiesPanel();
     if (panel) return true;
 
@@ -278,11 +284,9 @@ export function applySidebarOverride() {
 
     try {
         const overrideStock = (
-            app.extensionManager?.setting?.get?.(SettingIds.OVERRIDE_STOCK_HISTORY) ??
-            app.ui?.settings?.getSettingValue?.(SettingIds.OVERRIDE_STOCK_HISTORY) ??
-            app.ui?.settings?.getSettingValue?.("Comfy Sidebar.Hide Junk.Override Stock Job History Tab") ??
-            app.ui?.settings?.getSettingValue?.("Comfy Sidebar.Override Stock History") ??
-            false
+            getSetting(SettingIds.OVERRIDE_STOCK_HISTORY) ??
+            getSetting("Comfy Sidebar.Hide Junk.Override Stock Job History Tab") ??
+            getSetting("Comfy Sidebar.Override Stock History", false)
         );
         const stdBtn = findStandardQueueButton();
         const ourBtn = findOurSidebarButton();

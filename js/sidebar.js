@@ -13,10 +13,49 @@ import { setupGalleryView, teardownGalleryView } from "./ui/galleryView.js";
 import { initI18n, t } from "./core/i18n.js";
 import { updateCardProgressTargeted, cardPool } from "./ui/cardRenderer.js";
 import { store } from "./core/store.js";
+import { getSetting, setSetting } from "./core/settings.js";
 
 let isInitialized = false;
 let activeKeydownHandler = null;
 let cleanupFns = [];
+
+function setupKeydownShortcuts() {
+    activeKeydownHandler = (e) => {
+        const activeEl = document.activeElement;
+        if (activeEl && (
+            activeEl.tagName === "INPUT" ||
+            activeEl.tagName === "TEXTAREA" ||
+            activeEl.isContentEditable ||
+            activeEl.tagName === "SELECT"
+        )) return;
+
+        if (e.key.toLowerCase() === "q" && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (app.extensionManager?.command?.hasCommand?.("Workspace.ToggleSidebarTab.classic-comfy-sidebar")) {
+                app.extensionManager.command.execute("Workspace.ToggleSidebarTab.classic-comfy-sidebar");
+            } else {
+                const ourBtn = findOurSidebarButton();
+                if (ourBtn) ourBtn.click();
+            }
+        }
+
+        if (e.key.toLowerCase() === "q" && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleIgnoreActiveNode(() => renderSidebar());
+        }
+
+        // Alt+R: Renumber all nodes in execution order
+        if (e.key.toLowerCase() === "r" && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            renumberNodesTopologically();
+        }
+    };
+
+    document.addEventListener("keydown", activeKeydownHandler, true);
+}
 
 function registerSettings() {
     app.ui.settings.addSetting({
@@ -154,104 +193,6 @@ function registerSettings() {
     });
 }
 
-function setupSettingsDialogObserver() {
-    const targetTexts = [
-        "Grid Columns Threshold",
-        "Show Pending Count Only",
-        "Show Working Node Name",
-        "Auto Clear Interrupted",
-        "Permanent Delete on Disk Deletion",
-        "Hide Junk",
-        "Override Stock History",
-        "Hide Graph Button",
-        "Hide Avatar",
-        "Floating Canvas Controls",
-        "Classic Layout",
-        "Comfy Layout",
-        "Default",
-        "Dock",
-        "Hide"
-    ];
-
-    const translateDOM = (rootEl) => {
-        if (!rootEl) return;
-        const walker = document.createTreeWalker(
-            rootEl,
-            NodeFilter.SHOW_TEXT,
-            {
-                acceptNode(node) {
-                    const text = node.nodeValue?.trim();
-                    return targetTexts.includes(text) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
-                }
-            }
-        );
-
-        const nodesToTranslate = [];
-        while (walker.nextNode()) {
-            nodesToTranslate.push(walker.currentNode);
-        }
-
-        for (const textNode of nodesToTranslate) {
-            const raw = textNode.nodeValue.trim();
-            const translated = t(raw);
-            if (translated && translated !== raw) {
-                textNode.nodeValue = textNode.nodeValue.replace(raw, translated);
-            }
-        }
-    };
-
-    const observer = new MutationObserver(() => {
-        // 1. Translate headers and selected value inside the Settings dialog
-        const dialog = document.querySelector('.p-dialog, .comfy-settings-dialog, [role="dialog"]');
-        if (dialog) {
-            translateDOM(dialog);
-        }
-
-        // 2. Translate dropdown popup menu items (floated directly on document.body)
-        const overlay = document.querySelector('.p-select-overlay, .p-dropdown-panel, .p-select-list, [data-pc-name="selectoverlay"]');
-        if (overlay) {
-            translateDOM(overlay);
-        }
-    });
-
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
-}
-
-function setupKeydownShortcuts() {
-    activeKeydownHandler = (e) => {
-        const activeEl = document.activeElement;
-        if (activeEl && (
-            activeEl.tagName === "INPUT" ||
-            activeEl.tagName === "TEXTAREA" ||
-            activeEl.isContentEditable ||
-            activeEl.tagName === "SELECT"
-        )) return;
-
-        if (e.key.toLowerCase() === "q" && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
-            e.preventDefault();
-            e.stopPropagation();
-            const ourBtn = findOurSidebarButton();
-            if (ourBtn) ourBtn.click();
-        }
-
-        if (e.key.toLowerCase() === "q" && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
-            e.preventDefault();
-            e.stopPropagation();
-            toggleIgnoreActiveNode(() => renderSidebar());
-        }
-
-        // Alt+R: Renumber all nodes in execution order
-        if (e.key.toLowerCase() === "r" && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
-            e.preventDefault();
-            e.stopPropagation();
-            renumberNodesTopologically();
-        }
-    };
-
-    document.addEventListener("keydown", activeKeydownHandler, true);
-}
-
 function setupWorkflowTabsPositionWatcher() {
     let isSyncing = false;
     const TARGET_SETTING = "Comfy.Workflow.WorkflowTabsPosition";
@@ -259,15 +200,11 @@ function setupWorkflowTabsPositionWatcher() {
     const checkAndDisableIfSidebar = (val) => {
         if (isSyncing) return;
         if (val === "Sidebar") {
-            const isClassicEnabled = app.ui?.settings?.getSettingValue(SettingIds.CLASSIC_LAYOUT) ?? false;
+            const isClassicEnabled = getSetting(SettingIds.CLASSIC_LAYOUT, false);
             if (isClassicEnabled) {
                 isSyncing = true;
                 try {
-                    if (app.extensionManager?.setting) {
-                        try { app.extensionManager.setting.set(SettingIds.CLASSIC_LAYOUT, false); } catch (e) {}
-                    } else if (app.ui?.settings) {
-                        try { app.ui.settings.setSettingValue(SettingIds.CLASSIC_LAYOUT, false); } catch (e) {}
-                    }
+                    setSetting(SettingIds.CLASSIC_LAYOUT, false);
                     applyClassicLayout(false, false);
                 } finally {
                     isSyncing = false;
@@ -278,7 +215,6 @@ function setupWorkflowTabsPositionWatcher() {
 
     const cleanups = [];
 
-    // 1. Hook the setting's native onChange callback directly (instant execution on click)
     const attachNativeOnChange = (settingObj) => {
         if (!settingObj || settingObj._classicWatcherAttached) return;
         settingObj._classicWatcherAttached = true;
@@ -293,23 +229,19 @@ function setupWorkflowTabsPositionWatcher() {
         });
     };
 
-    // Check existing registered setting in legacy UI and modern extension manager
     attachNativeOnChange(app.ui?.settings?.settings?.[TARGET_SETTING]);
     attachNativeOnChange(app.extensionManager?.setting?.getSetting?.(TARGET_SETTING));
     attachNativeOnChange(app.extensionManager?.setting?.settings?.[TARGET_SETTING]);
 
-    // 2. Hook Vue/Pinia reactive store subscription if available (zero polling, synchronous)
     const settingStore = app.extensionManager?.setting?.settingStore;
     if (settingStore?.$subscribe) {
         const unsubscribe = settingStore.$subscribe(() => {
-            const val = app.extensionManager?.setting?.get?.(TARGET_SETTING) ??
-                        app.ui?.settings?.getSettingValue(TARGET_SETTING);
+            const val = getSetting(TARGET_SETTING);
             checkAndDisableIfSidebar(val);
         });
         cleanups.push(unsubscribe);
     }
 
-    // 3. Hook addSetting in case core registers/re-registers the setting later
     if (app.ui?.settings?.addSetting) {
         const origAdd = app.ui.settings.addSetting.bind(app.ui.settings);
         app.ui.settings.addSetting = (setting) => {
@@ -323,7 +255,6 @@ function setupWorkflowTabsPositionWatcher() {
         });
     }
 
-    // 4. Hook API setters as fallback
     if (app.ui?.settings?.setSettingValue) {
         const origSetSettingValue = app.ui.settings.setSettingValue.bind(app.ui.settings);
         app.ui.settings.setSettingValue = (id, value) => {
@@ -364,8 +295,12 @@ app.registerExtension({
             id: "ComfySidebar.ToggleSidebar",
             label: t("Toggle Comfy Queue Sidebar"),
             function: () => {
-                const ourBtn = findOurSidebarButton();
-                if (ourBtn) ourBtn.click();
+                if (app.extensionManager?.command?.hasCommand?.("Workspace.ToggleSidebarTab.classic-comfy-sidebar")) {
+                    app.extensionManager.command.execute("Workspace.ToggleSidebarTab.classic-comfy-sidebar");
+                } else {
+                    const ourBtn = findOurSidebarButton();
+                    if (ourBtn) ourBtn.click();
+                }
             }
         },
         {
@@ -423,23 +358,17 @@ app.registerExtension({
         if (!app.extensionManager || !app.extensionManager.registerSidebarTab) return;
         await initI18n();
 
-        const tabsPos = app.extensionManager?.setting?.get?.("Comfy.Workflow.WorkflowTabsPosition") ??
-                        app.ui.settings.getSettingValue("Comfy.Workflow.WorkflowTabsPosition");
-        let isClassicLayoutEnabled = app.ui.settings.getSettingValue(SettingIds.CLASSIC_LAYOUT) ?? false;
+        const tabsPos = getSetting("Comfy.Workflow.WorkflowTabsPosition");
+        let isClassicLayoutEnabled = getSetting(SettingIds.CLASSIC_LAYOUT, false);
 
-        // Startup safeguard: if workflows are set to Sidebar, disable Comfy Layout
         if (isClassicLayoutEnabled && tabsPos === "Sidebar") {
             isClassicLayoutEnabled = false;
-            if (app.extensionManager?.setting) {
-                try { app.extensionManager.setting.set(SettingIds.CLASSIC_LAYOUT, false); } catch (e) {}
-            } else if (app.ui?.settings) {
-                try { app.ui.settings.setSettingValue(SettingIds.CLASSIC_LAYOUT, false); } catch (e) {}
-            }
+            setSetting(SettingIds.CLASSIC_LAYOUT, false);
         }
 
         applyClassicLayout(isClassicLayoutEnabled, false);
 
-        const isHistoryOverrideEnabled = app.ui.settings.getSettingValue(SettingIds.OVERRIDE_STOCK_HISTORY) ?? false;
+        const isHistoryOverrideEnabled = getSetting(SettingIds.OVERRIDE_STOCK_HISTORY, false);
         if (isHistoryOverrideEnabled) {
             syncStockHistoryAndProgressSettings(true);
         }
@@ -452,14 +381,12 @@ app.registerExtension({
         cleanupFns.push(setupWorkflowTabsPositionWatcher());
         cleanupFns.push(setupDragAndDrop());
         cleanupFns.push(setupVueNodeObserver());
-        cleanupFns.push(setupSettingsDialogObserver());
 
-        // Setup execution tracker with targeted fast-path update for active card
         cleanupFns.push(setupExecutionTracker((pid, progress, nodeName) => {
             const cardObj = cardPool.get(pid);
             const state = store.getPrompt(pid);
             if (cardObj && state) {
-                const showWorkingNode = app.ui.settings.getSettingValue(SettingIds.SHOW_WORKING_NODE_NAME) ?? true;
+                const showWorkingNode = getSetting(SettingIds.SHOW_WORKING_NODE_NAME, true);
                 updateCardProgressTargeted(cardObj, progress, nodeName, showWorkingNode, state);
             } else {
                 renderSidebar();
@@ -527,7 +454,7 @@ app.registerExtension({
             }
         });
 
-        const isGalleryEnabled = app.ui.settings.getSettingValue("Comfy Sidebar.Enable Gallery") ?? true;
+        const isGalleryEnabled = getSetting("Comfy Sidebar.Enable Gallery", true);
         if (!isGalleryEnabled) {
             setTimeout(() => setGalleryButtonVisible(false), 50);
         }
