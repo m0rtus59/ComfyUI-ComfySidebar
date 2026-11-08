@@ -61,9 +61,34 @@ def get_all_candidate_roots(subfolder="", folder_type="output"):
     return unique
 
 
-def resolve_existing_path(filename="", subfolder="", folder_type="output", candidate_roots=None):
-    """Finds the actual location of a file or folder across all candidate root directories."""
+def resolve_existing_path(filename="", subfolder="", folder_type="output", candidate_roots=None, strict=False):
+    """Finds the actual location of a file or folder across all candidate root directories.
+
+    strict=True is for destructive operations: the file must exist at exactly
+    <root>/<subfolder>/<filename> (no fallback to a same-named file in the root),
+    and only the root matching `folder_type` (output/input/temp) is considered.
+    """
     candidates = candidate_roots if candidate_roots is not None else get_all_candidate_roots(subfolder, folder_type)
+
+    if strict:
+        type_dirs = {
+            "output": folder_paths.get_output_directory(),
+            "input": folder_paths.get_input_directory(),
+            "temp": folder_paths.get_temp_directory(),
+        }
+        wanted = type_dirs.get(folder_type)
+        if wanted is None:
+            return None, None
+        wanted = os.path.realpath(wanted)
+        if not filename:
+            return None, None
+        for root in candidates:
+            if os.path.realpath(root) != wanted:
+                continue
+            p = os.path.join(root, subfolder, filename) if subfolder else os.path.join(root, filename)
+            if os.path.isfile(p) and is_path_safe(root, p):
+                return p, root
+        return None, None
 
     if filename:
         for root in candidates:
@@ -286,7 +311,7 @@ async def delete_file_handler(request):
         ]
         delete_roots = [os.path.realpath(r) for r in delete_roots if r and os.path.exists(r)]
 
-        target_file, root = resolve_existing_path(filename, subfolder, folder_type, candidate_roots=delete_roots)
+        target_file, root = resolve_existing_path(filename, subfolder, folder_type, candidate_roots=delete_roots, strict=True)
 
         if not target_file or not os.path.isfile(target_file) or not is_path_safe(root, target_file):
             return web.json_response({"error": "File not found or outside output directory"}, status=404)
