@@ -29,5 +29,7 @@
   "Default": "기본값",
   "Dock": "도킹",
   "Hide": "숨기기",
-  "Enable Output Gallery Sidebar": "출력 갤러리 사이드바 활성화"
+  "Enable Output Gallery Sidebar": "출력 갤러리 사이드바 활성화",
+  "Fix non-ASCII keybinds (hotkeys on any keyboard layout)": "비ASCII 단축키 수정(모든 키보드 배열에서 단축키 사용)",
+  "Treats non-Latin letters (e.g. Cyrillic) as the Latin key in the same physical position, so hotkeys like Q or Ctrl+Z work while another layout is active. Typing in text fields is not affected.": "라틴 문자가 아닌 글자(예: 키릴 문자)를 같은 물리적 위치의 라틴 키로 처리하여, 다른 자판 배열이 활성화되어 있어도 Q, Ctrl+Z 같은 단축키가 작동합니다. 텍스트 입력란에서의 입력에는 영향을 주지 않습니다."
 }

@@ -29,5 +29,7 @@
   "Default": "預設",
   "Dock": "停靠",
   "Hide": "隱藏",
-  "Enable Output Gallery Sidebar": "啟用輸出圖庫側邊欄"
+  "Enable Output Gallery Sidebar": "啟用輸出圖庫側邊欄",
+  "Fix non-ASCII keybinds (hotkeys on any keyboard layout)": "修正非 ASCII 快速鍵（任何鍵盤配置下皆可使用）",
+  "Treats non-Latin letters (e.g. Cyrillic) as the Latin key in the same physical position, so hotkeys like Q or Ctrl+Z work while another layout is active. Typing in text fields is not affected.": "將非拉丁字母（如西里爾字母）視為相同實體位置的拉丁按鍵，因此在使用其他鍵盤配置時，Q 或 Ctrl+Z 等快速鍵也能正常運作。在文字欄位中輸入不受影響。"
 }

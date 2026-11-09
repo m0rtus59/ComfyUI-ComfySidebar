@@ -29,5 +29,7 @@
   "Default": "Por defecto",
   "Dock": "Acoplar",
   "Hide": "Ocultar",
-  "Enable Output Gallery Sidebar": "Habilitar barra lateral de galería de salidas"
+  "Enable Output Gallery Sidebar": "Habilitar barra lateral de galería de salidas",
+  "Fix non-ASCII keybinds (hotkeys on any keyboard layout)": "Corregir atajos con caracteres no ASCII (atajos en cualquier distribución de teclado)",
+  "Treats non-Latin letters (e.g. Cyrillic) as the Latin key in the same physical position, so hotkeys like Q or Ctrl+Z work while another layout is active. Typing in text fields is not affected.": "Trata las letras no latinas (p. ej., cirílico) como la tecla latina en la misma posición física, de modo que atajos como Q o Ctrl+Z funcionen con otra distribución activa. No afecta a la escritura en campos de texto."
 }

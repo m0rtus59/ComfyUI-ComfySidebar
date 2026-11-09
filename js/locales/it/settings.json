@@ -29,5 +29,7 @@
   "Default": "Predefinito",
   "Dock": "Aggancia",
   "Hide": "Nascondi",
-  "Enable Output Gallery Sidebar": "Abilita barra laterale galleria di output"
+  "Enable Output Gallery Sidebar": "Abilita barra laterale galleria di output",
+  "Fix non-ASCII keybinds (hotkeys on any keyboard layout)": "Correggi le scorciatoie non ASCII (scorciatoie con qualsiasi layout di tastiera)",
+  "Treats non-Latin letters (e.g. Cyrillic) as the Latin key in the same physical position, so hotkeys like Q or Ctrl+Z work while another layout is active. Typing in text fields is not affected.": "Considera le lettere non latine (ad es. cirillico) come il tasto latino nella stessa posizione fisica, così scorciatoie come Q o Ctrl+Z funzionano anche con un altro layout attivo. La digitazione nei campi di testo non è interessata."
 }

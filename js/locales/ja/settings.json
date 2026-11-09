@@ -29,5 +29,7 @@
   "Default": "デフォルト",
   "Dock": "ドック",
   "Hide": "非表示",
-  "Enable Output Gallery Sidebar": "出力ギャラリーのサイドバーを有効化"
+  "Enable Output Gallery Sidebar": "出力ギャラリーのサイドバーを有効化",
+  "Fix non-ASCII keybinds (hotkeys on any keyboard layout)": "非ASCIIのキーバインドを修正（どのキーボード配列でもショートカットを使用）",
+  "Treats non-Latin letters (e.g. Cyrillic) as the Latin key in the same physical position, so hotkeys like Q or Ctrl+Z work while another layout is active. Typing in text fields is not affected.": "ラテン文字以外の文字（例：キリル文字）を同じ物理位置のラテン文字キーとして扱い、別の配列が有効な状態でも Q や Ctrl+Z などのショートカットが動作するようにします。テキスト入力欄での入力には影響しません。"
 }
