@@ -30,6 +30,6 @@
   "Dock": "Закрепить",
   "Hide": "Скрыть",
   "Enable Output Gallery Sidebar": "Включить боковую панель галереи результатов",
-  "Hotkeys work on any keyboard layout": "Горячие клавиши работают в любой раскладке",
+  "Fix non-ASCII keybinds (hotkeys on any keyboard layout)": "Исправить не-ASCII горячие клавиши (работа в любой раскладке)",
   "Treats non-Latin letters (e.g. Cyrillic) as the Latin key in the same physical position, so hotkeys like Q or Ctrl+Z work while another layout is active. Typing in text fields is not affected.": "Нелатинские буквы (например, кириллица) считаются латинской клавишей в том же физическом положении, поэтому горячие клавиши вроде Q или Ctrl+Z работают при любой активной раскладке. Ввод текста в полях не затрагивается."
 }

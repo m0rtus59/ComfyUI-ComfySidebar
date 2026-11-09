@@ -174,7 +174,7 @@ function registerSettings() {
 
     app.ui.settings.addSetting({
         id: SettingIds.LATIN_HOTKEYS,
-        name: t("Hotkeys work on any keyboard layout"),
+        name: t("Fix non-ASCII keybinds (hotkeys on any keyboard layout)"),
         tooltip: t("Treats non-Latin letters (e.g. Cyrillic) as the Latin key in the same physical position, so hotkeys like Q or Ctrl+Z work while another layout is active. Typing in text fields is not affected."),
         type: "boolean",
         defaultValue: true
