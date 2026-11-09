@@ -3,7 +3,7 @@ import { SettingIds } from "./core/constants.js";
 import { injectStyles } from "./utils/styles.js";
 import { setupDragAndDrop } from "./utils/dragdrop.js";
 import { renumberNodesTopologically, setManualNodeId } from "./utils/nodeRenumber.js";
-import { findOurSidebarButton, applySidebarOverride } from "./comfy/adapter.js";
+import { applySidebarOverride } from "./comfy/adapter.js";
 import { syncAllNodeBadges, setupVueNodeObserver, toggleIgnoreActiveNode } from "./comfy/nodes.js";
 import { applyClassicLayout, setupPropertiesPanelToggleFix, syncClassicLayout, syncStockHistoryAndProgressSettings, destroyLayoutFix } from "./comfy/layout.js";
 import { initSessionAndHistory, syncQueue } from "./queue/queueService.js";
@@ -29,18 +29,6 @@ function setupKeydownShortcuts() {
             activeEl.isContentEditable ||
             activeEl.tagName === "SELECT"
         )) return;
-
-        // Q: Toggle Queue Sidebar
-        if (e.key.toLowerCase() === "q" && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
-            e.preventDefault();
-            e.stopPropagation();
-            if (app.extensionManager?.command?.hasCommand?.("Workspace.ToggleSidebarTab.classic-comfy-sidebar")) {
-                app.extensionManager.command.execute("Workspace.ToggleSidebarTab.classic-comfy-sidebar");
-            } else {
-                const ourBtn = findOurSidebarButton();
-                if (ourBtn) ourBtn.click();
-            }
-        }
 
         // Ctrl+Q / Cmd+Q: Toggle Ignore Selected Node
         if (e.key.toLowerCase() === "q" && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
@@ -292,6 +280,14 @@ app.registerExtension({
         await initI18n();
         registerSettings();
     },
+
+    // Plain Q toggles the Queue tab through the frontend keybinding system (rebindable in Settings > Keybinding).
+    keybindings: [
+        {
+            combo: { key: "q" },
+            commandId: "Workspace.ToggleSidebarTab.classic-comfy-sidebar"
+        }
+    ],
 
     commands: [
         {
