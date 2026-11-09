@@ -2,8 +2,9 @@ import { app } from "/scripts/app.js";
 import { SettingIds } from "./core/constants.js";
 import { injectStyles } from "./utils/styles.js";
 import { setupDragAndDrop } from "./utils/dragdrop.js";
+import { setupLatinHotkeys } from "./utils/latinHotkeys.js";
 import { renumberNodesTopologically, setManualNodeId } from "./utils/nodeRenumber.js";
-import { findOurSidebarButton, applySidebarOverride } from "./comfy/adapter.js";
+import { applySidebarOverride } from "./comfy/adapter.js";
 import { syncAllNodeBadges, setupVueNodeObserver, toggleIgnoreActiveNode } from "./comfy/nodes.js";
 import { applyClassicLayout, setupPropertiesPanelToggleFix, syncClassicLayout, syncStockHistoryAndProgressSettings, destroyLayoutFix } from "./comfy/layout.js";
 import { initSessionAndHistory, syncQueue } from "./queue/queueService.js";
@@ -29,18 +30,6 @@ function setupKeydownShortcuts() {
             activeEl.isContentEditable ||
             activeEl.tagName === "SELECT"
         )) return;
-
-        // Q: Toggle Queue Sidebar
-        if (e.key.toLowerCase() === "q" && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
-            e.preventDefault();
-            e.stopPropagation();
-            if (app.extensionManager?.command?.hasCommand?.("Workspace.ToggleSidebarTab.classic-comfy-sidebar")) {
-                app.extensionManager.command.execute("Workspace.ToggleSidebarTab.classic-comfy-sidebar");
-            } else {
-                const ourBtn = findOurSidebarButton();
-                if (ourBtn) ourBtn.click();
-            }
-        }
 
         // Ctrl+Q / Cmd+Q: Toggle Ignore Selected Node
         if (e.key.toLowerCase() === "q" && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
@@ -184,6 +173,14 @@ function registerSettings() {
     });
 
     app.ui.settings.addSetting({
+        id: SettingIds.LATIN_HOTKEYS,
+        name: t("Fix non-ASCII keybinds (hotkeys on any keyboard layout)"),
+        tooltip: t("Treats non-Latin letters (e.g. Cyrillic) as the Latin key in the same physical position, so hotkeys like Q or Ctrl+Z work while another layout is active. Typing in text fields is not affected."),
+        type: "boolean",
+        defaultValue: true
+    });
+
+    app.ui.settings.addSetting({
         id: SettingIds.CLASSIC_LAYOUT,
         name: t("Places the controls and the open workflow tabs on a single unified top bar"),
         type: "boolean",
@@ -293,6 +290,14 @@ app.registerExtension({
         registerSettings();
     },
 
+    // Plain Q toggles the Queue tab through the frontend keybinding system (rebindable in Settings > Keybinding).
+    keybindings: [
+        {
+            combo: { key: "q" },
+            commandId: "Workspace.ToggleSidebarTab.classic-comfy-sidebar"
+        }
+    ],
+
     commands: [
         {
             id: "ComfySidebar.ToggleIgnoreNode",
@@ -371,6 +376,7 @@ app.registerExtension({
 
         cleanupFns.push(setupWorkflowTabsPositionWatcher());
         cleanupFns.push(setupDragAndDrop());
+        cleanupFns.push(setupLatinHotkeys());
         cleanupFns.push(setupVueNodeObserver());
 
         cleanupFns.push(setupExecutionTracker((pid, progress, nodeName) => {

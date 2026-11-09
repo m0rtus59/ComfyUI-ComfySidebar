@@ -29,5 +29,7 @@
   "Default": "ברירת מחדל",
   "Dock": "הצמד",
   "Hide": "הסתר",
-  "Enable Output Gallery Sidebar": "הפעל סרגל צד של גלריית תוצרים"
+  "Enable Output Gallery Sidebar": "הפעל סרגל צד של גלריית תוצרים",
+  "Fix non-ASCII keybinds (hotkeys on any keyboard layout)": "תיקון קיצורי מקשים שאינם ASCII (קיצורים בכל פריסת מקלדת)",
+  "Treats non-Latin letters (e.g. Cyrillic) as the Latin key in the same physical position, so hotkeys like Q or Ctrl+Z work while another layout is active. Typing in text fields is not affected.": "מתייחס לאותיות שאינן לטיניות (למשל קירילית) כמקש הלטיני באותו מיקום פיזי, כך שקיצורים כמו Q או Ctrl+Z פועלים גם כשפריסה אחרת פעילה. ההקלדה בשדות טקסט אינה מושפעת."
 }

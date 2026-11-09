@@ -29,5 +29,7 @@
   "Default": "پیش‌فرض",
   "Dock": "اتصال",
   "Hide": "پنهان",
-  "Enable Output Gallery Sidebar": "فعال‌سازی نوار کناری گالری خروجی‌ها"
+  "Enable Output Gallery Sidebar": "فعال‌سازی نوار کناری گالری خروجی‌ها",
+  "Fix non-ASCII keybinds (hotkeys on any keyboard layout)": "رفع مشکل کلیدهای میانبر غیر ASCII (میانبرها در هر چیدمان صفحه‌کلید)",
+  "Treats non-Latin letters (e.g. Cyrillic) as the Latin key in the same physical position, so hotkeys like Q or Ctrl+Z work while another layout is active. Typing in text fields is not affected.": "حروف غیر لاتین (مثلاً سیریلیک) را معادل کلید لاتین در همان موقعیت فیزیکی در نظر می‌گیرد تا میانبرهایی مانند Q یا Ctrl+Z هنگام فعال بودن چیدمان دیگر نیز کار کنند. تایپ در فیلدهای متنی تحت تأثیر قرار نمی‌گیرد."
 }

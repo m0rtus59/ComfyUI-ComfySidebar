@@ -29,5 +29,7 @@
   "Default": "افتراضي",
   "Dock": "إرساء",
   "Hide": "إخفاء",
-  "Enable Output Gallery Sidebar": "تمكين الشريط الجانبي لمعرض المخرجات"
+  "Enable Output Gallery Sidebar": "تمكين الشريط الجانبي لمعرض المخرجات",
+  "Fix non-ASCII keybinds (hotkeys on any keyboard layout)": "إصلاح اختصارات المفاتيح غير ASCII (اختصارات تعمل على أي تخطيط للوحة المفاتيح)",
+  "Treats non-Latin letters (e.g. Cyrillic) as the Latin key in the same physical position, so hotkeys like Q or Ctrl+Z work while another layout is active. Typing in text fields is not affected.": "يعامل الأحرف غير اللاتينية (مثل السيريلية) على أنها المفتاح اللاتيني في الموضع الفعلي نفسه، فتعمل الاختصارات مثل Q أو Ctrl+Z عند تفعيل تخطيط آخر. ولا تتأثر الكتابة في حقول النص."
 }
