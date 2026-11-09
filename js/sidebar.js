@@ -2,6 +2,7 @@ import { app } from "/scripts/app.js";
 import { SettingIds } from "./core/constants.js";
 import { injectStyles } from "./utils/styles.js";
 import { setupDragAndDrop } from "./utils/dragdrop.js";
+import { setupLatinHotkeys } from "./utils/latinHotkeys.js";
 import { renumberNodesTopologically, setManualNodeId } from "./utils/nodeRenumber.js";
 import { applySidebarOverride } from "./comfy/adapter.js";
 import { syncAllNodeBadges, setupVueNodeObserver, toggleIgnoreActiveNode } from "./comfy/nodes.js";
@@ -169,6 +170,14 @@ function registerSettings() {
         onChange: () => {
             setTimeout(() => { syncClassicLayout(); }, 0);
         }
+    });
+
+    app.ui.settings.addSetting({
+        id: SettingIds.LATIN_HOTKEYS,
+        name: t("Hotkeys work on any keyboard layout"),
+        tooltip: t("Treats non-Latin letters (e.g. Cyrillic) as the Latin key in the same physical position, so hotkeys like Q or Ctrl+Z work while another layout is active. Typing in text fields is not affected."),
+        type: "boolean",
+        defaultValue: true
     });
 
     app.ui.settings.addSetting({
@@ -367,6 +376,7 @@ app.registerExtension({
 
         cleanupFns.push(setupWorkflowTabsPositionWatcher());
         cleanupFns.push(setupDragAndDrop());
+        cleanupFns.push(setupLatinHotkeys());
         cleanupFns.push(setupVueNodeObserver());
 
         cleanupFns.push(setupExecutionTracker((pid, progress, nodeName) => {

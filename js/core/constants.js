@@ -25,6 +25,7 @@ export const SettingIds = Object.freeze({
     OVERRIDE_STOCK_HISTORY: "Comfy Sidebar.Hide Junk.Override Stock Job History Tab",
     HIDE_GRAPH_BUTTON: "Comfy Sidebar.Hide Junk.Graph Button",
     CLASSIC_LAYOUT: "Comfy Sidebar.Comfy Layout",
+    LATIN_HOTKEYS: "Comfy Sidebar.Latin Hotkeys On Any Layout",
     MAX_HISTORY_ITEMS: "Comfy.Queue.MaxHistoryItems",
     DOCK_QUEUE: "Comfy.Queue.QPOV2",
     SHOW_PROGRESS_BAR: "Comfy.Queue.ShowRunProgressBar",
