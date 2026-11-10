@@ -178,15 +178,38 @@ def _list_gallery(subfolder, search, cancel):
     files = []
 
     if search:
-        # Recursive prompt-text search (PNG `prompt` metadata only; filenames are not matched)
-        for fpath, stat in prompt_search.iter_prompt_matches(target_dir, search, cancel):
-            files.append({
-                "filename": os.path.basename(fpath),
-                "subfolder": _relative_subfolder(os.path.dirname(fpath), output_dir),
-                "type": "output",
-                "mtime": stat.st_mtime,
-                "size": stat.st_size
-            })
+        # Recursive filename + prompt-text search. Prompt metadata is only read for PNGs.
+        for root, dirs, fnames in os.walk(target_dir):
+            dirs[:] = [d for d in dirs if not d.startswith(".")]
+            for fname in fnames:
+                if cancel.is_set():
+                    return 200, {
+                        "subfolder": subfolder.replace("\\", "/"),
+                        "folders": folders,
+                        "files": files
+                    }
+                if fname.startswith("."):
+                    continue
+                ext = os.path.splitext(fname)[1].lower()
+                if ext not in _GALLERY_EXTS:
+                    continue
+
+                fpath = os.path.join(root, fname)
+                matched = search in fname.lower()
+                if not matched and ext == ".png":
+                    matched = search in prompt_search.get_prompt_search_text(fpath)
+                if matched:
+                    try:
+                        stat = os.stat(fpath)
+                    except (PermissionError, FileNotFoundError):
+                        continue
+                    files.append({
+                        "filename": fname,
+                        "subfolder": _relative_subfolder(root, output_dir),
+                        "type": "output",
+                        "mtime": stat.st_mtime,
+                        "size": stat.st_size
+                    })
     else:
         # Instant single-directory listing without reading files from disk
         with os.scandir(target_dir) as entries:
