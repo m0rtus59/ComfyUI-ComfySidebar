@@ -125,14 +125,23 @@ function handleHeaderScroll(scrollEl) {
     }
 }
 
+let galleryFetchController = null;
+
+// Returns false only when the request was superseded by a newer one (aborted),
+// so callers can skip rendering stale results.
 async function fetchGalleryData(subfolder = "", searchQuery = "") {
+    // A newer request (e.g. the next keystroke in the search box) cancels the in-flight one;
+    // the server stops scanning as soon as the client disconnects.
+    if (galleryFetchController) galleryFetchController.abort();
+    const controller = new AbortController();
+    galleryFetchController = controller;
     try {
         isLoading = true;
         const normalized = subfolder.replace(/\\/g, "/");
         const queryParams = new URLSearchParams({ subfolder: normalized });
         if (searchQuery) queryParams.set("search", searchQuery);
 
-        const res = await fetch(`/comfy-sidebar/gallery/list?${queryParams.toString()}`);
+        const res = await fetch(`/comfy-sidebar/gallery/list?${queryParams.toString()}`, { signal: controller.signal });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         cachedFolders = data.folders || [];
@@ -141,11 +150,16 @@ async function fetchGalleryData(subfolder = "", searchQuery = "") {
         applySorting();
         displayedFilesCount = 0;
     } catch (e) {
+        if (e?.name === "AbortError") return false;
         console.error("[ComfySidebar] Failed to load gallery", e);
         showNotification(t("Failed to load gallery from disk."), "error");
     } finally {
-        isLoading = false;
+        if (galleryFetchController === controller) {
+            galleryFetchController = null;
+            isLoading = false;
+        }
     }
+    return true;
 }
 
 function applySorting() {
@@ -606,6 +620,7 @@ export function setupGalleryView() {
     };
 
     let searchDebounce = null;
+    let searchSeq = 0;
     const closeSearch = () => {
         const hadFilter = Boolean(currentSearchQuery || sInput.value.trim());
         sInput.value = "";
@@ -636,12 +651,15 @@ export function setupGalleryView() {
 
         sIcon.className = "pi pi-spin pi-spinner";
 
+        const seq = ++searchSeq;
         searchDebounce = setTimeout(async () => {
+            let applied = false;
             try {
-                await fetchGalleryData(currentSubfolder, currentSearchQuery);
-                renderGallery();
+                applied = (await fetchGalleryData(currentSubfolder, currentSearchQuery)) !== false;
+                if (applied) renderGallery();
             } finally {
-                sIcon.className = "pi pi-search";
+                // Only the latest search may stop the spinner
+                if (seq === searchSeq) sIcon.className = "pi pi-search";
             }
         }, 350);
     };
