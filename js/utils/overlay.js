@@ -83,7 +83,13 @@ export class SidebarOverlay {
         // Live observer for opening/closing panels or layout changes
         if (window.MutationObserver) {
             let updateScheduled = false;
-            const mo = new MutationObserver(() => {
+            const mo = new MutationObserver((mutations) => {
+                // Skip mutations caused purely by the sticky header's scroll animation
+                const relevant = mutations.some((m) => {
+                    const el = m.target.nodeType === 1 ? m.target : m.target.parentElement;
+                    return !el?.closest?.(".comfy-sidebar-sticky-header-group");
+                });
+                if (!relevant) return;
                 if (!updateScheduled) {
                     updateScheduled = true;
                     requestAnimationFrame(() => {
@@ -129,6 +135,8 @@ export class SidebarOverlay {
             // Dynamically detect any top header/tab bar docked to the top of the screen
             const potentialTopBars = document.querySelectorAll("header, .comfyui-header, .comfyui-menu, .comfy-menu, [class*='tab-bar'], [class*='workflow-tab'], [class*='workspace-tab'], [class*='header']");
             for (const bar of potentialTopBars) {
+                // Ignore our own sliding gallery/queue header (it animates via translateY)
+                if (bar.closest(".comfy-sidebar-sticky-header-group, .comfy-sidebar-header-root")) continue;
                 // Must be an element sitting at the top of the viewport
                 const r = bar.getBoundingClientRect();
                 if (r.top <= 2 && r.bottom > 20 && r.bottom < 120 && r.width > 200) {
