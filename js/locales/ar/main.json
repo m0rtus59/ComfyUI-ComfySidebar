@@ -113,6 +113,6 @@
   "Failed to load gallery from disk.": "فشل تحميل المعرض من القرص.",
   "Sort: Newest First": "الترتيب: الأحدث أولاً",
   "Sort: Oldest First": "الترتيب: الأقدم أولاً",
-  "Search Gallery (Prompt Text)": "البحث في المعرض (نص الموجه)",
-  "Search prompts...": "البحث في الموجهات..."
+  "Search Gallery (Filename or Prompt)": "البحث في المعرض (اسم الملف أو الموجه)",
+  "Search filenames or prompt metadata...": "البحث في أسماء الملفات أو بيانات الموجه..."
 }
