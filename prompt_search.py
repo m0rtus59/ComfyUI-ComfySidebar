@@ -7,7 +7,8 @@ How it works
 ------------
 * Only the PNG ``prompt`` text chunk is read. Other chunks (notably the often
   multi-megabyte ``workflow`` chunk) are skipped with a seek, never parsed.
-* From API-format prompt graphs (whether supplied by Queue or read from PNGs),\n  collect only the strings that actually
+* From API-format prompt graphs (whether supplied by Queue or read from PNGs),
+  collect only the strings that actually
   feed a text-encoder node (``CLIPTextEncode`` and friends), following links to
   upstream string/primitive/concat nodes. Model names, sampler names, file
   names and other string widgets are ignored.
