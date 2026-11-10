@@ -25,7 +25,8 @@ export function normalizeQueueItem(p, defaultIndex = 0) {
         pid,
         seq,
         workflow: parseWorkflow(rawWorkflow),
-        outputs
+        outputs,
+        promptGraph: Array.isArray(p) ? (p[2] || null) : (p.prompt || null)
     };
 }
 
