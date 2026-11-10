@@ -96,6 +96,11 @@ def extract_prompt_texts(prompt):
     return texts
 
 
+def get_prompt_search_text_from_graph(prompt):
+    """Return lower-cased text-encoder prompt text from an API-format graph."""
+    return "\n".join(extract_prompt_texts(prompt)).lower()[:_MAX_TEXT_CHARS_PER_FILE]
+
+
 # --------------------------------------------------------------------------- #
 # PNG chunk reading
 # --------------------------------------------------------------------------- #
