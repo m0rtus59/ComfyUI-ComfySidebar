@@ -113,6 +113,6 @@
   "Failed to load gallery from disk.": "ディスクからギャラリーを読み込めませんでした。",
   "Sort: Newest First": "並び替え：新しい順",
   "Sort: Oldest First": "並び替え：古い順",
-  "Search Gallery (Prompt Text)": "ギャラリーを検索 (プロンプトのテキスト)",
-  "Search prompts...": "プロンプトを検索..."
+  "Search Gallery (Filename or Prompt)": "ギャラリーを検索 (ファイル名またはプロンプト)",
+  "Search filenames or prompt metadata...": "ファイル名またはプロンプトを検索..."
 }
