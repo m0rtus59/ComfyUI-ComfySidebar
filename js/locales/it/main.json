@@ -113,6 +113,6 @@
   "Failed to load gallery from disk.": "Impossibile caricare la galleria dal disco.",
   "Sort: Newest First": "Ordina: Più recenti prima",
   "Sort: Oldest First": "Ordina: Più vecchi prima",
-  "Search Gallery (Prompt Text)": "Cerca nella galleria (testo del prompt)",
-  "Search prompts...": "Cerca nei prompt..."
+  "Search Gallery (Filename or Prompt)": "Cerca nella galleria (nome file o prompt)",
+  "Search filenames or prompt metadata...": "Cerca nomi di file o metadati del prompt..."
 }
