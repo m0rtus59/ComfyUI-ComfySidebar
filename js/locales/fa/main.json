@@ -113,6 +113,6 @@
   "Failed to load gallery from disk.": "بارگذاری گالری از دیسک ناموفق بود.",
   "Sort: Newest First": "مرتب‌سازی: جدیدترین‌ها در ابتدا",
   "Sort: Oldest First": "مرتب‌سازی: قدیمی‌ترین‌ها در ابتدا",
-  "Search Gallery (Filename or Prompt)": "جستجو در گالری (نام فایل یا پرامپت)",
-  "Search filenames or prompt metadata...": "جستجوی نام فایل‌ها یا متادیتای پرامپت..."
+  "Search Gallery (Prompt Text)": "جستجو در گالری (متن پرامپت)",
+  "Search prompts...": "جستجوی پرامپت‌ها..."
 }

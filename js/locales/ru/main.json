@@ -113,6 +113,6 @@
   "Failed to load gallery from disk.": "Не удалось загрузить галерею с диска.",
   "Sort: Newest First": "Сортировка: сначала новые",
   "Sort: Oldest First": "Сортировка: сначала старые",
-  "Search Gallery (Filename or Prompt)": "Поиск по галерее (имя файла или промпт)",
-  "Search filenames or prompt metadata...": "Поиск по именам файлов или промптам..."
+  "Search Gallery (Prompt Text)": "Поиск по галерее (текст промпта)",
+  "Search prompts...": "Поиск по промптам..."
 }

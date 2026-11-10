@@ -113,6 +113,6 @@
   "Failed to load gallery from disk.": "Failed to load gallery from disk.",
   "Sort: Newest First": "Sort: Newest First",
   "Sort: Oldest First": "Sort: Oldest First",
-  "Search Gallery (Filename or Prompt)": "Search Gallery (Filename or Prompt)",
-  "Search filenames or prompt metadata...": "Search filenames or prompt metadata..."
+  "Search Gallery (Prompt Text)": "Search Gallery (Prompt Text)",
+  "Search prompts...": "Search prompts..."
 }

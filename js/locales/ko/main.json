@@ -113,6 +113,6 @@
   "Failed to load gallery from disk.": "디스크에서 갤러리를 불러오지 못했습니다.",
   "Sort: Newest First": "정렬: 최신순",
   "Sort: Oldest First": "정렬: 오래된순",
-  "Search Gallery (Filename or Prompt)": "갤러리 검색 (파일명 또는 프롬프트)",
-  "Search filenames or prompt metadata...": "파일명 또는 프롬프트 메타데이터 검색..."
+  "Search Gallery (Prompt Text)": "갤러리 검색 (프롬프트 텍스트)",
+  "Search prompts...": "프롬프트 검색..."
 }

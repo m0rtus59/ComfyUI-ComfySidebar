@@ -113,6 +113,6 @@
   "Failed to load gallery from disk.": "从磁盘加载图库失败。",
   "Sort: Newest First": "排序：最新优先",
   "Sort: Oldest First": "排序：最早优先",
-  "Search Gallery (Filename or Prompt)": "搜索图库 (文件名或提示词)",
-  "Search filenames or prompt metadata...": "搜索文件名或提示词元数据..."
+  "Search Gallery (Prompt Text)": "搜索图库 (提示词文本)",
+  "Search prompts...": "搜索提示词..."
 }
