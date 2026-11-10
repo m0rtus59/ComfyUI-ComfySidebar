@@ -17,6 +17,16 @@ let stickyHeaderGroupEl = null;
 let lastScrollTop = 0;
 let scrollDeltaAccumulator = 0;
 let isHeaderHidden = false;
+let galleryResizeObserver = null;
+
+// Module-level so teardownGalleryView() can remove the exact same references
+const handleCtrlDown = (e) => {
+    if (e.key === "Control" || e.key === "Meta") document.body.classList.add("comfy-sidebar-ctrl-active");
+};
+const handleCtrlUp = (e) => {
+    if (e.key === "Control" || e.key === "Meta") document.body.classList.remove("comfy-sidebar-ctrl-active");
+};
+const handleCtrlBlur = () => document.body.classList.remove("comfy-sidebar-ctrl-active");
 
 // Persistent sort order
 let sortOrder = "newest";
@@ -658,28 +668,24 @@ export function setupGalleryView() {
     };
     container.appendChild(scrollToTopBtnEl);
 
-    const handleCtrlDown = (e) => {
-        if (e.key === "Control" || e.key === "Meta") document.body.classList.add("comfy-sidebar-ctrl-active");
-    };
-    const handleCtrlUp = (e) => {
-        if (e.key === "Control" || e.key === "Meta") document.body.classList.remove("comfy-sidebar-ctrl-active");
-    };
     window.addEventListener("keydown", handleCtrlDown);
     window.addEventListener("keyup", handleCtrlUp);
+    window.addEventListener("blur", handleCtrlBlur);
    
     // Reveal Spotlight: track cursor position over Gallery card and folder borders
     setupSpotlightTracker(container, ".comfy-sidebar-card, .comfy-sidebar-folder-card");
 
     document.addEventListener("scroll", updateScrollTopVisibility, { capture: true, passive: true });
 
-    new ResizeObserver((entries) => {
+    galleryResizeObserver = new ResizeObserver((entries) => {
         const threshold = getSetting(SettingIds.GRID_COLUMNS_THRESHOLD, 350);
         const cols = calculateGridColumns(entries[0].contentRect.width, threshold);
         if (cols !== currentColumnCount) {
             currentColumnCount = cols;
             renderGallery();
         }
-    }).observe(container);
+    });
+    galleryResizeObserver.observe(container);
 
     fetchGalleryData("").then(() => renderGallery());
 
@@ -688,6 +694,18 @@ export function setupGalleryView() {
 
 export function teardownGalleryView() {
     document.removeEventListener("scroll", updateScrollTopVisibility, { capture: true, passive: true });
+    window.removeEventListener("keydown", handleCtrlDown);
+    window.removeEventListener("keyup", handleCtrlUp);
+    window.removeEventListener("blur", handleCtrlBlur);
+    document.body.classList.remove("comfy-sidebar-ctrl-active");
+    if (galleryResizeObserver) {
+        galleryResizeObserver.disconnect();
+        galleryResizeObserver = null;
+    }
+    // Reset header-reveal state so a re-opened gallery starts with a visible header
+    lastScrollTop = 0;
+    scrollDeltaAccumulator = 0;
+    isHeaderHidden = false;
     cachedFolders = [];
     cachedFiles = [];
     stickyHeaderGroupEl = null;
