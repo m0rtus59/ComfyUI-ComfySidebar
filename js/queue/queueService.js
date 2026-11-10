@@ -39,7 +39,7 @@ async function updatePromptSearchTexts(entries) {
     let batch = [];
     let batchSize = 0;
     for (const entry of pending) {
-        const itemSize = JSON.stringify(entry).length;
+        const itemSize = JSON.stringify(entry).length * 3; // Conservative UTF-8 byte estimate
         if (batch.length > 0 && (batch.length >= 32 || batchSize + itemSize > 512 * 1024)) {
             batches.push(batch);
             batch = [];
