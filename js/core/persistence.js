@@ -32,6 +32,7 @@ export const PersistenceAdapter = {
                     status: state.status,
                     images: cleanedImages,
                     texts: state.texts || [],
+                    promptSearchText: state.promptSearchText,
                     nodeOutputs: state.nodeOutputs || {},
                     nodeTitles: state.nodeTitles || {}, // Always preserved across restarts
                     workflow: includeWorkflow ? state.workflow : null,

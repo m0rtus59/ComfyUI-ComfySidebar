@@ -27,6 +27,46 @@ export function extractPromptOutputs(outputs, workflow, promptGraph = null) {
     };
 }
 
+async function updatePromptSearchTexts(entries) {
+    const pending = entries.filter(({ pid, promptGraph }) => {
+        const state = store.getPrompt(pid);
+        return promptGraph && typeof promptGraph === "object" && state && state.promptSearchText === null;
+    });
+    if (pending.length === 0) return;
+
+    // Keep each request comfortably below aiohttp's default 1 MB body limit.
+    const batches = [];
+    let batch = [];
+    let batchSize = 0;
+    for (const entry of pending) {
+        const itemSize = JSON.stringify(entry).length * 3; // Conservative UTF-8 byte estimate
+        if (batch.length > 0 && (batch.length >= 32 || batchSize + itemSize > 512 * 1024)) {
+            batches.push(batch);
+            batch = [];
+            batchSize = 0;
+        }
+        batch.push(entry);
+        batchSize += itemSize;
+    }
+    if (batch.length > 0) batches.push(batch);
+
+    for (const prompts of batches) {
+        try {
+            const response = await api.fetchApi("/comfy-sidebar/queue/prompt-search", {
+                method: "POST",
+                body: JSON.stringify({ prompts: prompts.map(({ pid, promptGraph }) => ({ pid, prompt: promptGraph })) })
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            for (const [pid, text] of Object.entries(data.texts || {})) {
+                if (store.hasPrompt(pid)) store.updatePrompt(pid, { promptSearchText: String(text || "") });
+            }
+        } catch (err) {
+            console.warn("Comfy Sidebar: Failed to extract Queue prompt search text", err);
+        }
+    }
+}
+
 export async function syncQueue() {
     try {
         const q = await api.getQueue();
@@ -35,12 +75,14 @@ export async function syncQueue() {
 
         const runningIds = new Set();
         const pendingIds = new Set();
+        const promptGraphs = [];
 
         runningList.forEach((raw, idx) => {
             const item = normalizeQueueItem(raw, idx);
             if (!item.pid) return;
 
             runningIds.add(item.pid);
+            if (item.promptGraph) promptGraphs.push({ pid: item.pid, promptGraph: item.promptGraph });
             store.setActivePromptId(item.pid);
 
             const existing = store.getPrompt(item.pid);
@@ -84,6 +126,7 @@ export async function syncQueue() {
         normalizedPending.forEach((item, index) => {
             const number = index + 1;
             pendingIds.add(item.pid);
+            if (item.promptGraph) promptGraphs.push({ pid: item.pid, promptGraph: item.promptGraph });
 
             const existing = store.getPrompt(item.pid);
             if (!existing) {
@@ -107,6 +150,8 @@ export async function syncQueue() {
                 }
             }
         });
+
+        await updatePromptSearchTexts(promptGraphs);
 
         for (const prompt of store.getAllPrompts()) {
             if (prompt.status === PromptStatus.PENDING && !pendingIds.has(prompt.pid)) {
@@ -153,6 +198,7 @@ export async function concludeRun(pid, fallbackStatus = PromptStatus.CANCELLED) 
                 state.status = norm.status;
 
                 const promptGraph = hItem[key].prompt?.[2] || null;
+                await updatePromptSearchTexts([{ pid: key, promptGraph }]);
                 const { images: primaryImgs, texts: fetchedTexts, nodeTitles: titles } = extractPromptOutputs(norm.outputs, state.workflow, promptGraph);
                 Object.assign(state.nodeTitles, titles);
 
@@ -256,6 +302,8 @@ export async function initSessionAndHistory() {
             });
             store.setPrompt(item.pid, newState);
         });
+
+        await updatePromptSearchTexts(normalized.map(({ norm, promptGraph }) => ({ pid: norm.pid, promptGraph })));
 
         const maxItems = getSetting(SettingIds.MAX_HISTORY_ITEMS, 64);
         store.pruneHistory(maxItems);

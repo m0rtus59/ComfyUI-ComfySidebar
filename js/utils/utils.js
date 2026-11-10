@@ -426,6 +426,7 @@ export function matchesFilter(state, query) {
 
     if (state.pid && String(state.pid).toLowerCase().includes(q)) return true;
     if (state.texts && state.texts.some(t => String(t).toLowerCase().includes(q))) return true;
+    if (state.promptSearchText && state.promptSearchText.includes(q)) return true;
     if (state.images && state.images.some(img => (img.filename || "").toLowerCase().includes(q))) return true;
     if (state.activeNodeName && state.activeNodeName.toLowerCase().includes(q)) return true;
 

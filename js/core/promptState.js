@@ -6,6 +6,7 @@ export function createPromptState(pid, initial = {}) {
         status: initial.status || PromptStatus.PENDING,
         images: Array.isArray(initial.images) ? [...initial.images] : [],
         texts: Array.isArray(initial.texts) ? [...initial.texts] : [],
+        promptSearchText: typeof initial.promptSearchText === "string" ? initial.promptSearchText : null,
         nodeOutputs: initial.nodeOutputs ? { ...initial.nodeOutputs } : {},
         nodeTitles: initial.nodeTitles ? { ...initial.nodeTitles } : {},
         progress: typeof initial.progress === "number" ? initial.progress : 0,

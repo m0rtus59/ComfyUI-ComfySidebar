@@ -1,4 +1,4 @@
-"""Find the text prompts embedded in ComfyUI PNG outputs.
+"""Extract searchable prompt text from ComfyUI prompt graphs and PNG outputs.
 
 This module has no ComfyUI imports so it can be unit-tested on its own
 (``python -m unittest discover tests``).
@@ -7,7 +7,8 @@ How it works
 ------------
 * Only the PNG ``prompt`` text chunk is read. Other chunks (notably the often
   multi-megabyte ``workflow`` chunk) are skipped with a seek, never parsed.
-* From the API-format prompt graph we collect only the strings that actually
+* From API-format prompt graphs (whether supplied by Queue or read from PNGs),
+  collect only the strings that actually
   feed a text-encoder node (``CLIPTextEncode`` and friends), following links to
   upstream string/primitive/concat nodes. Model names, sampler names, file
   names and other string widgets are ignored.
@@ -96,6 +97,11 @@ def extract_prompt_texts(prompt):
     return texts
 
 
+def get_prompt_search_text_from_graph(prompt):
+    """Return lower-cased text-encoder prompt text from an API-format graph."""
+    return "\n".join(extract_prompt_texts(prompt)).lower()[:_MAX_TEXT_CHARS_PER_FILE]
+
+
 # --------------------------------------------------------------------------- #
 # PNG chunk reading
 # --------------------------------------------------------------------------- #
@@ -176,7 +182,7 @@ def get_prompt_search_text(path):
         with open(path, "rb") as f:
             prompt = read_png_prompt(f)
         if prompt is not None:
-            text = "\n".join(extract_prompt_texts(prompt)).lower()[:_MAX_TEXT_CHARS_PER_FILE]
+            text = get_prompt_search_text_from_graph(prompt)
     except Exception:
         # Corrupt / truncated / non-ComfyUI PNG: treat as "no prompt".
         text = ""

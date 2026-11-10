@@ -17,6 +17,10 @@ let globalClickRegistered = false;
 let renderAnimationFrameId = null;
 let activeTimerInterval = null;
 let currentColumnCount = 1;
+let stickyHeaderGroupEl = null;
+let lastScrollTop = 0;
+let scrollDeltaAccumulator = 0;
+let isHeaderHidden = false;
 
 function mountCards(cardStack, fullWidthEls, cardEls, cols = 1) {
     if (!cardStack) return;
@@ -91,6 +95,58 @@ function mountCards(cardStack, fullWidthEls, cardEls, cols = 1) {
     }
 }
 
+function handleQueueHeaderScroll(scrollEl) {
+    if (!stickyHeaderGroupEl) return;
+
+    const currentScroll = scrollEl.scrollTop;
+    const searchContainer = stickyHeaderGroupEl.querySelector(".comfy-sidebar-search-container");
+    const searchIsOpen = searchContainer && searchContainer.style.display !== "none";
+
+    // Keep the frosted surface visible while search is open, matching Gallery.
+    stickyHeaderGroupEl.classList.toggle("is-scrolled", currentScroll > 35);
+
+    if (searchIsOpen) {
+        lastScrollTop = currentScroll;
+        scrollDeltaAccumulator = 0;
+        stickyHeaderGroupEl.style.transform = "translateY(0)";
+        isHeaderHidden = false;
+        return;
+    }
+
+    const delta = currentScroll - lastScrollTop;
+    lastScrollTop = currentScroll;
+
+    if (currentScroll <= 35) {
+        stickyHeaderGroupEl.classList.remove("is-scrolled");
+        if (isHeaderHidden) {
+            stickyHeaderGroupEl.style.transform = "translateY(0)";
+            isHeaderHidden = false;
+        }
+        scrollDeltaAccumulator = 0;
+        return;
+    }
+
+    stickyHeaderGroupEl.classList.add("is-scrolled");
+
+    if (delta > 0) {
+        if (scrollDeltaAccumulator < 0) scrollDeltaAccumulator = 0;
+        scrollDeltaAccumulator += delta;
+
+        if (scrollDeltaAccumulator > 25 && !isHeaderHidden) {
+            stickyHeaderGroupEl.style.transform = "translateY(-100%)";
+            isHeaderHidden = true;
+        }
+    } else if (delta < 0) {
+        if (scrollDeltaAccumulator > 0) scrollDeltaAccumulator = 0;
+        scrollDeltaAccumulator += delta;
+
+        if (scrollDeltaAccumulator < -15 && isHeaderHidden) {
+            stickyHeaderGroupEl.style.transform = "translateY(0)";
+            isHeaderHidden = false;
+        }
+    }
+}
+
 function updateScrollTopBtnVisibility() {
     if (!scrollToTopBtnEl) return;
     if (!store.ui.sidebarContainer || !store.ui.sidebarContainer.isConnected) {
@@ -112,6 +168,8 @@ function updateScrollTopBtnVisibility() {
         } else {
             scrollToTopBtnEl.style.display = "none";
         }
+
+        handleQueueHeaderScroll(scrollEl);
     }
 }
 
@@ -305,7 +363,12 @@ export function setupSidebarView() {
 
     header.appendChild(standardHeader);
     header.appendChild(searchContainer);
-    container.appendChild(header);
+
+    const stickyHeaderGroup = document.createElement("div");
+    stickyHeaderGroup.className = "comfy-sidebar-sticky-header-group";
+    stickyHeaderGroupEl = stickyHeaderGroup;
+    stickyHeaderGroup.appendChild(header);
+    container.appendChild(stickyHeaderGroup);
 
     searchIcon.addEventListener("click", (e) => {
         e.stopPropagation();

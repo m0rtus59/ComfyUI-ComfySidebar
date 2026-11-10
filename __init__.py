@@ -266,6 +266,30 @@ async def gallery_list_handler(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
+@PromptServer.instance.routes.post("/comfy-sidebar/queue/prompt-search")
+async def queue_prompt_search_handler(request):
+    """Extract searchable prompt text from Queue API-format prompt graphs."""
+    try:
+        data = await request.json()
+        prompts = data.get("prompts", [])
+        if not isinstance(prompts, list) or len(prompts) > 32:
+            return web.json_response({"error": "Expected up to 32 prompt graphs"}, status=400)
+
+        texts = {}
+        for item in prompts:
+            if not isinstance(item, dict):
+                continue
+            pid = item.get("pid")
+            graph = item.get("prompt")
+            if pid is None or not isinstance(graph, dict):
+                continue
+            texts[str(pid)] = prompt_search.get_prompt_search_text_from_graph(graph)
+
+        return web.json_response({"texts": texts})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=400)
+
+
 @PromptServer.instance.routes.post("/comfy-sidebar/open-folder")
 async def open_folder_handler(request):
     try:

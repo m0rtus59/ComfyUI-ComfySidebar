@@ -79,15 +79,21 @@ function updateScrollTopVisibility() {
 function handleHeaderScroll(scrollEl) {
     if (!stickyHeaderGroupEl) return;
 
-    // Never hide header if search bar is currently active
+    const currentScroll = scrollEl.scrollTop;
     const searchContainer = stickyHeaderGroupEl.querySelector(".comfy-sidebar-search-container");
-    if (currentSearchQuery || (searchContainer && searchContainer.style.display !== "none")) {
+    const searchIsOpen = currentSearchQuery || (searchContainer && searchContainer.style.display !== "none");
+
+    // Keep the frosted surface in sync even while search forces the header to stay visible.
+    stickyHeaderGroupEl.classList.toggle("is-scrolled", currentScroll > 35);
+
+    if (searchIsOpen) {
+        lastScrollTop = currentScroll;
+        scrollDeltaAccumulator = 0;
         stickyHeaderGroupEl.style.transform = "translateY(0)";
         isHeaderHidden = false;
         return;
     }
 
-    const currentScroll = scrollEl.scrollTop;
     const delta = currentScroll - lastScrollTop;
     lastScrollTop = currentScroll;
 
