@@ -56,6 +56,9 @@ class ExtractTests(unittest.TestCase):
         texts = ps.extract_prompt_texts(comfy_prompt("a red fox", "blurry"))
         self.assertEqual(sorted(texts), ["a red fox", "blurry"])
 
+    def test_search_text_helper_normalizes_graph_text(self):
+        self.assertEqual(ps.get_prompt_search_text_from_graph(comfy_prompt("A RED Fox", "Blurry")), "a red fox\\nblurry")
+
     def test_ignores_model_sampler_and_filename_strings(self):
         joined = "\n".join(ps.extract_prompt_texts(comfy_prompt())).lower()
         for decoy in ("euler", "decoycheckpoint", "decoyprefix", "normal"):
