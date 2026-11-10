@@ -614,26 +614,58 @@ export function injectStyles() {
             -webkit-backdrop-filter: blur(10px) !important;
         }
 
-        /* Round (X) Close Button across all preview overlays (matches button, div, or span) */
-        body.comfy-sidebar-overlay-active [style*="50%"],
-        .comfy-sidebar-comparison-overlay [style*="50%"],
-        .comfy-sidebar-3d-overlay-root [style*="50%"],
-        div[class*="sidebar-overlay"] [style*="50%"] {
-            background: var(--card, var(--secondary, rgba(28, 28, 35, 0.9))) !important;
-            border: 1px solid var(--border, var(--border-color, rgba(255, 255, 255, 0.2))) !important;
-            color: var(--muted-foreground, #cbd5e1) !important;
-            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5) !important;
+        /* Comparison Media: Ensures no borders or outlines appear on compared images */
+        .comfy-sidebar-comparison-media {
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+        }
+
+        /* Comparison Slider Line & Handle */
+        .comfy-sidebar-comparison-slider {
+            background: var(--foreground, #ffffff) !important;
+            box-shadow: 0 0 6px rgba(0, 0, 0, 0.6) !important;
+        }
+
+        .comfy-sidebar-comparison-handle {
+            width: 32px !important;
+            height: 32px !important;
+            border-radius: 50% !important;
+            background: var(--card, var(--secondary, rgba(30, 30, 30, 0.9))) !important;
+            border: 1px solid var(--border, var(--border-color, rgba(255, 255, 255, 0.15))) !important;
+            color: var(--foreground, #eee) !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+            cursor: ew-resize !important;
+            transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, color 0.15s ease-in-out !important;
+        }
+
+        .comfy-sidebar-comparison-handle:hover {
+            background: var(--primary, var(--p-primary-color, #ea580c)) !important;
+            border-color: var(--primary, var(--p-primary-color, #ea580c)) !important;
+            color: #ffffff !important;
+        }
+
+        /* Round (X) Close Button across all preview overlays (matches buttons, ignores images/sliders) */
+        body.comfy-sidebar-overlay-active button[style*="50%"],
+        body.comfy-sidebar-overlay-active [style*="border-radius: 50%"]:not(img):not(video):not(.comfy-sidebar-comparison-handle):not(.comfy-sidebar-comparison-slider):not(.comfy-sidebar-comparison-media),
+        body.comfy-sidebar-overlay-active [style*="border-radius:50%"]:not(img):not(video):not(.comfy-sidebar-comparison-handle):not(.comfy-sidebar-comparison-slider):not(.comfy-sidebar-comparison-media),
+        .comfy-sidebar-comparison-overlay button[style*="50%"],
+        div[class*="sidebar-overlay"] button[style*="50%"] {
+            background: var(--card, var(--secondary, rgba(30, 30, 30, 0.9))) !important;
+            border: 1px solid var(--border, var(--border-color, rgba(255, 255, 255, 0.15))) !important;
+            color: var(--foreground, #eee) !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
             transition: all 0.15s ease-in-out !important;
         }
 
-        body.comfy-sidebar-overlay-active [style*="50%"]:hover,
-        .comfy-sidebar-comparison-overlay [style*="50%"]:hover,
-        .comfy-sidebar-3d-overlay-root [style*="50%"]:hover,
-        div[class*="sidebar-overlay"] [style*="50%"]:hover {
+        body.comfy-sidebar-overlay-active button[style*="50%"]:hover,
+        body.comfy-sidebar-overlay-active [style*="border-radius: 50%"]:not(img):not(video):not(.comfy-sidebar-comparison-handle):not(.comfy-sidebar-comparison-slider):not(.comfy-sidebar-comparison-media):hover,
+        body.comfy-sidebar-overlay-active [style*="border-radius:50%"]:not(img):not(video):not(.comfy-sidebar-comparison-handle):not(.comfy-sidebar-comparison-slider):not(.comfy-sidebar-comparison-media):hover,
+        .comfy-sidebar-comparison-overlay button[style*="50%"]:hover,
+        div[class*="sidebar-overlay"] button[style*="50%"]:hover {
             color: #ffffff !important;
             border-color: var(--primary, var(--p-primary-color, #ea580c)) !important;
-            background: color-mix(in srgb, var(--primary, var(--p-primary-color, #ea580c)) 25%, var(--card, var(--secondary, #222)) 75%) !important;
-            transform: scale(1.08) !important;
+            background: var(--primary, var(--p-primary-color, #ea580c)) !important;
         }
 
         body.comfy-sidebar-overlay-active [style*="50%"] svg,

@@ -328,6 +328,7 @@ function createAudioViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = () => 
 const createMediaElement = (src, muted = false) => {
     const isVideo = isVideoFormat(src);
     const el = isVideo ? document.createElement("video") : document.createElement("img");
+    el.className = "comfy-sidebar-comparison-media";
     if (isVideo) {
         el.muted = muted;
         el.playsInline = true;
@@ -345,7 +346,10 @@ const createMediaElement = (src, muted = false) => {
         pointerEvents: isVideo ? "none" : "auto",
         userSelect: "none",
         webkitUserSelect: "none",
-        display: "block"
+        display: "block",
+        border: "none",
+        outline: "none",
+        boxShadow: "none"
     });
     el.draggable = false;
     el.ondragstart = (e) => e.preventDefault();
@@ -576,21 +580,30 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
     }
 
     const slider = document.createElement("div");
+    slider.className = "comfy-sidebar-comparison-slider";
     Object.assign(slider.style, {
         position: "absolute", top: "0", bottom: "0", left: "50%",
-        width: "2px", background: "#fff", cursor: "ew-resize",
+        width: "2px",
+        background: "var(--foreground, #ffffff)",
+        cursor: "ew-resize",
         zIndex: "25", display: "none", pointerEvents: "auto",
-        boxShadow: "0 0 8px rgba(0,0,0,0.5)"
+        boxShadow: "0 0 6px rgba(0,0,0,0.6)"
     });
     const sliderButton = document.createElement("div");
+    sliderButton.className = "comfy-sidebar-comparison-handle";
     Object.assign(sliderButton.style, {
         position: "absolute", top: "50%", left: "50%",
         transform: "translate(-50%, -50%)", width: "32px", height: "32px",
-        borderRadius: "50%", background: "#fff", color: "#333",
+        borderRadius: "50%",
+        background: "var(--card, var(--secondary, rgba(30, 30, 30, 0.9)))",
+        border: "1px solid var(--border, var(--border-color, rgba(255, 255, 255, 0.15)))",
+        color: "var(--foreground, #eee)",
         display: "flex", alignItems: "center", justifyContent: "center",
-        boxShadow: "0 2px 6px rgba(0,0,0,0.4)", pointerEvents: "auto"
+        boxShadow: "0 4px 12px rgba(0,0,0,0.5)", pointerEvents: "auto",
+        cursor: "ew-resize",
+        transition: "background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, color 0.15s ease-in-out"
     });
-    sliderButton.innerHTML = `<span class="pi pi-arrows-h" style="font-size: 12px;"></span>`;
+    sliderButton.innerHTML = `<span class="pi pi-arrows-h" style="font-size: 13px; pointer-events: none;"></span>`;
     slider.appendChild(sliderButton);
     wrapper.appendChild(slider);
 

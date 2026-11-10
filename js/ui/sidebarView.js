@@ -336,7 +336,7 @@ export function setupSidebarView() {
         overflowY: "visible",
         display: "flex",
         flexDirection: "column",
-        paddingBottom: "28px"
+        paddingBottom: "46px"
     });
     container.appendChild(cardStack);
 
@@ -997,4 +997,8 @@ export function teardownSidebarView() {
         renderAnimationFrameId = null;
     }
     cardPool.clear();
+    if (scrollToTopBtnEl && scrollToTopBtnEl.parentNode) {
+        scrollToTopBtnEl.parentNode.removeChild(scrollToTopBtnEl);
+    }
+    scrollToTopBtnEl = null;
 }

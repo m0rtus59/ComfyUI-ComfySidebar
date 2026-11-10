@@ -45,6 +45,14 @@ function updateScrollTopVisibility() {
     }
     const scrollEl = getScrollContainer(cardStackEl);
     if (scrollEl) {
+        const viewportEl = scrollEl.parentElement || galleryContainerEl;
+        if (viewportEl && scrollToTopBtnEl && scrollToTopBtnEl.parentNode !== viewportEl) {
+            if (window.getComputedStyle(viewportEl).position === "static") {
+                viewportEl.style.position = "relative";
+            }
+            viewportEl.appendChild(scrollToTopBtnEl);
+        }
+
         if (scrollToTopBtnEl) {
             scrollToTopBtnEl.style.display = scrollEl.scrollTop > 200 ? "flex" : "none";
         }
@@ -636,19 +644,13 @@ export function setupGalleryView() {
     const cardStack = document.createElement("div");
     cardStackEl = cardStack;
     Object.assign(cardStack.style, {
-        flex: "1", overflowY: "visible", display: "flex", flexDirection: "column", paddingBottom: "28px"
+        flex: "1", overflowY: "visible", display: "flex", flexDirection: "column", paddingBottom: "46px"
     });
     container.appendChild(cardStack);
 
     scrollToTopBtnEl = document.createElement("button");
     scrollToTopBtnEl.className = "pi pi-chevron-up comfy-sidebar-scroll-top-btn";
     scrollToTopBtnEl.title = t("Scroll to Top");
-    Object.assign(scrollToTopBtnEl.style, {
-        position: "sticky",
-        bottom: "14px",
-        marginLeft: "auto",
-        zIndex: "30"
-    });
     scrollToTopBtnEl.onclick = (e) => {
         e.stopPropagation();
         const scrollEl = getScrollContainer(cardStackEl);
@@ -691,5 +693,8 @@ export function teardownGalleryView() {
     stickyHeaderGroupEl = null;
     galleryContainerEl = null;
     cardStackEl = null;
+    if (scrollToTopBtnEl && scrollToTopBtnEl.parentNode) {
+        scrollToTopBtnEl.parentNode.removeChild(scrollToTopBtnEl);
+    }
     scrollToTopBtnEl = null;
 }
