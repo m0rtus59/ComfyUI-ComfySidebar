@@ -18,7 +18,7 @@ A compact and powerful layout overhaul for ComfyUI that makes generation results
 
   <img src="assets/compare.png" alt="ComfySidebar compare" width="100%">
 
-* **[NEW] Output Gallery sidebar:** Browse files and subfolders directly from your ComfyUI `output` directory without leaving the interface. Features dedicated cards for images, videos, audio, and 3D assets (`.glb`/`.gltf`), breadcrumb navigation, prompt text search across subfolders (matches the positive/negative prompts stored in PNG outputs, not filenames), and persistent sorting.
+* **[NEW] Output Gallery sidebar:** Browse files and subfolders directly from your ComfyUI `output` directory without leaving the interface. Features dedicated cards for images, videos, audio, and 3D assets (`.glb`/`.gltf`), breadcrumb navigation, filename and prompt metadata search across subfolders, and persistent sorting.
 
 * **Hotkeys on any keyboard layout:** Shortcuts such as `Q`, `Ctrl+Q` and `Alt+R` keep working while a non-Latin layout (for example Russian) is active. Non-Latin keys are treated as the Latin key in the same physical position, and typing in text fields is not affected. Can be turned off with **Fix non-ASCII keybinds** in the settings.
 
