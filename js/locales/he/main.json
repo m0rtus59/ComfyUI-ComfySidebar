@@ -113,6 +113,6 @@
   "Failed to load gallery from disk.": "טעינת הגלריה מהכונן נכשלה.",
   "Sort: Newest First": "מיון: החדשים ביותר קודם",
   "Sort: Oldest First": "מיון: הישנים ביותר קודם",
-  "Search Gallery (Prompt Text)": "חיפוש בגלריה (טקסט הפרומפט)",
-  "Search prompts...": "חיפוש פרומפטים..."
+  "Search Gallery (Filename or Prompt)": "חיפוש בגלריה (שם קובץ או פרומפט)",
+  "Search filenames or prompt metadata...": "חיפוש שמות קבצים או מטא-דאטה של פרומפט..."
 }
