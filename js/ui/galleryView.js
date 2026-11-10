@@ -511,7 +511,7 @@ export function setupGalleryView() {
 
     const searchIcon = document.createElement("span");
     searchIcon.className = "pi pi-search comfy-sidebar-icon-btn";
-    searchIcon.title = t("Search Gallery (Prompt Text)");
+    searchIcon.title = t("Search Gallery (Filename or Prompt)");
 
     const title = document.createElement("h3");
     title.textContent = t("Gallery");
@@ -580,7 +580,7 @@ export function setupGalleryView() {
     sIcon.className = "pi pi-search";
     Object.assign(sIcon.style, { fontSize: "11px", opacity: "0.6", marginRight: "6px", transition: "transform 0.2s" });
     const sInput = document.createElement("input");
-    Object.assign(sInput, { type: "text", placeholder: t("Search prompts...") });
+    Object.assign(sInput, { type: "text", placeholder: t("Search filenames or prompt metadata...") });
     Object.assign(sInput.style, {
         flex: "1", background: "transparent", border: "none", outline: "none",
         color: "var(--comfy-input-color, var(--fg-color, #eee))", fontSize: "11px", padding: "0"
