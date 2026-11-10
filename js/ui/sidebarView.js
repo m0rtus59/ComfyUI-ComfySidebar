@@ -112,6 +112,9 @@ function updateScrollTopBtnVisibility() {
         } else {
             scrollToTopBtnEl.style.display = "none";
         }
+
+        const stickyHeader = store.ui.sidebarContainer.querySelector(".comfy-sidebar-sticky-header-group");
+        if (stickyHeader) stickyHeader.classList.toggle("is-scrolled", scrollEl.scrollTop > 35);
     }
 }
 
@@ -305,7 +308,11 @@ export function setupSidebarView() {
 
     header.appendChild(standardHeader);
     header.appendChild(searchContainer);
-    container.appendChild(header);
+
+    const stickyHeaderGroup = document.createElement("div");
+    stickyHeaderGroup.className = "comfy-sidebar-sticky-header-group";
+    stickyHeaderGroup.appendChild(header);
+    container.appendChild(stickyHeaderGroup);
 
     searchIcon.addEventListener("click", (e) => {
         e.stopPropagation();
