@@ -124,6 +124,8 @@ export class SidebarOverlay {
     }
 
     updateOverlayBounds() {
+        // A pending rAF/ResizeObserver callback can fire after destroy(); don't re-attach observers
+        if (this.destroyed) return;
         let leftOffset = 0;
         let rightOffset = 0;
         let topOffset = 0;
@@ -186,6 +188,8 @@ export class SidebarOverlay {
     }
 
     destroy() {
+        if (this.destroyed) return;
+        this.destroyed = true;
         document.body.classList.remove("comfy-sidebar-overlay-active");
 
         for (const fn of this.cleanupFns.splice(0)) {
