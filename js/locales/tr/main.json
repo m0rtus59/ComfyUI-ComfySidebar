@@ -113,6 +113,6 @@
   "Failed to load gallery from disk.": "Galeri diskten yüklenemedi.",
   "Sort: Newest First": "Sıralama: Önce En Yeniler",
   "Sort: Oldest First": "Sıralama: Önce En Eskiler",
-  "Search Gallery (Prompt Text)": "Galeride Ara (Prompt Metni)",
-  "Search prompts...": "Prompt ara..."
+  "Search Gallery (Filename or Prompt)": "Galeride Ara (Dosya Adı veya Prompt)",
+  "Search filenames or prompt metadata...": "Dosya adlarını veya prompt meta verilerini ara..."
 }
