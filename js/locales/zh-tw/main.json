@@ -113,6 +113,6 @@
   "Failed to load gallery from disk.": "從磁碟載入圖庫失敗。",
   "Sort: Newest First": "排序：最新優先",
   "Sort: Oldest First": "排序：最舊優先",
-  "Search Gallery (Prompt Text)": "搜尋圖庫 (提示詞文字)",
-  "Search prompts...": "搜尋提示詞..."
+  "Search Gallery (Filename or Prompt)": "搜尋圖庫 (檔案名稱或提示詞)",
+  "Search filenames or prompt metadata...": "搜尋檔案名稱或提示詞元資料..."
 }
