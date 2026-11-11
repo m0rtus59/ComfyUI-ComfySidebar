@@ -1,7 +1,6 @@
 """Extract searchable prompt text from ComfyUI prompt graphs and PNG outputs.
 
-This module has no ComfyUI imports so it can be unit-tested on its own
-(``python -m unittest discover tests``).
+This module has no ComfyUI imports, so it can be used and tested on its own.
 
 How it works
 ------------
@@ -160,7 +159,7 @@ def read_png_prompt(fileobj):
 
 
 # --------------------------------------------------------------------------- #
-# Cached per-file text + directory scan
+# Cached per-file text
 # --------------------------------------------------------------------------- #
 
 def get_prompt_search_text(path):
@@ -198,27 +197,3 @@ def get_prompt_search_text(path):
 def clear_cache():
     with _cache_lock:
         _cache.clear()
-
-
-def iter_prompt_matches(target_dir, needle, cancel=None):
-    """Yield ``(path, os.stat_result)`` for PNGs under `target_dir` whose prompt
-    text contains `needle` (case-insensitive). Hidden files/folders are skipped.
-
-    `cancel` may be a ``threading.Event``; the scan stops soon after it is set.
-    """
-    needle = needle.lower()
-    if not needle:
-        return
-    for root, dirs, fnames in os.walk(target_dir):
-        dirs[:] = [d for d in dirs if not d.startswith(".")]
-        for fname in fnames:
-            if cancel is not None and cancel.is_set():
-                return
-            if fname.startswith(".") or not fname.lower().endswith(".png"):
-                continue
-            path = os.path.join(root, fname)
-            if needle in get_prompt_search_text(path):
-                try:
-                    yield path, os.stat(path)
-                except OSError:
-                    continue
