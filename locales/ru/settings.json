@@ -1,0 +1,66 @@
+{
+  "Comfy Sidebar_Grid Columns Threshold": {
+    "name": "Ширина в пикселях для разделения очереди на несколько колонок"
+  },
+  "Comfy Sidebar_Show Pending Count Only": {
+    "name": "Если отключено, для каждой задачи в очереди будет отдельная карточка"
+  },
+  "Comfy Sidebar_Show Working Node Name": {
+    "name": "Показывать имя узла, который сейчас выполняется"
+  },
+  "Comfy Sidebar_Auto Clear Interrupted": {
+    "name": "Автоматически очищать отменённые и неудачные задачи при новой генерации"
+  },
+  "Comfy Sidebar_Enable Gallery": {
+    "name": "Включить боковую панель галереи результатов"
+  },
+  "Comfy Sidebar_Permanent Delete on Disk Deletion": {
+    "name": "Удалять файлы с диска безвозвратно (минуя Корзину)"
+  },
+  "Comfy Sidebar_Hide Junk_Assets": {
+    "name": "Скрыть вкладку: Ассеты"
+  },
+  "Comfy Sidebar_Hide Junk_Nodes": {
+    "name": "Скрыть вкладку: Узлы"
+  },
+  "Comfy Sidebar_Hide Junk_Models": {
+    "name": "Скрыть вкладку: Модели"
+  },
+  "Comfy Sidebar_Hide Junk_Workflows": {
+    "name": "Скрыть вкладку: Рабочие процессы"
+  },
+  "Comfy Sidebar_Hide Junk_Apps": {
+    "name": "Скрыть вкладку: Приложения"
+  },
+  "Comfy Sidebar_Hide Junk_Templates": {
+    "name": "Скрыть вкладку: Шаблоны"
+  },
+  "Comfy Sidebar_Hide Junk_Override Stock Job History Tab": {
+    "name": "Заменить стандартную историю заданий на Comfy Queue"
+  },
+  "Comfy Sidebar_Hide Junk_Graph Button": {
+    "name": "Скрыть плавающую кнопку 'Graph' (карта рабочего процесса)"
+  },
+  "Comfy Sidebar_Hide Junk_Avatar": {
+    "name": "Скрыть аватар"
+  },
+  "Comfy Sidebar_Hide Junk_Floating Canvas Controls": {
+    "name": "Плавающие элементы управления холстом",
+    "options": {
+      "Default": "По умолчанию",
+      "Dock": "Закрепить",
+      "Hide": "Скрыть"
+    }
+  },
+  "Comfy Sidebar_Latin Hotkeys On Any Layout": {
+    "name": "Исправить нелатинские горячие клавиши (работа на любой раскладке)",
+    "tooltip": "Обрабатывает нелатинские буквы (например, кириллицу) как соответствующие латинские клавиши, чтобы горячие клавиши вроде Q или Ctrl+Z работали на любой раскладке. На ввод текста в полях не влияет."
+  },
+  "Comfy Sidebar_Comfy Layout": {
+    "name": "Разместить элементы управления и открытые вкладки на единой верхней панели"
+  },
+  "Comfy Sidebar_Quick Workflow Picker": {
+    "name": "Быстрый выбор рабочего процесса",
+    "tooltip": "Показывать быстрый выбор при создании нового пустого рабочего процесса"
+  }
+}

@@ -950,6 +950,154 @@ export function injectStyles() {
         .comfy-sidebar-runtime-preview-btn.active:hover {
             filter: brightness(1.1);
         }
+
+        /* New Workflow Quick Picker Tooltip */
+        .comfy-sidebar-wf-picker {
+            position: fixed;
+            z-index: 10000;
+            width: 300px;
+            max-width: calc(100vw - 24px);
+            background: color-mix(in srgb, var(--card, var(--secondary, var(--comfy-menu-bg, #181818))) 94%, transparent);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid var(--border, var(--border-color, rgba(255, 255, 255, 0.16)));
+            border-radius: 8px;
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+            padding: 6px;
+            box-sizing: border-box;
+            color: var(--foreground, var(--fg-color, #eee));
+            font-family: inherit;
+        }
+
+        .comfy-sidebar-wf-picker-input-wrap {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 5px 8px;
+            border-radius: 6px;
+            background: var(--background, rgba(0, 0, 0, 0.25));
+            border: 1px solid var(--border, var(--border-color, rgba(255, 255, 255, 0.12)));
+        }
+
+        .comfy-sidebar-wf-picker-input-wrap:focus-within {
+            border-color: var(--primary, var(--p-primary-color, #ea580c));
+        }
+
+        .comfy-sidebar-wf-picker-icon {
+            font-size: 12px;
+            opacity: 0.65;
+            flex-shrink: 0;
+        }
+
+        .comfy-sidebar-wf-picker-input {
+            width: 100%;
+            border: none;
+            outline: none;
+            background: transparent;
+            color: var(--foreground, var(--fg-color, #eee));
+            font-size: 12px;
+            font-family: inherit;
+        }
+
+        .comfy-sidebar-wf-picker-list {
+            margin-top: 6px;
+            max-height: 240px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .comfy-sidebar-wf-picker-item {
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+            background: var(--card, var(--secondary, var(--p-surface-800, color-mix(in srgb, var(--bg-color, var(--comfy-menu-bg, #181818)) 85%, var(--fg-color, #fff) 15%))));
+            border: 1px solid var(--border, var(--border-color, rgba(255, 255, 255, 0.12)));
+            color: var(--foreground, var(--comfy-input-color, var(--fg-color, #eee)));
+            text-align: left;
+            padding: 7px 9px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            font-size: 12px;
+            font-family: inherit;
+            box-sizing: border-box;
+            transition: border-color 0.15s ease, background-color 0.15s ease;
+        }
+
+        .comfy-sidebar-wf-picker-item::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background: radial-gradient(
+                160px circle at var(--mouse-x, -999px) var(--mouse-y, -999px),
+                color-mix(in srgb, var(--primary, var(--p-primary-color, var(--primary-color, var(--accent, currentColor)))) 60%, transparent),
+                transparent 70%
+            );
+            opacity: 0;
+            transition: opacity 0.25s ease;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .comfy-sidebar-wf-picker-item:hover::before {
+            opacity: 0.65;
+        }
+
+        .comfy-sidebar-wf-picker-item:hover {
+            border-color: color-mix(in srgb, var(--border, var(--border-color, #555)) 50%, var(--foreground, var(--fg-color, #fff)) 50%);
+            background: color-mix(in srgb, var(--card, var(--secondary, var(--p-surface-800, var(--comfy-menu-bg, #262626)))) 85%, var(--foreground, var(--fg-color, #fff)) 15%);
+        }
+
+        .comfy-sidebar-wf-picker-item.selected {
+            border-color: color-mix(in srgb, var(--primary, var(--p-primary-color, #ea580c)) 70%, var(--border, #666) 30%);
+            background: color-mix(in srgb, var(--primary, var(--p-primary-color, #ea580c)) 14%, var(--card, var(--secondary, #181818)) 86%);
+        }
+
+        .comfy-sidebar-wf-picker-name,
+        .comfy-sidebar-wf-picker-folder {
+            position: relative;
+            z-index: 2;
+        }
+
+        .comfy-sidebar-wf-picker-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .comfy-sidebar-wf-picker-folder {
+            font-size: 10px;
+            opacity: 0.65;
+            max-width: 100px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .comfy-sidebar-wf-picker-empty {
+            padding: 8px;
+            font-size: 11px;
+            opacity: 0.65;
+            text-align: center;
+        }
+
+        /* Hide stock hover tooltips while the Quick Workflow Picker is open */
+        body:has(.comfy-sidebar-wf-picker) [role="tooltip"],
+        body:has(.comfy-sidebar-wf-picker) [data-reka-popper-content-wrapper]:has([role="tooltip"]),
+        body:has(.comfy-sidebar-wf-picker) .p-tooltip {
+            opacity: 0 !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+        }
     `;
     document.head.appendChild(style);
 }

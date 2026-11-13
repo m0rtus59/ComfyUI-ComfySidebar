@@ -1,0 +1,66 @@
+{
+  "Comfy Sidebar_Grid Columns Threshold": {
+    "name": "대기열 열 분할 너비 임계값 (px)"
+  },
+  "Comfy Sidebar_Show Pending Count Only": {
+    "name": "비활성화하면 대기 중인 각 작업마다 개별 카드가 표시됩니다"
+  },
+  "Comfy Sidebar_Show Working Node Name": {
+    "name": "현재 실행 중인 노드의 이름을 표시합니다"
+  },
+  "Comfy Sidebar_Auto Clear Interrupted": {
+    "name": "새 생성 시작 시 취소 및 실패한 작업 자동 지우기"
+  },
+  "Comfy Sidebar_Enable Gallery": {
+    "name": "출력 갤러리 사이드바 활성화"
+  },
+  "Comfy Sidebar_Permanent Delete on Disk Deletion": {
+    "name": "디스크에서 삭제 시 휴지통을 거치지 않고 영구 삭제"
+  },
+  "Comfy Sidebar_Hide Junk_Assets": {
+    "name": "탭 숨기기: 에셋"
+  },
+  "Comfy Sidebar_Hide Junk_Nodes": {
+    "name": "탭 숨기기: 노드"
+  },
+  "Comfy Sidebar_Hide Junk_Models": {
+    "name": "탭 숨기기: 모델"
+  },
+  "Comfy Sidebar_Hide Junk_Workflows": {
+    "name": "탭 숨기기: 워크플로우"
+  },
+  "Comfy Sidebar_Hide Junk_Apps": {
+    "name": "탭 숨기기: 앱"
+  },
+  "Comfy Sidebar_Hide Junk_Templates": {
+    "name": "탭 숨기기: 템플릿"
+  },
+  "Comfy Sidebar_Hide Junk_Override Stock Job History Tab": {
+    "name": "기본 작업 기록 사이드바를 Comfy Queue로 대체"
+  },
+  "Comfy Sidebar_Hide Junk_Graph Button": {
+    "name": "플로팅 'Graph'(워크플로우 맵) 버튼 숨기기"
+  },
+  "Comfy Sidebar_Hide Junk_Avatar": {
+    "name": "아바타 숨기기"
+  },
+  "Comfy Sidebar_Hide Junk_Floating Canvas Controls": {
+    "name": "플로팅 캔버스 컨트롤",
+    "options": {
+      "Default": "기본값",
+      "Dock": "고정",
+      "Hide": "숨기기"
+    }
+  },
+  "Comfy Sidebar_Latin Hotkeys On Any Layout": {
+    "name": "비ASCII 단축키 수정 (모든 키보드 배열에서 단축키 사용)",
+    "tooltip": "비라틴 문자를 같은 물리적 위치의 라틴 키로 처리하여 다른 입력기에서도 Q나 Ctrl+Z 같은 단축키가 동작합니다. 텍스트 입력란 타이핑에는 영향을 주지 않습니다."
+  },
+  "Comfy Sidebar_Comfy Layout": {
+    "name": "컨트롤과 열린 워크플로우 탭을 하나의 상단 바에 배치합니다"
+  },
+  "Comfy Sidebar_Quick Workflow Picker": {
+    "name": "빠른 워크플로우 선택기",
+    "tooltip": "새 빈 워크플로우를 만들 때 빠른 워크플로우 선택기 표시"
+  }
+}

@@ -364,6 +364,7 @@ function setupCanvasMenuPopoverRelocator() {
             if (!sidebar || !popovers.length) return;
 
             const btnRect = btn.getBoundingClientRect();
+            const sidebarRect = sidebar.getBoundingClientRect();
             const onLeft = isSidebarOnLeft();
 
             popovers.forEach((pop) => {
@@ -1030,7 +1031,7 @@ export function setupPropertiesPanelToggleFix() {
 
         const isInternalSidebarMutation = (node) => {
             if (!node || node.nodeType !== 1) return false;
-            return node.closest?.('.comfyui-sidebar, .comfy-sidebar, .comfy-sidebar-comparison-overlay') ||
+            return node.closest?.('.comfyui-sidebar, .comfy-sidebar, .comfy-sidebar-comparison-overlay, .comfy-sidebar-wf-picker') ||
                    node.classList?.contains('comfy-sidebar-card');
         };
 

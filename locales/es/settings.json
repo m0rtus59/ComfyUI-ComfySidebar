@@ -1,0 +1,66 @@
+{
+  "Comfy Sidebar_Grid Columns Threshold": {
+    "name": "Umbral de ancho para columnas de la cola (px)"
+  },
+  "Comfy Sidebar_Show Pending Count Only": {
+    "name": "Si se desactiva, cada tarea en cola tendrá su propia tarjeta individual"
+  },
+  "Comfy Sidebar_Show Working Node Name": {
+    "name": "Muestra el nombre del nodo que se está ejecutando actualmente"
+  },
+  "Comfy Sidebar_Auto Clear Interrupted": {
+    "name": "Limpiar automáticamente tareas canceladas y fallidas al iniciar una nueva generación"
+  },
+  "Comfy Sidebar_Enable Gallery": {
+    "name": "Habilitar barra lateral de galería de resultados"
+  },
+  "Comfy Sidebar_Permanent Delete on Disk Deletion": {
+    "name": "Eliminar archivos permanentemente del disco (omite la Papelera)"
+  },
+  "Comfy Sidebar_Hide Junk_Assets": {
+    "name": "Ocultar pestaña: Recursos"
+  },
+  "Comfy Sidebar_Hide Junk_Nodes": {
+    "name": "Ocultar pestaña: Nodos"
+  },
+  "Comfy Sidebar_Hide Junk_Models": {
+    "name": "Ocultar pestaña: Modelos"
+  },
+  "Comfy Sidebar_Hide Junk_Workflows": {
+    "name": "Ocultar pestaña: Flujos de trabajo"
+  },
+  "Comfy Sidebar_Hide Junk_Apps": {
+    "name": "Ocultar pestaña: Aplicaciones"
+  },
+  "Comfy Sidebar_Hide Junk_Templates": {
+    "name": "Ocultar pestaña: Plantillas"
+  },
+  "Comfy Sidebar_Hide Junk_Override Stock Job History Tab": {
+    "name": "Reemplazar la barra de Historial de trabajos por Comfy Queue"
+  },
+  "Comfy Sidebar_Hide Junk_Graph Button": {
+    "name": "Ocultar botón flotante 'Graph' (Mapa de nodos/flujo)"
+  },
+  "Comfy Sidebar_Hide Junk_Avatar": {
+    "name": "Ocultar avatar"
+  },
+  "Comfy Sidebar_Hide Junk_Floating Canvas Controls": {
+    "name": "Controles flotantes del lienzo",
+    "options": {
+      "Default": "Predeterminado",
+      "Dock": "Acoplar",
+      "Hide": "Ocultar"
+    }
+  },
+  "Comfy Sidebar_Latin Hotkeys On Any Layout": {
+    "name": "Corregir atajos no ASCII (atajos en cualquier distribución de teclado)",
+    "tooltip": "Trata las letras no latinas como la tecla latina en la misma posición física para que atajos como Q o Ctrl+Z funcionen en cualquier idioma. No afecta a la escritura en campos de texto."
+  },
+  "Comfy Sidebar_Comfy Layout": {
+    "name": "Coloca los controles y las pestañas de flujos abiertos en una única barra superior"
+  },
+  "Comfy Sidebar_Quick Workflow Picker": {
+    "name": "Selector rápido de flujos de trabajo",
+    "tooltip": "Mostrar el selector rápido de flujos de trabajo al crear un nuevo flujo en blanco"
+  }
+}

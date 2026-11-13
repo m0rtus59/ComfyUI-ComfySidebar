@@ -1,0 +1,66 @@
+{
+  "Comfy Sidebar_Grid Columns Threshold": {
+    "name": "آستانه عرض برای ستون‌های صف (پیکسل)"
+  },
+  "Comfy Sidebar_Show Pending Count Only": {
+    "name": "در صورت غیرفعال شدن، هر کار در صف یک کارت جداگانه خواهد داشت"
+  },
+  "Comfy Sidebar_Show Working Node Name": {
+    "name": "نمایش نام گره‌ای که در حال حاضر در حال اجرا است"
+  },
+  "Comfy Sidebar_Auto Clear Interrupted": {
+    "name": "پاک‌سازی خودکار کارهای لغوشده و ناموفق هنگام تولید جدید"
+  },
+  "Comfy Sidebar_Enable Gallery": {
+    "name": "فعال‌سازی نوار کناری گالری خروجی‌ها"
+  },
+  "Comfy Sidebar_Permanent Delete on Disk Deletion": {
+    "name": "حذف دائمی فایل‌ها از دیسک (بدون انتقال به سطل زباله)"
+  },
+  "Comfy Sidebar_Hide Junk_Assets": {
+    "name": "پنهان کردن زبانه: دارایی‌ها"
+  },
+  "Comfy Sidebar_Hide Junk_Nodes": {
+    "name": "پنهان کردن زبانه: گره‌ها"
+  },
+  "Comfy Sidebar_Hide Junk_Models": {
+    "name": "پنهان کردن زبانه: مدل‌ها"
+  },
+  "Comfy Sidebar_Hide Junk_Workflows": {
+    "name": "پنهان کردن زبانه: گردش‌های کار"
+  },
+  "Comfy Sidebar_Hide Junk_Apps": {
+    "name": "پنهان کردن زبانه: برنامه‌ها"
+  },
+  "Comfy Sidebar_Hide Junk_Templates": {
+    "name": "پنهان کردن زبانه: قالب‌ها"
+  },
+  "Comfy Sidebar_Hide Junk_Override Stock Job History Tab": {
+    "name": "جایگزینی نوار کناری تاریخچه پیش‌فرض با Comfy Queue"
+  },
+  "Comfy Sidebar_Hide Junk_Graph Button": {
+    "name": "پنهان کردن دکمه شناور 'Graph' (نقشه گره‌ها)"
+  },
+  "Comfy Sidebar_Hide Junk_Avatar": {
+    "name": "پنهان کردن آواتار"
+  },
+  "Comfy Sidebar_Hide Junk_Floating Canvas Controls": {
+    "name": "کنترل‌های شناور بوم",
+    "options": {
+      "Default": "پیش‌فرض",
+      "Dock": "چسباندن",
+      "Hide": "پنهان"
+    }
+  },
+  "Comfy Sidebar_Latin Hotkeys On Any Layout": {
+    "name": "اصلاح کلیدهای میانبر غیرلاتین در هر چیدمان صفحه‌کلید",
+    "tooltip": "حروف غیرلاتین را معادل کلید لاتین در همان موقعیت فیزیکی در نظر می‌گیرد تا میانبرهایی مانند Q یا Ctrl+Z در هر زبانی کار کنند. تایپ در فیلدهای متنی تحت تأثیر قرار نمی‌گیرد."
+  },
+  "Comfy Sidebar_Comfy Layout": {
+    "name": "قرار دادن کنترل‌ها و زبانه‌های گردش کار باز در یک نوار بالایی یکپارچه"
+  },
+  "Comfy Sidebar_Quick Workflow Picker": {
+    "name": "انتخابگر سریع گردش کار",
+    "tooltip": "نمایش انتخابگر سریع گردش کار هنگام ایجاد یک گردش کار خالی جدید"
+  }
+}

@@ -3,6 +3,7 @@ import { SettingIds } from "./core/constants.js";
 import { injectStyles } from "./utils/styles.js";
 import { setupDragAndDrop } from "./utils/dragdrop.js";
 import { setupLatinHotkeys } from "./utils/latinHotkeys.js";
+import { setupNewWorkflowQuickPicker } from "./utils/newWorkflowPicker.js";
 import { renumberNodesTopologically, setManualNodeId } from "./utils/nodeRenumber.js";
 import { applySidebarOverride } from "./comfy/adapter.js";
 import { syncAllNodeBadges, setupVueNodeObserver, toggleIgnoreActiveNode } from "./comfy/nodes.js";
@@ -11,7 +12,7 @@ import { initSessionAndHistory, syncQueue } from "./queue/queueService.js";
 import { setupExecutionTracker } from "./queue/executionTracker.js";
 import { setupSidebarView, renderSidebar, teardownSidebarView } from "./ui/sidebarView.js";
 import { setupGalleryView, teardownGalleryView } from "./ui/galleryView.js";
-import { initI18n, t } from "./core/i18n.js";
+import { initI18n, t, setupLocaleWatcher, onLocaleChange } from "./core/i18n.js";
 import { updateCardProgressTargeted, cardPool } from "./ui/cardRenderer.js";
 import { getScrollContainer } from "./utils/utils.js";
 import { store } from "./core/store.js";
@@ -190,6 +191,14 @@ function registerSettings() {
                 applyClassicLayout(value, true);
             }
         }
+    });
+
+    app.ui.settings.addSetting({
+        id: SettingIds.QUICK_WORKFLOW_PICKER,
+        name: t("Quick Workflow Picker"),
+        tooltip: t("Show quick workflow picker when creating a new blank workflow"),
+        type: "boolean",
+        defaultValue: true
     });
 }
 
@@ -377,6 +386,11 @@ app.registerExtension({
         cleanupFns.push(setupWorkflowTabsPositionWatcher());
         cleanupFns.push(setupDragAndDrop());
         cleanupFns.push(setupLatinHotkeys());
+        cleanupFns.push(setupNewWorkflowQuickPicker());
+        cleanupFns.push(setupLocaleWatcher());
+        cleanupFns.push(onLocaleChange(() => {
+            renderSidebar();
+        }));
         cleanupFns.push(setupVueNodeObserver());
 
         cleanupFns.push(setupExecutionTracker((pid, progress, nodeName) => {

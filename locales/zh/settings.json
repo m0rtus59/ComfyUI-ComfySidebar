@@ -1,0 +1,66 @@
+{
+  "Comfy Sidebar_Grid Columns Threshold": {
+    "name": "队列分栏的宽度阈值 (px)"
+  },
+  "Comfy Sidebar_Show Pending Count Only": {
+    "name": "关闭后，每个排队任务将显示为单独的卡片"
+  },
+  "Comfy Sidebar_Show Working Node Name": {
+    "name": "显示当前正在运行的节点名称"
+  },
+  "Comfy Sidebar_Auto Clear Interrupted": {
+    "name": "开始新生成时自动清除已取消和失败的任务"
+  },
+  "Comfy Sidebar_Enable Gallery": {
+    "name": "启用输出图库侧边栏"
+  },
+  "Comfy Sidebar_Permanent Delete on Disk Deletion": {
+    "name": "从磁盘删除时永久删除文件（跳过回收站）"
+  },
+  "Comfy Sidebar_Hide Junk_Assets": {
+    "name": "隐藏标签页：资产"
+  },
+  "Comfy Sidebar_Hide Junk_Nodes": {
+    "name": "隐藏标签页：节点"
+  },
+  "Comfy Sidebar_Hide Junk_Models": {
+    "name": "隐藏标签页：模型"
+  },
+  "Comfy Sidebar_Hide Junk_Workflows": {
+    "name": "隐藏标签页：工作流"
+  },
+  "Comfy Sidebar_Hide Junk_Apps": {
+    "name": "隐藏标签页：应用"
+  },
+  "Comfy Sidebar_Hide Junk_Templates": {
+    "name": "隐藏标签页：模板"
+  },
+  "Comfy Sidebar_Hide Junk_Override Stock Job History Tab": {
+    "name": "用 Comfy Queue 替换默认任务历史侧边栏"
+  },
+  "Comfy Sidebar_Hide Junk_Graph Button": {
+    "name": "隐藏浮动 'Graph'（工作流/节点地图）按钮"
+  },
+  "Comfy Sidebar_Hide Junk_Avatar": {
+    "name": "隐藏头像"
+  },
+  "Comfy Sidebar_Hide Junk_Floating Canvas Controls": {
+    "name": "浮动画布控制栏",
+    "options": {
+      "Default": "默认",
+      "Dock": "停靠",
+      "Hide": "隐藏"
+    }
+  },
+  "Comfy Sidebar_Latin Hotkeys On Any Layout": {
+    "name": "修复非 ASCII 快捷键（任意输入法下使用快捷键）",
+    "tooltip": "将非拉丁字符按键识别为同物理位置的拉丁键位，使 Q 或 Ctrl+Z 等快捷键在任意布局下都能生效。不影响文本框输入。"
+  },
+  "Comfy Sidebar_Comfy Layout": {
+    "name": "将控制按钮和打开的工作流标签整合到单一顶部栏"
+  },
+  "Comfy Sidebar_Quick Workflow Picker": {
+    "name": "快速工作流选择器",
+    "tooltip": "创建新的空白工作流时显示快速工作流选择器"
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "Comfy Sidebar_Grid Columns Threshold": {
+    "name": "Seuil de largeur pour les colonnes de la file (px)"
+  },
+  "Comfy Sidebar_Show Pending Count Only": {
+    "name": "Si désactivé, chaque tâche en attente aura sa propre carte"
+  },
+  "Comfy Sidebar_Show Working Node Name": {
+    "name": "Affiche le nom du nœud en cours d'exécution"
+  },
+  "Comfy Sidebar_Auto Clear Interrupted": {
+    "name": "Nettoyer automatiquement les tâches annulées et échouées à chaque nouvelle génération"
+  },
+  "Comfy Sidebar_Enable Gallery": {
+    "name": "Activer le panneau latéral Galerie des sorties"
+  },
+  "Comfy Sidebar_Permanent Delete on Disk Deletion": {
+    "name": "Supprimer définitivement les fichiers du disque (contourne la Corbeille)"
+  },
+  "Comfy Sidebar_Hide Junk_Assets": {
+    "name": "Masquer l'onglet : Ressources"
+  },
+  "Comfy Sidebar_Hide Junk_Nodes": {
+    "name": "Masquer l'onglet : Nœuds"
+  },
+  "Comfy Sidebar_Hide Junk_Models": {
+    "name": "Masquer l'onglet : Modèles"
+  },
+  "Comfy Sidebar_Hide Junk_Workflows": {
+    "name": "Masquer l'onglet : Workflows"
+  },
+  "Comfy Sidebar_Hide Junk_Apps": {
+    "name": "Masquer l'onglet : Applications"
+  },
+  "Comfy Sidebar_Hide Junk_Templates": {
+    "name": "Masquer l'onglet : Modèles de workflow"
+  },
+  "Comfy Sidebar_Hide Junk_Override Stock Job History Tab": {
+    "name": "Remplacer l'historique des tâches par défaut par Comfy Queue"
+  },
+  "Comfy Sidebar_Hide Junk_Graph Button": {
+    "name": "Masquer le bouton flottant 'Graph' (carte du workflow)"
+  },
+  "Comfy Sidebar_Hide Junk_Avatar": {
+    "name": "Masquer l'avatar"
+  },
+  "Comfy Sidebar_Hide Junk_Floating Canvas Controls": {
+    "name": "Contrôles flottants du canevas",
+    "options": {
+      "Default": "Par défaut",
+      "Dock": "Ancrer",
+      "Hide": "Masquer"
+    }
+  },
+  "Comfy Sidebar_Latin Hotkeys On Any Layout": {
+    "name": "Corriger les raccourcis non-ASCII (quelle que soit la disposition du clavier)",
+    "tooltip": "Interprète les touches non latines comme la touche latine à la même position physique afin que Q ou Ctrl+Z fonctionnent dans toute disposition. La saisie dans les champs texte n'est pas affectée."
+  },
+  "Comfy Sidebar_Comfy Layout": {
+    "name": "Place les contrôles et les onglets de workflows ouverts sur une seule barre supérieure"
+  },
+  "Comfy Sidebar_Quick Workflow Picker": {
+    "name": "Sélecteur rapide de workflow",
+    "tooltip": "Afficher le sélecteur rapide de workflow lors de la création d'un nouveau workflow vide"
+  }
+}

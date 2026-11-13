@@ -6,25 +6,29 @@ A compact and powerful layout overhaul for ComfyUI that makes generation results
 
 * **Compact, information-dense layout** with visual previews that let you see what is happening at a glance. Optional UI elements and sidebar tabs can be hidden when you don't need them.
 
-  <img src="assets/layout.png" alt="ComfySidebar layout" width="100%">
+  <img src="assets/layout.png" alt="ComfySidebar layout">
   
 * **Left or right side:** Choose which side the sidebar appears on in ComfyUI settings.
 
 * **Simplified mouse-friendly workflow** with drag-and-drop support and convenient actions for moving results back into the workflow, opening files, and managing outputs. Hold `Ctrl` for extra actions such as opening an image's location or deleting it directly from your device.
 
-  <img src="assets/controls.png" alt="ComfySidebar controls overview" width="100%">
+  <img src="assets/controls.png" alt="ComfySidebar controls overview">
 
 * **Built-in comparison tool** for quickly comparing two generated results side by side.
 
-  <img src="assets/compare.png" alt="ComfySidebar compare" width="100%">
+  <img src="assets/compare.png" alt="ComfySidebar compare">
 
-* **[NEW] Output Gallery sidebar:** Browse files and subfolders directly from your ComfyUI `output` directory without leaving the interface. Features dedicated cards for images, videos, audio, and 3D assets (`.glb`/`.gltf`), breadcrumb navigation, filename and prompt metadata search across subfolders, and persistent sorting.
+* **Output Gallery sidebar:** Browse files and subfolders directly from your ComfyUI `output` directory without leaving the interface. Features dedicated cards for images, videos, audio, and 3D assets (`.glb`/`.gltf`), breadcrumb navigation, filename and prompt metadata search across subfolders, and persistent sorting.
 
 * **Hotkeys on any keyboard layout:** Shortcuts such as `Q`, `Ctrl+Q` and `Alt+R` keep working while a non-Latin layout (for example Russian) is active. Non-Latin keys are treated as the Latin key in the same physical position, and typing in text fields is not affected. Can be turned off with **Fix non-ASCII keybinds** in the settings.
 
 * **Runtime preview mode** combined with workflow overview makes ComfyUI practical for running and monitoring workflows in a more streamlined, queue-oriented way.
 
-  <img src="assets/runtime.png" alt="ComfySidebar runtime mode" width="100%">
+  <img src="assets/runtime.png" alt="ComfySidebar runtime mode">
+
+* **[NEW] Quick Workflow Picker** Allows you to quickly find and load an existing workflow from your collection by pressing `+` button on the workflow tab.
+
+  <img src="assets/picker.png" alt="ComfySidebar quick picker">
 
 ## 🛠️ Installation
 
@@ -69,16 +73,14 @@ Open **Settings → Comfy Sidebar** to configure:
 
 | Shortcut      | Action                                         |
 | ------------- | ---------------------------------------------- |
-| `Q`           | Toggle ComfySidebar                            |
-| `Ctrl+Q`      | Exclude the selected node from sidebar results |
-| `Alt+R`       | Renumber nodes in execution order              |
+| `Q`           | Toggle ComfySidebar*                            |
+| `Ctrl+Q`      | Exclude the selected node from sidebar results* |
+| `Alt+R`       | Renumber nodes in execution order*              |
 | `Click`       | Open result preview                            |
 | `Shift+Click` | Compare another result                         |
 | `Ctrl+Click`  | Open the file location / alternative action    |
 
-`Q` is a regular ComfyUI keybinding, so you can see and change it in **Settings → Keybinding**.
-
-You can also use the available actions from result cards, the sidebar header, and the node/canvas context menus.
+*You can see and change keybindings in **Settings → Keybinding**.
 
 ## 📝 Notes
 

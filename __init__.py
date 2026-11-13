@@ -246,6 +246,24 @@ def _list_gallery(subfolder, search, cancel):
     }
 
 
+_LOCALES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "locales")
+_ALLOWED_LOCALE_FILES = {"main.json", "settings.json"}
+
+
+@PromptServer.instance.routes.get("/comfy-sidebar/locales/{lang}/{filename}")
+async def locale_file_handler(request):
+    lang = request.match_info.get("lang", "").strip()
+    filename = request.match_info.get("filename", "").strip()
+    if not lang or filename not in _ALLOWED_LOCALE_FILES:
+        return web.json_response({"error": "Not found"}, status=404)
+
+    target_file = os.path.join(_LOCALES_DIR, lang, filename)
+    if not is_path_safe(_LOCALES_DIR, target_file) or not os.path.isfile(target_file):
+        return web.json_response({"error": "Not found"}, status=404)
+
+    return web.FileResponse(target_file)
+
+
 @PromptServer.instance.routes.get("/comfy-sidebar/gallery/list")
 async def gallery_list_handler(request):
     try:

@@ -1,0 +1,66 @@
+{
+  "Comfy Sidebar_Grid Columns Threshold": {
+    "name": "סף רוחב לעמודות התור (פיקסלים)"
+  },
+  "Comfy Sidebar_Show Pending Count Only": {
+    "name": "אם כבוי, לכל משימה בתור יהיה כרטיס נפרד"
+  },
+  "Comfy Sidebar_Show Working Node Name": {
+    "name": "מציג את שם הצומת שנמצא כעת בעיבוד"
+  },
+  "Comfy Sidebar_Auto Clear Interrupted": {
+    "name": "נקה אוטומטית משימות שבוטלו או נכשלו ביצירה חדשה"
+  },
+  "Comfy Sidebar_Enable Gallery": {
+    "name": "הפעל סרגל צד של גלריית תוצאות"
+  },
+  "Comfy Sidebar_Permanent Delete on Disk Deletion": {
+    "name": "מחק קבצים לצמיתות מהדיסק (עוקף את סל המיחזור)"
+  },
+  "Comfy Sidebar_Hide Junk_Assets": {
+    "name": "הסתר לשונית: נכסים"
+  },
+  "Comfy Sidebar_Hide Junk_Nodes": {
+    "name": "הסתר לשונית: צמתים"
+  },
+  "Comfy Sidebar_Hide Junk_Models": {
+    "name": "הסתר לשונית: מודלים"
+  },
+  "Comfy Sidebar_Hide Junk_Workflows": {
+    "name": "הסתר לשונית: תהליכי עבודה"
+  },
+  "Comfy Sidebar_Hide Junk_Apps": {
+    "name": "הסתר לשונית: יישומים"
+  },
+  "Comfy Sidebar_Hide Junk_Templates": {
+    "name": "הסתר לשונית: תבניות"
+  },
+  "Comfy Sidebar_Hide Junk_Override Stock Job History Tab": {
+    "name": "החלף את סרגל היסטוריית המשימות הרגיל ב-Comfy Queue"
+  },
+  "Comfy Sidebar_Hide Junk_Graph Button": {
+    "name": "הסתר את הכפתור הצף 'Graph' (מפת צמתים)"
+  },
+  "Comfy Sidebar_Hide Junk_Avatar": {
+    "name": "הסתר תמונת פרופיל"
+  },
+  "Comfy Sidebar_Hide Junk_Floating Canvas Controls": {
+    "name": "פקדי קנבס צפים",
+    "options": {
+      "Default": "ברירת מחדל",
+      "Dock": "עגון",
+      "Hide": "הסתר"
+    }
+  },
+  "Comfy Sidebar_Latin Hotkeys On Any Layout": {
+    "name": "תקן קיצורי מקשים לא-לטיניים בכל פריסת מקלדת",
+    "tooltip": "מתייחס לאותיות לא-לטיניות כמקש הלטיני באותו מיקום פיזי, כך שקיצורים כמו Q או Ctrl+Z יעבדו בכל שפה. הקלדה בשדות טקסט אינה מושפעת."
+  },
+  "Comfy Sidebar_Comfy Layout": {
+    "name": "מציב את הפקדים ואת לשוניות תהליכי העבודה הפתוחים בסרגל עליון אחד"
+  },
+  "Comfy Sidebar_Quick Workflow Picker": {
+    "name": "בוחר תהליכי עבודה מהיר",
+    "tooltip": "הצג בוחר תהליכי עבודה מהיר בעת יצירת תהליך עבודה ריק חדש"
+  }
+}

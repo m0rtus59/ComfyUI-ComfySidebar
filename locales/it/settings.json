@@ -1,0 +1,66 @@
+{
+  "Comfy Sidebar_Grid Columns Threshold": {
+    "name": "Soglia larghezza per le colonne della coda (px)"
+  },
+  "Comfy Sidebar_Show Pending Count Only": {
+    "name": "Se disattivato, ogni attività in coda avrà una scheda separata"
+  },
+  "Comfy Sidebar_Show Working Node Name": {
+    "name": "Mostra il nome del nodo attualmente in esecuzione"
+  },
+  "Comfy Sidebar_Auto Clear Interrupted": {
+    "name": "Pulisci automaticamente i lavori annullati e falliti a ogni nuova generazione"
+  },
+  "Comfy Sidebar_Enable Gallery": {
+    "name": "Abilita barra laterale Galleria risultati"
+  },
+  "Comfy Sidebar_Permanent Delete on Disk Deletion": {
+    "name": "Elimina definitivamente i file dal disco (bypassa il Cestino)"
+  },
+  "Comfy Sidebar_Hide Junk_Assets": {
+    "name": "Nascondi scheda: Risorse"
+  },
+  "Comfy Sidebar_Hide Junk_Nodes": {
+    "name": "Nascondi scheda: Nodi"
+  },
+  "Comfy Sidebar_Hide Junk_Models": {
+    "name": "Nascondi scheda: Modelli"
+  },
+  "Comfy Sidebar_Hide Junk_Workflows": {
+    "name": "Nascondi scheda: Workflow"
+  },
+  "Comfy Sidebar_Hide Junk_Apps": {
+    "name": "Nascondi scheda: App"
+  },
+  "Comfy Sidebar_Hide Junk_Templates": {
+    "name": "Nascondi scheda: Template"
+  },
+  "Comfy Sidebar_Hide Junk_Override Stock Job History Tab": {
+    "name": "Sostituisci la barra Cronologia lavori predefinita con Comfy Queue"
+  },
+  "Comfy Sidebar_Hide Junk_Graph Button": {
+    "name": "Nascondi pulsante flottante 'Graph' (Mappa nodi/workflow)"
+  },
+  "Comfy Sidebar_Hide Junk_Avatar": {
+    "name": "Nascondi avatar"
+  },
+  "Comfy Sidebar_Hide Junk_Floating Canvas Controls": {
+    "name": "Controlli flottanti dell'area di lavoro",
+    "options": {
+      "Default": "Predefinito",
+      "Dock": "Aggancia",
+      "Hide": "Nascondi"
+    }
+  },
+  "Comfy Sidebar_Latin Hotkeys On Any Layout": {
+    "name": "Correggi scorciatoie non-ASCII su qualsiasi layout di tastiera",
+    "tooltip": "Tratta le lettere non latine come il tasto latino nella stessa posizione fisica, così scorciatoie come Q o Ctrl+Z funzionano con qualsiasi layout. La digitazione nei campi di testo non viene modificata."
+  },
+  "Comfy Sidebar_Comfy Layout": {
+    "name": "Posiziona i controlli e le schede dei workflow aperti in un'unica barra superiore"
+  },
+  "Comfy Sidebar_Quick Workflow Picker": {
+    "name": "Selettore rapido dei workflow",
+    "tooltip": "Mostra il selettore rapido dei workflow quando crei un nuovo workflow vuoto"
+  }
+}

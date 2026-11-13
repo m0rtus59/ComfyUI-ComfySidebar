@@ -26,6 +26,7 @@ export const SettingIds = Object.freeze({
     HIDE_GRAPH_BUTTON: "Comfy Sidebar.Hide Junk.Graph Button",
     CLASSIC_LAYOUT: "Comfy Sidebar.Comfy Layout",
     LATIN_HOTKEYS: "Comfy Sidebar.Latin Hotkeys On Any Layout",
+    QUICK_WORKFLOW_PICKER: "Comfy Sidebar.Quick Workflow Picker",
     MAX_HISTORY_ITEMS: "Comfy.Queue.MaxHistoryItems",
     DOCK_QUEUE: "Comfy.Queue.QPOV2",
     SHOW_PROGRESS_BAR: "Comfy.Queue.ShowRunProgressBar",

@@ -1,0 +1,66 @@
+{
+  "Comfy Sidebar_Grid Columns Threshold": {
+    "name": "حد العرض لأعمدة قائمة الانتظار (بكسل)"
+  },
+  "Comfy Sidebar_Show Pending Count Only": {
+    "name": "عند التعطيل، ستظهر بطاقة منفصلة لكل مهمة في قائمة الانتظار"
+  },
+  "Comfy Sidebar_Show Working Node Name": {
+    "name": "إظهار اسم العقدة قيد التشغيل حالياً"
+  },
+  "Comfy Sidebar_Auto Clear Interrupted": {
+    "name": "مسح المهام الملغاة والفاشلة تلقائياً عند بدء توليد جديد"
+  },
+  "Comfy Sidebar_Enable Gallery": {
+    "name": "تفعيل الشريط الجانبي لمعرض المخرجات"
+  },
+  "Comfy Sidebar_Permanent Delete on Disk Deletion": {
+    "name": "حذف الملفات نهائياً من القرص (تجاوز سلة المحذوفات)"
+  },
+  "Comfy Sidebar_Hide Junk_Assets": {
+    "name": "إخفاء التبويب: الأصول"
+  },
+  "Comfy Sidebar_Hide Junk_Nodes": {
+    "name": "إخفاء التبويب: العقد"
+  },
+  "Comfy Sidebar_Hide Junk_Models": {
+    "name": "إخفاء التبويب: النماذج"
+  },
+  "Comfy Sidebar_Hide Junk_Workflows": {
+    "name": "إخفاء التبويب: مسارات العمل"
+  },
+  "Comfy Sidebar_Hide Junk_Apps": {
+    "name": "إخفاء التبويب: التطبيقات"
+  },
+  "Comfy Sidebar_Hide Junk_Templates": {
+    "name": "إخفاء التبويب: القوالب"
+  },
+  "Comfy Sidebar_Hide Junk_Override Stock Job History Tab": {
+    "name": "استبدال شريط سجل المهام الافتراضي بـ Comfy Queue"
+  },
+  "Comfy Sidebar_Hide Junk_Graph Button": {
+    "name": "إخفاء زر 'Graph' العائم (خريطة العقد/سير العمل)"
+  },
+  "Comfy Sidebar_Hide Junk_Avatar": {
+    "name": "إخفاء الصورة الشخصية"
+  },
+  "Comfy Sidebar_Hide Junk_Floating Canvas Controls": {
+    "name": "عناصر التحكم العائمة للوحة",
+    "options": {
+      "Default": "افتراضي",
+      "Dock": "تثبيت",
+      "Hide": "إخفاء"
+    }
+  },
+  "Comfy Sidebar_Latin Hotkeys On Any Layout": {
+    "name": "إصلاح اختصارات المفاتيح غير اللاتينية على أي تخطيط لوحة مفاتيح",
+    "tooltip": "يعامل الأحرف غير اللاتينية كمفاتيح لاتينية في نفس الموضع الفيزيائي، لتعمل اختصارات مثل Q و Ctrl+Z أثناء تفعيل أي لغة أخرى. لا يؤثر على الكتابة في حقول النصوص."
+  },
+  "Comfy Sidebar_Comfy Layout": {
+    "name": "وضع عناصر التحكم وتبويبات سير العمل المفتوحة في شريط علوي موحد"
+  },
+  "Comfy Sidebar_Quick Workflow Picker": {
+    "name": "منتقي سير العمل السريع",
+    "tooltip": "إظهار منتقي سير العمل السريع عند إنشاء سير عمل فارغ جديد"
+  }
+}

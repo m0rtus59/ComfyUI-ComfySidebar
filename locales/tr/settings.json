@@ -1,0 +1,66 @@
+{
+  "Comfy Sidebar_Grid Columns Threshold": {
+    "name": "Kuyruk sütunları için genişlik eşiği (px)"
+  },
+  "Comfy Sidebar_Show Pending Count Only": {
+    "name": "Devre dışı bırakılırsa, kuyruktaki her iş için ayrı kart gösterilir"
+  },
+  "Comfy Sidebar_Show Working Node Name": {
+    "name": "Şu anda işlenmekte olan düğümün adını gösterir"
+  },
+  "Comfy Sidebar_Auto Clear Interrupted": {
+    "name": "Yeni üretimde iptal edilen ve başarısız işleri otomatik temizle"
+  },
+  "Comfy Sidebar_Enable Gallery": {
+    "name": "Çıktı Galerisi Kenar Çubuğunu Etkinleştir"
+  },
+  "Comfy Sidebar_Permanent Delete on Disk Deletion": {
+    "name": "Diskten silerken dosyaları kalıcı olarak sil (Çöp Kutusunu atlar)"
+  },
+  "Comfy Sidebar_Hide Junk_Assets": {
+    "name": "Sekmeyi Gizle: Varlıklar"
+  },
+  "Comfy Sidebar_Hide Junk_Nodes": {
+    "name": "Sekmeyi Gizle: Düğümler"
+  },
+  "Comfy Sidebar_Hide Junk_Models": {
+    "name": "Sekmeyi Gizle: Modeller"
+  },
+  "Comfy Sidebar_Hide Junk_Workflows": {
+    "name": "Sekmeyi Gizle: İş Akışları"
+  },
+  "Comfy Sidebar_Hide Junk_Apps": {
+    "name": "Sekmeyi Gizle: Uygulamalar"
+  },
+  "Comfy Sidebar_Hide Junk_Templates": {
+    "name": "Sekmeyi Gizle: Şablonlar"
+  },
+  "Comfy Sidebar_Hide Junk_Override Stock Job History Tab": {
+    "name": "Varsayılan İş Geçmişi kenar çubuğunu Comfy Queue ile değiştir"
+  },
+  "Comfy Sidebar_Hide Junk_Graph Button": {
+    "name": "Yüzen 'Graph' (İş Akışı/Düğüm Haritası) düğmesini gizle"
+  },
+  "Comfy Sidebar_Hide Junk_Avatar": {
+    "name": "Avatarı Gizle"
+  },
+  "Comfy Sidebar_Hide Junk_Floating Canvas Controls": {
+    "name": "Yüzen Tuval Kontrolleri",
+    "options": {
+      "Default": "Varsayılan",
+      "Dock": "Sabitle",
+      "Hide": "Gizle"
+    }
+  },
+  "Comfy Sidebar_Latin Hotkeys On Any Layout": {
+    "name": "ASCII dışı kısayolları düzelt (her klavye düzeninde kısayollar)",
+    "tooltip": "Latin olmayan harfleri aynı fiziksel konumdaki Latin tuşu gibi işleyerek Q veya Ctrl+Z gibi kısayolların her klavye düzeninde çalışmasını sağlar. Metin alanlarına yazmayı etkilemez."
+  },
+  "Comfy Sidebar_Comfy Layout": {
+    "name": "Kontrolleri ve açık iş akışı sekmelerini tek bir üst çubuğa yerleştirir"
+  },
+  "Comfy Sidebar_Quick Workflow Picker": {
+    "name": "Hızlı İş Akışı Seçici",
+    "tooltip": "Yeni bir boş iş akışı oluştururken hızlı iş akışı seçiciyi göster"
+  }
+}

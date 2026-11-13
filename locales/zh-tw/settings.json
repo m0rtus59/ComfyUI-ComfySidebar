@@ -1,0 +1,66 @@
+{
+  "Comfy Sidebar_Grid Columns Threshold": {
+    "name": "佇列分欄的寬度閾值 (px)"
+  },
+  "Comfy Sidebar_Show Pending Count Only": {
+    "name": "關閉後，每個排隊任務將顯示為獨立的卡片"
+  },
+  "Comfy Sidebar_Show Working Node Name": {
+    "name": "顯示目前正在執行的節點名稱"
+  },
+  "Comfy Sidebar_Auto Clear Interrupted": {
+    "name": "開始新生成時自動清除已取消和失敗的任務"
+  },
+  "Comfy Sidebar_Enable Gallery": {
+    "name": "啟用輸出圖庫側邊欄"
+  },
+  "Comfy Sidebar_Permanent Delete on Disk Deletion": {
+    "name": "從磁碟刪除時永久刪除檔案（略過資源回收筒）"
+  },
+  "Comfy Sidebar_Hide Junk_Assets": {
+    "name": "隱藏分頁：資產"
+  },
+  "Comfy Sidebar_Hide Junk_Nodes": {
+    "name": "隱藏分頁：節點"
+  },
+  "Comfy Sidebar_Hide Junk_Models": {
+    "name": "隱藏分頁：模型"
+  },
+  "Comfy Sidebar_Hide Junk_Workflows": {
+    "name": "隱藏分頁：工作流程"
+  },
+  "Comfy Sidebar_Hide Junk_Apps": {
+    "name": "隱藏分頁：應用程式"
+  },
+  "Comfy Sidebar_Hide Junk_Templates": {
+    "name": "隱藏分頁：範本"
+  },
+  "Comfy Sidebar_Hide Junk_Override Stock Job History Tab": {
+    "name": "使用 Comfy Queue 取代預設任務歷程側邊欄"
+  },
+  "Comfy Sidebar_Hide Junk_Graph Button": {
+    "name": "隱藏浮動 'Graph'（工作流程/節點地圖）按鈕"
+  },
+  "Comfy Sidebar_Hide Junk_Avatar": {
+    "name": "隱藏頭像"
+  },
+  "Comfy Sidebar_Hide Junk_Floating Canvas Controls": {
+    "name": "浮動畫布控制列",
+    "options": {
+      "Default": "預設",
+      "Dock": "停靠",
+      "Hide": "隱藏"
+    }
+  },
+  "Comfy Sidebar_Latin Hotkeys On Any Layout": {
+    "name": "修正非 ASCII 快速鍵（任意鍵盤配置下使用快速鍵）",
+    "tooltip": "將非拉丁字元按鍵識別為相同實體位置的拉丁鍵位，使 Q 或 Ctrl+Z 等快速鍵在任意輸入法配置下都能正常運作。不影響文字框輸入。"
+  },
+  "Comfy Sidebar_Comfy Layout": {
+    "name": "將控制按鈕與開啟的工作流程分頁整合至單一頂部列"
+  },
+  "Comfy Sidebar_Quick Workflow Picker": {
+    "name": "快速工作流程選擇器",
+    "tooltip": "建立新的空白工作流程時顯示快速工作流程選擇器"
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "Comfy Sidebar_Grid Columns Threshold": {
+    "name": "キュー列を分割する幅のしきい値 (px)"
+  },
+  "Comfy Sidebar_Show Pending Count Only": {
+    "name": "無効にすると、待機中のジョブごとに個別のカードが表示されます"
+  },
+  "Comfy Sidebar_Show Working Node Name": {
+    "name": "現在処理中のノード名を表示します"
+  },
+  "Comfy Sidebar_Auto Clear Interrupted": {
+    "name": "新規生成時にキャンセル・失敗したジョブを自動消去する"
+  },
+  "Comfy Sidebar_Enable Gallery": {
+    "name": "出力ギャラリーサイドバーを有効にする"
+  },
+  "Comfy Sidebar_Permanent Delete on Disk Deletion": {
+    "name": "ディスクから削除する際にゴミ箱を経由せず完全に削除する"
+  },
+  "Comfy Sidebar_Hide Junk_Assets": {
+    "name": "タブを非表示: アセット"
+  },
+  "Comfy Sidebar_Hide Junk_Nodes": {
+    "name": "タブを非表示: ノード"
+  },
+  "Comfy Sidebar_Hide Junk_Models": {
+    "name": "タブを非表示: モデル"
+  },
+  "Comfy Sidebar_Hide Junk_Workflows": {
+    "name": "タブを非表示: ワークフロー"
+  },
+  "Comfy Sidebar_Hide Junk_Apps": {
+    "name": "タブを非表示: アプリ"
+  },
+  "Comfy Sidebar_Hide Junk_Templates": {
+    "name": "タブを非表示: テンプレート"
+  },
+  "Comfy Sidebar_Hide Junk_Override Stock Job History Tab": {
+    "name": "標準のジョブ履歴サイドバーを Comfy Queue に置き換える"
+  },
+  "Comfy Sidebar_Hide Junk_Graph Button": {
+    "name": "フローティングの 'Graph'（ワークフローマップ）ボタンを非表示"
+  },
+  "Comfy Sidebar_Hide Junk_Avatar": {
+    "name": "アバターを非表示"
+  },
+  "Comfy Sidebar_Hide Junk_Floating Canvas Controls": {
+    "name": "フローティングキャンバスコントロール",
+    "options": {
+      "Default": "デフォルト",
+      "Dock": "ドックに固定",
+      "Hide": "非表示"
+    }
+  },
+  "Comfy Sidebar_Latin Hotkeys On Any Layout": {
+    "name": "非ASCIIキーバインドの修正（どのキーボード配列でもホットキーを有効化）",
+    "tooltip": "非ラテン文字を同じ物理位置のラテン文字キーとして扱うため、他の入力配列でも Q や Ctrl+Z などが動作します。テキスト入力欄には影響しません。"
+  },
+  "Comfy Sidebar_Comfy Layout": {
+    "name": "操作ボタンと開いているワークフロータブを単一の上部バーにまとめる"
+  },
+  "Comfy Sidebar_Quick Workflow Picker": {
+    "name": "クイックワークフローピッカー",
+    "tooltip": "新しい空のワークフローを作成するときにクイックワークフローピッカーを表示する"
+  }
+}

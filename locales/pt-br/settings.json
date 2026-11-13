@@ -1,0 +1,66 @@
+{
+  "Comfy Sidebar_Grid Columns Threshold": {
+    "name": "Limite de largura para colunas da fila (px)"
+  },
+  "Comfy Sidebar_Show Pending Count Only": {
+    "name": "Se desativado, cada tarefa na fila terá um card individual"
+  },
+  "Comfy Sidebar_Show Working Node Name": {
+    "name": "Mostra o nome do nó que está em execução no momento"
+  },
+  "Comfy Sidebar_Auto Clear Interrupted": {
+    "name": "Limpar automaticamente tarefas canceladas e com erro ao iniciar nova geração"
+  },
+  "Comfy Sidebar_Enable Gallery": {
+    "name": "Ativar barra lateral da Galeria de saídas"
+  },
+  "Comfy Sidebar_Permanent Delete on Disk Deletion": {
+    "name": "Excluir arquivos permanentemente do disco (ignora a Lixeira)"
+  },
+  "Comfy Sidebar_Hide Junk_Assets": {
+    "name": "Ocultar aba: Recursos"
+  },
+  "Comfy Sidebar_Hide Junk_Nodes": {
+    "name": "Ocultar aba: Nós"
+  },
+  "Comfy Sidebar_Hide Junk_Models": {
+    "name": "Ocultar aba: Modelos"
+  },
+  "Comfy Sidebar_Hide Junk_Workflows": {
+    "name": "Ocultar aba: Fluxos"
+  },
+  "Comfy Sidebar_Hide Junk_Apps": {
+    "name": "Ocultar aba: Aplicativos"
+  },
+  "Comfy Sidebar_Hide Junk_Templates": {
+    "name": "Ocultar aba: Modelos prontos"
+  },
+  "Comfy Sidebar_Hide Junk_Override Stock Job History Tab": {
+    "name": "Substituir o Histórico de tarefas padrão pelo Comfy Queue"
+  },
+  "Comfy Sidebar_Hide Junk_Graph Button": {
+    "name": "Ocultar botão flutuante 'Graph' (Mapa de nós)"
+  },
+  "Comfy Sidebar_Hide Junk_Avatar": {
+    "name": "Ocultar avatar"
+  },
+  "Comfy Sidebar_Hide Junk_Floating Canvas Controls": {
+    "name": "Controles flutuantes do canvas",
+    "options": {
+      "Default": "Padrão",
+      "Dock": "Acoplar",
+      "Hide": "Ocultar"
+    }
+  },
+  "Comfy Sidebar_Latin Hotkeys On Any Layout": {
+    "name": "Corrigir atalhos não-ASCII em qualquer layout de teclado",
+    "tooltip": "Trata letras não latinas como a tecla latina na mesma posição física para que atalhos como Q ou Ctrl+Z funcionem em qualquer idioma. Não afeta a digitação em campos de texto."
+  },
+  "Comfy Sidebar_Comfy Layout": {
+    "name": "Coloca os controles e as abas de fluxos abertos em uma única barra superior"
+  },
+  "Comfy Sidebar_Quick Workflow Picker": {
+    "name": "Seletor Rápido de Fluxos",
+    "tooltip": "Mostrar seletor rápido de fluxos ao criar um novo fluxo em branco"
+  }
+}
