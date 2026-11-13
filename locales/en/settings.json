@@ -1,66 +1,66 @@
 {
   "Comfy Sidebar_Grid Columns Threshold": {
-    "name": "Ширина в пикселях для разделения очереди на несколько колонок"
+    "name": "Width Threshold for Queue Columns (px)"
   },
   "Comfy Sidebar_Show Pending Count Only": {
-    "name": "Если отключено, для каждой задачи в очереди будет отдельная карточка"
+    "name": "If disabled, each queued job will have a separate individual card"
   },
   "Comfy Sidebar_Show Working Node Name": {
-    "name": "Показывать имя узла, который сейчас выполняется"
+    "name": "Shows the name of the node which is currently in the process"
   },
   "Comfy Sidebar_Auto Clear Interrupted": {
-    "name": "Автоматически очищать отменённые и неудачные задачи при новой генерации"
+    "name": "Auto-clear cancelled & failed jobs on new generation"
   },
   "Comfy Sidebar_Enable Gallery": {
-    "name": "Включить боковую панель галереи результатов"
+    "name": "Enable Output Gallery Sidebar"
   },
   "Comfy Sidebar_Permanent Delete on Disk Deletion": {
-    "name": "Удалять файлы с диска безвозвратно (минуя Корзину)"
+    "name": "Permanently delete files on disk deletion (bypasses Recycle Bin / Trash)"
   },
   "Comfy Sidebar_Hide Junk_Assets": {
-    "name": "Скрыть вкладку: Ассеты"
+    "name": "Hide Tab: Assets"
   },
   "Comfy Sidebar_Hide Junk_Nodes": {
-    "name": "Скрыть вкладку: Узлы"
+    "name": "Hide Tab: Nodes"
   },
   "Comfy Sidebar_Hide Junk_Models": {
-    "name": "Скрыть вкладку: Модели"
+    "name": "Hide Tab: Models"
   },
   "Comfy Sidebar_Hide Junk_Workflows": {
-    "name": "Скрыть вкладку: Рабочие процессы"
+    "name": "Hide Tab: Workflows"
   },
   "Comfy Sidebar_Hide Junk_Apps": {
-    "name": "Скрыть вкладку: Приложения"
+    "name": "Hide Tab: Apps"
   },
   "Comfy Sidebar_Hide Junk_Templates": {
-    "name": "Скрыть вкладку: Шаблоны"
+    "name": "Hide Tab: Templates"
   },
   "Comfy Sidebar_Hide Junk_Override Stock Job History Tab": {
-    "name": "Заменить стандартную историю заданий на Comfy Queue"
+    "name": "Replace the stock Job History sidebar with Comfy Queue"
   },
   "Comfy Sidebar_Hide Junk_Graph Button": {
-    "name": "Скрыть плавающую кнопку 'Graph' (карта рабочего процесса)"
+    "name": "Hide floating 'Graph' (Workflow/Node Map) button"
   },
   "Comfy Sidebar_Hide Junk_Avatar": {
-    "name": "Скрыть аватар"
+    "name": "Hide Avatar"
   },
   "Comfy Sidebar_Hide Junk_Floating Canvas Controls": {
-    "name": "Плавающие элементы управления холстом",
+    "name": "Floating Canvas Controls",
     "options": {
-      "Default": "По умолчанию",
-      "Dock": "Закрепить",
-      "Hide": "Скрыть"
+      "Default": "Default",
+      "Dock": "Dock",
+      "Hide": "Hide"
     }
   },
   "Comfy Sidebar_Latin Hotkeys On Any Layout": {
-    "name": "Исправить нелатинские горячие клавиши (работа на любой раскладке)",
-    "tooltip": "Обрабатывает нелатинские буквы (например, кириллицу) как соответствующие латинские клавиши, чтобы горячие клавиши вроде Q или Ctrl+Z работали на любой раскладке. На ввод текста в полях не влияет."
+    "name": "Fix non-ASCII keybinds (hotkeys on any keyboard layout)",
+    "tooltip": "Treats non-Latin letters (e.g. Cyrillic) as the Latin key in the same physical position, so hotkeys like Q or Ctrl+Z work while another layout is active. Typing in text fields is not affected."
   },
   "Comfy Sidebar_Comfy Layout": {
-    "name": "Разместить элементы управления и открытые вкладки на единой верхней панели"
+    "name": "Places the controls and the open workflow tabs on a single unified top bar"
   },
   "Comfy Sidebar_Quick Workflow Picker": {
-    "name": "Быстрый выбор рабочего процесса",
-    "tooltip": "Показывать быстрый выбор при создании нового пустого рабочего процесса"
+    "name": "Quick Workflow Picker",
+    "tooltip": "Show quick workflow picker when creating a new blank workflow"
   }
 }
