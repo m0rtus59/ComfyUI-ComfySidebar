@@ -188,12 +188,21 @@ export function injectStyles() {
             letter-spacing: 0.3px;
         }
 
-        body.comfy-sidebar-ctrl-active .comfy-sidebar-card-action-btn:not(.comfy-sidebar-btn-del) {
+        body.comfy-sidebar-ctrl-active .comfy-sidebar-card-action-btn:not(.comfy-sidebar-btn-del):not(.comfy-sidebar-btn-move) {
             display: none !important;
         }
 
         body.comfy-sidebar-ctrl-active .comfy-sidebar-left-hover-panel {
             display: none !important;
+        }
+
+        body.comfy-sidebar-ctrl-active .comfy-sidebar-btn-move {
+            display: inline-flex !important;
+            background-color: #166534 !important;
+            color: #ffffff !important;
+            border: 1px solid #22c55e !important;
+            width: auto !important;
+            padding: 0 8px !important;
         }
 
         body.comfy-sidebar-ctrl-active .comfy-sidebar-btn-del {
