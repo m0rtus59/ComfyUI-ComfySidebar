@@ -129,5 +129,9 @@
   "Search Gallery (Filename or Prompt)": "البحث في المعرض (اسم الملف أو الموجه)",
   "Search filenames or prompt metadata...": "البحث في أسماء الملفات أو بيانات الموجه...",
   "Type to load saved workflow...": "اكتب لتحميل سير عمل محفوظ...",
-  "No matching workflows": "لا توجد مسارات عمل مطابقة"
+  "No matching workflows": "لا توجد مسارات عمل مطابقة",
+  "Move to Outputs": "نقل إلى المخرجات",
+  "Move selected image to Outputs (Ctrl+Click)": "انقل الصورة المحددة إلى المخرجات (Ctrl+نقرة)",
+  "Moved selected image to Outputs.": "تم نقل الصورة المحددة إلى المخرجات.",
+  "Failed to move image to Outputs.": "تعذر نقل الصورة إلى المخرجات."
 }
