@@ -586,7 +586,7 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
 
             if (state.images?.length > 0) {
                 cardObj.currentImageIndex = Math.min(cardObj.currentImageIndex || 0, state.images.length - 1);
-                renderCardImages(cardObj, state);
+                renderCardImages(cardObj, state, onNavigateBatch);
             } else {
                 cardObj.element?.remove();
                 const remaining = store.ui.cardStack?.querySelectorAll('.comfy-sidebar-card');
