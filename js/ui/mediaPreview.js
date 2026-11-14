@@ -568,6 +568,12 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
 
         const cardId = cardObj.element?.id || "";
 
+        // Ignore a late error from the previous URL if this media element has
+        // already been pointed at a replacement file (for example after Move).
+        const failedUrl = new URL(src, window.location.origin).href;
+        const activeUrl = mediaEl.currentSrc || mediaEl.src;
+        if (activeUrl && activeUrl !== failedUrl) return;
+
         // 1. If an intermediate output item is missing, remove only that image.
         // A node can have several images, so never discard the node's other outputs.
         if (cardId.startsWith("card-submenu-")) {
@@ -642,6 +648,7 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
 
             // Keep the history card even if its file was removed. Missing media should
             // not erase history or prevent a later run from reusing the same output path.
+            renderCardImages(cardObj, liveState, onNavigateBatch);
             cardObj.grid.innerHTML = "";
             cardObj.firstImgElement = null;
             cardObj.lastImagesSignature = "";
