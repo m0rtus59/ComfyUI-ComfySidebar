@@ -5,7 +5,6 @@ import { showFullscreenPreview } from "../utils/comparison.js";
 import { store } from "../core/store.js";
 import { PromptStatus } from "../core/constants.js";
 import { t } from "../core/i18n.js";
-import { deleteHistoryItem } from "../queue/queueService.js";
 
 export function findWorkflowBackgroundThumbnail(state, randParam = "") {
     if (!state) return null;
