@@ -129,5 +129,9 @@
   "Search Gallery (Filename or Prompt)": "ギャラリーを検索 (ファイル名またはプロンプト)",
   "Search filenames or prompt metadata...": "ファイル名またはプロンプトを検索...",
   "Type to load saved workflow...": "保存済みワークフローを読み込むには入力...",
-  "No matching workflows": "一致するワークフローがありません"
+  "No matching workflows": "一致するワークフローがありません",
+  "Move to Outputs": "出力フォルダーへ移動",
+  "Move selected image to Outputs (Ctrl+Click)": "選択した画像を出力フォルダーへ移動 (Ctrl+クリック)",
+  "Moved selected image to Outputs.": "選択した画像を出力フォルダーへ移動しました。",
+  "Failed to move image to Outputs.": "画像を出力フォルダーへ移動できませんでした。"
 }
