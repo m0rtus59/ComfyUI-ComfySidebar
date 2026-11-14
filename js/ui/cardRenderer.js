@@ -3,7 +3,7 @@ import { PromptStatus } from "../core/constants.js";
 import { t } from "../core/i18n.js";
 import { store } from "../core/store.js";
 import { renderCardImages } from "./mediaPreview.js";
-import { copyImageToClipboard, openFileOrFolder, deleteFileOnServer, moveTempImageToOutput, findNodeIdForImage, removeImageFromNodeOutputs } from "./mediaActions.js";
+import { copyImageToClipboard, openFileOrFolder, deleteFileOnServer, moveTempImageToOutput, updateMovedImageReferences, findNodeIdForImage, removeImageFromNodeOutputs } from "./mediaActions.js";
 import { centerAndSelectCanvasNode } from "../comfy/adapter.js";
 import { getRunOutputs, extractWorkflowFromPng, isImageFormat, animateCardRemoval, downloadJson, getScrollContainer, attachDeleteConfirmation } from "../utils/utils.js";
 import { showFullscreenPreview } from "../utils/comparison.js";
@@ -146,28 +146,24 @@ export function syncCardButtonVisibility(cardObj, state) {
                 const moved = await moveTempImageToOutput(selectedImage);
 
                 if (moved?.success) {
-                    const updateReferences = (obj) => {
-                        if (!obj || typeof obj !== "object") return;
-                        if (Array.isArray(obj)) {
-                            obj.forEach(updateReferences);
-                            return;
-                        }
-                        if (obj.filename === oldFilename && (obj.subfolder || "") === oldSubfolder && (obj.type || "temp") === "temp") {
-                            obj.filename = moved.filename;
-                            obj.subfolder = "";
-                            obj.type = "output";
-                            if (obj.url && !obj.url.startsWith("blob:")) delete obj.url;
-                        }
-                        Object.values(obj).forEach(value => {
-                            if (value && typeof value === "object") updateReferences(value);
-                        });
-                    };
-
-                    updateReferences(liveState.images);
-                    updateReferences(liveState.nodeOutputs);
+                    updateMovedImageReferences(liveState.images, selectedImage, moved);
+                    updateMovedImageReferences(liveState.nodeOutputs, selectedImage, moved);
                     store.updatePrompt(liveState.pid, liveState);
-                    cardObj.lastImagesSignature = "";
-                    updateCardDOM(cardObj, liveState);
+
+                    // Update the existing media element in place. Rebuilding the card here
+                    // briefly removes the old image and makes the card visibly flicker.
+                    renderCardImages(cardObj, liveState, (st) => {
+                        const scrollEl = getScrollContainer(store.ui.cardStack);
+                        if (scrollEl) store.ui.mainQueueScrollTop = scrollEl.scrollTop;
+                        store.openBatchSubmenu({
+                            pid: st.pid,
+                            images: st.images,
+                            workflow: st.workflow,
+                            nodeOutputs: st.nodeOutputs
+                        });
+                    });
+                    cardObj.lastImagesSignature = `${liveState.status || ""}:${liveState.images.map(img => img.url || img.filename).join("|")}`;
+                    syncCardButtonVisibility(cardObj, liveState);
                     showNotification(t("Moved selected image to Outputs."), "success", "Move to Outputs");
                 } else {
                     showNotification(t("Failed to move image to Outputs."), "error", "Move to Outputs");
@@ -485,6 +481,10 @@ export function getOrCreateCard(state, callbacks = {}) {
     const btnMove = document.createElement("span");
     btnMove.className = "pi pi-folder-open comfy-sidebar-card-action-btn comfy-sidebar-btn-move";
     btnMove.title = t("Move selected image to Outputs (Ctrl+Click)");
+    const btnMoveLabel = document.createElement("span");
+    btnMoveLabel.className = "comfy-sidebar-move-label";
+    btnMoveLabel.textContent = t("Move to Outputs");
+    btnMove.appendChild(btnMoveLabel);
     btnMove.style.display = "none";
 
     const leftHoverPanel = document.createElement("div");
@@ -501,7 +501,7 @@ export function getOrCreateCard(state, callbacks = {}) {
     leftHoverBtn.className = "pi pi-images comfy-sidebar-card-action-btn";
     leftHoverBtn.title = t("View all intermediate outputs");
 
-    hoverPanel.append(btnImg, btnJson, btnDel, btnMove);
+    hoverPanel.append(btnImg, btnJson, btnMove, btnDel);
     leftHoverPanel.append(btnCopy, btnFocus, leftHoverBtn);
 
     // Appending grid FIRST ensures overlays (badges, cancel button) naturally render on top
