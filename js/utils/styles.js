@@ -160,6 +160,16 @@ export function injectStyles() {
             color: #ffffff !important;
         }
 
+        .comfy-sidebar-move-label {
+            display: inline;
+            margin-left: 5px;
+            font-size: 10px;
+            font-weight: bold;
+            white-space: nowrap;
+            font-family: sans-serif;
+            letter-spacing: 0.3px;
+        }
+
         /* Delete Confirmation Active State */
         .comfy-sidebar-card-action-btn.confirm-delete,
         .comfy-sidebar-card-action-btn.confirm-delete:hover {
