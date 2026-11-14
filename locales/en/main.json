@@ -129,5 +129,9 @@
   "Search Gallery (Filename or Prompt)": "Search Gallery (Filename or Prompt)",
   "Search filenames or prompt metadata...": "Search filenames or prompt metadata...",
   "Type to load saved workflow...": "Type to load saved workflow...",
-  "No matching workflows": "No matching workflows"
+  "No matching workflows": "No matching workflows",
+  "Move selected image to Outputs (Ctrl+Click)": "Move selected image to Outputs (Ctrl+Click)",
+  "Moved selected image to Outputs.": "Moved selected image to Outputs.",
+  "Failed to move image to Outputs.": "Failed to move image to Outputs.",
+  "Move to Outputs": "Move to Outputs"
 }

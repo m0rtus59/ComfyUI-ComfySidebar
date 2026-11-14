@@ -5,7 +5,6 @@ import { showFullscreenPreview } from "../utils/comparison.js";
 import { store } from "../core/store.js";
 import { PromptStatus } from "../core/constants.js";
 import { t } from "../core/i18n.js";
-import { deleteHistoryItem } from "../queue/queueService.js";
 
 export function findWorkflowBackgroundThumbnail(state, randParam = "") {
     if (!state) return null;
@@ -429,6 +428,21 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
 
     const idx = cardObj.currentImageIndex;
     const img = state.images[idx];
+
+    // The Queue's advanced action follows the currently selected batch image.
+    if (cardObj.btnMove) {
+        const canMoveToOutputs = Boolean(
+            img &&
+            img.type === "temp" &&
+            isImageFormat(img.filename || img.url)
+        );
+        if (canMoveToOutputs) {
+            cardObj.btnMove.style.removeProperty("display");
+        } else {
+            cardObj.btnMove.style.setProperty("display", "none", "important");
+        }
+    }
+
     if (!img) {
         cardObj.grid.innerHTML = "";
         cardObj.firstImgElement = null;
@@ -467,15 +481,15 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
     const existingFile = wrapper.querySelector(".comfy-sidebar-file-wrapper");
 
     if (existingTopImg) {
+        // Keep the currently rendered frame visible while a replacement source loads.
+        // Clearing src here made every card refresh briefly collapse to an empty preview.
         if (existingTopImg.tagName === "VIDEO") {
             existingTopImg.onloadedmetadata = null;
             existingTopImg.pause();
-            existingTopImg.src = "";
-            existingTopImg.load();
         } else {
             existingTopImg.onload = null;
-            existingTopImg.src = "";
         }
+        existingTopImg.onerror = null;
     }
 
     if (is3D) {
@@ -554,48 +568,61 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
 
         const cardId = cardObj.element?.id || "";
 
-        // 1. If an intermediate output item is missing, remove only this item
+        // Ignore a late error from the previous URL if this media element has
+        // already been pointed at a replacement file (for example after Move).
+        const failedUrl = new URL(src, window.location.origin).href;
+        const activeUrl = mediaEl.src;
+        if (activeUrl && activeUrl !== failedUrl) return;
+
+        // 1. If an intermediate output item is missing, remove only that image.
+        // A node can have several images, so never discard the node's other outputs.
         if (cardId.startsWith("card-submenu-")) {
             const parentState = store.getPrompt(state.pid);
-            if (parentState && parentState.nodeOutputs) {
-                if (state.nodeId && parentState.nodeOutputs[state.nodeId]) {
-                    delete parentState.nodeOutputs[state.nodeId];
-                } else {
-                    removeImageFromNodeOutputs(parentState.nodeOutputs, img);
-                }
+            const missingIndex = state.images?.findIndex(item =>
+                item.filename === img.filename &&
+                (item.subfolder || "") === (img.subfolder || "")
+            ) ?? -1;
+            if (missingIndex >= 0) state.images.splice(missingIndex, 1);
+
+            if (parentState?.nodeOutputs) {
+                removeImageFromNodeOutputs(parentState.nodeOutputs, img);
                 store.updatePrompt(parentState.pid, parentState);
             }
-            cardObj.element?.remove();
-            const remaining = store.ui.cardStack?.querySelectorAll('.comfy-sidebar-card');
-            if (!remaining || remaining.length === 0) {
-                store.closeSubmenu();
+
+            if (state.images?.length > 0) {
+                cardObj.currentImageIndex = Math.min(cardObj.currentImageIndex || 0, state.images.length - 1);
+                renderCardImages(cardObj, state, onNavigateBatch);
+            } else {
+                cardObj.element?.remove();
+                const remaining = store.ui.cardStack?.querySelectorAll('.comfy-sidebar-card');
+                if (!remaining || remaining.length === 0) store.closeSubmenu();
             }
             return;
         }
 
-        // 2. If a batch item is missing, remove only this item from the batch
+        // 2. If a batch item is missing, remove only this item and keep its history.
         if (cardId.startsWith("card-batch-")) {
-            const parentPid = state.parentPromptId || state.pid;
+            const batchInfo = store.ui.activeSubmenuBatchImages;
+            const parentPid = state.parentPromptId || batchInfo?.parentPromptId || state.pid;
             const parentState = store.getPrompt(parentPid);
+            if (Array.isArray(batchInfo?.images)) {
+                const batchIndex = batchInfo.images.findIndex(item =>
+                    item.filename === img.filename &&
+                    (item.subfolder || "") === (img.subfolder || "")
+                );
+                if (batchIndex >= 0) batchInfo.images.splice(batchIndex, 1);
+            }
             if (parentState) {
                 if (Array.isArray(parentState.images)) {
                     const idx = parentState.images.findIndex(i => i.filename === img.filename && (i.subfolder || "") === (img.subfolder || ""));
                     if (idx > -1) parentState.images.splice(idx, 1);
                 }
-                if (parentState.nodeOutputs) {
-                    removeImageFromNodeOutputs(parentState.nodeOutputs, img);
-                }
-                if ((!parentState.images || parentState.images.length === 0) && parentState.status === PromptStatus.COMPLETED) {
-                    deleteHistoryItem(parentPid);
-                } else {
-                    store.updatePrompt(parentPid, parentState);
-                }
+                if (parentState.nodeOutputs) removeImageFromNodeOutputs(parentState.nodeOutputs, img);
+                store.updatePrompt(parentPid, parentState);
             }
             cardObj.element?.remove();
             const remaining = store.ui.cardStack?.querySelectorAll('.comfy-sidebar-card');
-            if (!remaining || remaining.length === 0) {
-                store.closeSubmenu();
-            }
+            if (!remaining || remaining.length === 0) store.closeSubmenu();
             return;
         }
 
@@ -612,22 +639,24 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
             }
 
             if (liveState.images && liveState.images.length > 0) {
-                cardObj.currentImageIndex = 0;
+                cardObj.currentImageIndex = Math.min(cardObj.currentImageIndex || 0, liveState.images.length - 1);
                 cardObj.lastImagesSignature = "";
                 store.updatePrompt(liveState.pid, liveState);
+                renderCardImages(cardObj, liveState, onNavigateBatch);
                 return;
             }
 
-            // If the job is still actively generating/running, keep it
-            if (liveState.status && liveState.status !== PromptStatus.COMPLETED) {
-                cardObj.lastImagesSignature = "";
-                store.updatePrompt(liveState.pid, liveState);
-                return;
-            }
-
-            // Temp image preview was deleted and only intermediate prompt text remains: delete card for good
-            deleteHistoryItem(liveState.pid);
-            cardObj.element?.remove();
+            // Keep the history card even if its file was removed. Missing media should
+            // not erase history or prevent a later run from reusing the same output path.
+            renderCardImages(cardObj, liveState, onNavigateBatch);
+            cardObj.grid.innerHTML = "";
+            cardObj.firstImgElement = null;
+            cardObj.lastImagesSignature = "";
+            cardObj.placeholder.textContent = liveState.texts?.length
+                ? liveState.texts.join("\n\n")
+                : t("No Outputs");
+            cardObj.placeholder.style.display = "block";
+            store.updatePrompt(liveState.pid, liveState);
             return;
         }
 

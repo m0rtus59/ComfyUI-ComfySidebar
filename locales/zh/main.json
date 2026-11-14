@@ -129,5 +129,9 @@
   "Search Gallery (Filename or Prompt)": "搜索图库 (文件名或提示词)",
   "Search filenames or prompt metadata...": "搜索文件名或提示词元数据...",
   "Type to load saved workflow...": "输入以加载已保存的工作流...",
-  "No matching workflows": "没有匹配的工作流"
+  "No matching workflows": "没有匹配的工作流",
+  "Move to Outputs": "移动到输出目录",
+  "Move selected image to Outputs (Ctrl+Click)": "将选中的图像移动到输出目录 (Ctrl+单击)",
+  "Moved selected image to Outputs.": "已将选中的图像移动到输出目录。",
+  "Failed to move image to Outputs.": "无法将图像移动到输出目录。"
 }

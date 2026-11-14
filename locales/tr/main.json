@@ -142,5 +142,9 @@
   "Search Gallery (Filename or Prompt)": "Galeride Ara (Dosya Adı veya Prompt)",
   "Search filenames or prompt metadata...": "Dosya adlarını veya prompt meta verilerini ara...",
   "Type to load saved workflow...": "Kayıtlı iş akışını yüklemek için yazın...",
-  "No matching workflows": "Eşleşen iş akışı yok"
+  "No matching workflows": "Eşleşen iş akışı yok",
+  "Move to Outputs": "Çıktılara taşı",
+  "Move selected image to Outputs (Ctrl+Click)": "Seçili görseli çıktılara taşı (Ctrl+tık)",
+  "Moved selected image to Outputs.": "Seçili görsel çıktılara taşındı.",
+  "Failed to move image to Outputs.": "Görsel çıktılara taşınamadı."
 }

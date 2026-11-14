@@ -129,5 +129,9 @@
   "Search Gallery (Filename or Prompt)": "חיפוש בגלריה (שם קובץ או פרומפט)",
   "Search filenames or prompt metadata...": "חיפוש שמות קבצים או מטא-דאטה של פרומפט...",
   "Type to load saved workflow...": "הקלד כדי לטעון תהליך עבודה שמור...",
-  "No matching workflows": "לא נמצאו תהליכי עבודה תואמים"
+  "No matching workflows": "לא נמצאו תהליכי עבודה תואמים",
+  "Move to Outputs": "העבר לפלט",
+  "Move selected image to Outputs (Ctrl+Click)": "העבר את התמונה שנבחרה לפלט (Ctrl+לחיצה)",
+  "Moved selected image to Outputs.": "התמונה שנבחרה הועברה לפלט.",
+  "Failed to move image to Outputs.": "העברת התמונה לפלט נכשלה."
 }

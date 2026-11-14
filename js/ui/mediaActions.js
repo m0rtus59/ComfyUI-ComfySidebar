@@ -77,6 +77,55 @@ export async function deleteFileOnServer(fileItem) {
     }
 }
 
+export async function moveTempImageToOutput(fileItem) {
+    if (!fileItem || !fileItem.filename || fileItem.type !== "temp") return null;
+    try {
+        const res = await fetch("/comfy-sidebar/move-temp-to-output", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                filename: fileItem.filename,
+                subfolder: fileItem.subfolder || "",
+                type: fileItem.type
+            })
+        });
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            console.error("Comfy Sidebar: Failed to move temp image", data.error || res.statusText);
+            return null;
+        }
+        return await res.json();
+    } catch (err) {
+        console.error("Comfy Sidebar: Failed to move temp image", err);
+        return null;
+    }
+}
+
+export function updateMovedImageReferences(value, oldImage, moved) {
+    const oldFilename = oldImage?.filename;
+    const oldSubfolder = oldImage?.subfolder || "";
+    if (!value || !oldFilename || !moved?.filename) return;
+
+    const visit = (obj) => {
+        if (!obj || typeof obj !== "object") return;
+        if (Array.isArray(obj)) {
+            obj.forEach(visit);
+            return;
+        }
+        if (obj.filename === oldFilename &&
+            (obj.subfolder || "") === oldSubfolder &&
+            (obj.type || "temp") === "temp") {
+            obj.filename = moved.filename;
+            obj.subfolder = moved.subfolder || "";
+            obj.type = moved.type || "output";
+            if (obj.url && !obj.url.startsWith("blob:")) delete obj.url;
+        }
+        Object.values(obj).forEach(visit);
+    };
+
+    visit(value);
+}
+
 export function removeImageFromNodeOutputs(nodeOutputs, targetImg) {
     if (!nodeOutputs || !targetImg || !targetImg.filename) return;
 

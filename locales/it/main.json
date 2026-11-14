@@ -129,5 +129,9 @@
   "Search Gallery (Filename or Prompt)": "Cerca nella galleria (nome file o prompt)",
   "Search filenames or prompt metadata...": "Cerca nomi di file o metadati del prompt...",
   "Type to load saved workflow...": "Digita per caricare un workflow salvato...",
-  "No matching workflows": "Nessun workflow corrispondente"
+  "No matching workflows": "Nessun workflow corrispondente",
+  "Move to Outputs": "Sposta negli output",
+  "Move selected image to Outputs (Ctrl+Click)": "Sposta l’immagine selezionata negli output (Ctrl+clic)",
+  "Moved selected image to Outputs.": "Immagine selezionata spostata negli output.",
+  "Failed to move image to Outputs.": "Impossibile spostare l’immagine negli output."
 }

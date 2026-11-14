@@ -369,6 +369,72 @@ async def delete_file_handler(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
+@PromptServer.instance.routes.post("/comfy-sidebar/move-temp-to-output")
+async def move_temp_to_output_handler(request):
+    try:
+        import shutil
+        data = await request.json()
+        filename = (data.get("filename") or "").strip()
+        subfolder = (data.get("subfolder") or "").strip()
+        folder_type = (data.get("type") or "").strip()
+
+        if not filename or folder_type != "temp":
+            return web.json_response({"error": "Only files from the temp directory can be moved"}, status=400)
+
+        if os.path.basename(filename) != filename or filename in (".", ".."):
+            return web.json_response({"error": "Invalid filename"}, status=400)
+
+        if os.path.splitext(filename)[1].lower() not in {
+            ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff", ".avif"
+        }:
+            return web.json_response({"error": "Only image files can be moved"}, status=400)
+
+        temp_dir = folder_paths.get_temp_directory()
+        output_dir = folder_paths.get_output_directory()
+        source_path, source_root = resolve_existing_path(
+            filename, subfolder, "temp",
+            candidate_roots=[os.path.realpath(temp_dir)], strict=True
+        )
+
+        if not source_path or not os.path.isfile(source_path) or not is_path_safe(source_root, source_path):
+            return web.json_response({"error": "Temp image not found"}, status=404)
+
+        os.makedirs(output_dir, exist_ok=True)
+        stem, ext = os.path.splitext(filename)
+        destination_name = filename
+        suffix = 1
+
+        # Reserve a unique destination without ever overwriting an existing output.
+        while True:
+            destination_path = os.path.join(output_dir, destination_name)
+            try:
+                fd = os.open(destination_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o666)
+                os.close(fd)
+                break
+            except FileExistsError:
+                destination_name = f"{stem} ({suffix}){ext}"
+                suffix += 1
+
+        try:
+            shutil.copy2(source_path, destination_path)
+            os.remove(source_path)
+        except Exception:
+            try:
+                os.remove(destination_path)
+            except OSError:
+                pass
+            raise
+
+        return web.json_response({
+            "success": True,
+            "filename": destination_name,
+            "subfolder": "",
+            "type": "output"
+        })
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+
 @PromptServer.instance.routes.post("/comfy-sidebar/promote-output")
 async def promote_output_handler(request):
     try:

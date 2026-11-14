@@ -160,6 +160,16 @@ export function injectStyles() {
             color: #ffffff !important;
         }
 
+        .comfy-sidebar-move-label {
+            display: inline;
+            margin-left: 5px;
+            font-size: 10px;
+            font-weight: bold;
+            white-space: nowrap;
+            font-family: sans-serif;
+            letter-spacing: 0.3px;
+        }
+
         /* Delete Confirmation Active State */
         .comfy-sidebar-card-action-btn.confirm-delete,
         .comfy-sidebar-card-action-btn.confirm-delete:hover {
@@ -177,6 +187,11 @@ export function injectStyles() {
             border: 1px solid #ef4444 !important;
         }
 
+        /* Move to Outputs is an advanced Queue action: never show it outside Ctrl mode. */
+        .comfy-sidebar-btn-move {
+            display: none !important;
+        }
+
         /* Dynamic Ctrl Key Hover State */
         .comfy-sidebar-del-label {
             display: none;
@@ -188,12 +203,21 @@ export function injectStyles() {
             letter-spacing: 0.3px;
         }
 
-        body.comfy-sidebar-ctrl-active .comfy-sidebar-card-action-btn:not(.comfy-sidebar-btn-del) {
+        body.comfy-sidebar-ctrl-active .comfy-sidebar-card-action-btn:not(.comfy-sidebar-btn-del):not(.comfy-sidebar-btn-move) {
             display: none !important;
         }
 
         body.comfy-sidebar-ctrl-active .comfy-sidebar-left-hover-panel {
             display: none !important;
+        }
+
+        body.comfy-sidebar-ctrl-active .comfy-sidebar-btn-move {
+            display: inline-flex !important;
+            background-color: #166534 !important;
+            color: #ffffff !important;
+            border: 1px solid #22c55e !important;
+            width: auto !important;
+            padding: 0 8px !important;
         }
 
         body.comfy-sidebar-ctrl-active .comfy-sidebar-btn-del {

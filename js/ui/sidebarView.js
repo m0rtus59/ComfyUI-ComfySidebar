@@ -8,7 +8,7 @@ import { updateSidebarBadge, centerAndSelectCanvasNode } from "../comfy/adapter.
 import { matchesFilter, getRunOutputs, isImageFormat, animateCardRemoval, getScrollContainer, calculateGridColumns, setupSpotlightTracker, attachDeleteConfirmation } from "../utils/utils.js";
 import { getSetting } from "../core/settings.js";
 import { renderCardImages } from "./mediaPreview.js";
-import { deleteFileOnServer, removeImageFromNodeOutputs, copyImageToClipboard, findNodeIdForImage } from "./mediaActions.js";
+import { deleteFileOnServer, moveTempImageToOutput, updateMovedImageReferences, removeImageFromNodeOutputs, copyImageToClipboard, findNodeIdForImage } from "./mediaActions.js";
 import { toggleIgnoreActiveNode } from "../comfy/nodes.js";
 import { renumberNodesTopologically, showNotification } from "../utils/nodeRenumber.js";
 
@@ -804,6 +804,14 @@ export function renderSidebar() {
                         btnDelLabel.textContent = t("Delete File");
                         btnDel.appendChild(btnDelLabel);
 
+                        const btnMove = document.createElement("span");
+                        btnMove.className = "pi pi-folder-open comfy-sidebar-card-action-btn comfy-sidebar-btn-move";
+                        btnMove.title = t("Move selected image to Outputs (Ctrl+Click)");
+                        const btnMoveLabel = document.createElement("span");
+                        btnMoveLabel.className = "comfy-sidebar-move-label";
+                        btnMoveLabel.textContent = t("Move to Outputs");
+                        btnMove.appendChild(btnMoveLabel);
+
                         attachDeleteConfirmation(btnDel, {
                             idleTitle: t("Delete node output (Hold Ctrl to delete file from disk)"),
                             confirmTitle: t("Click again to confirm removing output"),
@@ -843,7 +851,7 @@ export function renderSidebar() {
                             }
                         });
 
-                        hoverPanel.append(btnImg, btnDel);
+                        hoverPanel.append(btnImg, btnMove, btnDel);
 
                         const leftHoverPanel = document.createElement("div");
                         leftHoverPanel.className = "comfy-sidebar-left-hover-panel";
@@ -898,10 +906,53 @@ export function renderSidebar() {
                             btnCopy,
                             btnFocus,
                             btnDel,
+                            btnMove,
                             firstImgElement: null
                         };
 
                         cardPool.set(cardId, cardObj);
+                    }
+
+                    if (cardObj.btnMove) {
+                        const selectedImage = out.images?.[cardObj.currentImageIndex || 0];
+                        const canMoveSelectedImage = Boolean(
+                            selectedImage &&
+                            selectedImage.type === "temp" &&
+                            isImageFormat(selectedImage.filename || selectedImage.url)
+                        );
+
+                        if (canMoveSelectedImage) {
+                            cardObj.btnMove.title = t("Move selected image to Outputs (Ctrl+Click)");
+                            cardObj.btnMove.onclick = async (ev) => {
+                                ev.stopPropagation();
+                                if (!ev.ctrlKey && !ev.metaKey) return;
+                                if (cardObj._isMovingTempImage) return;
+
+                                const liveState = store.getPrompt(st.pid) || st;
+                                const imageToMove = out.images?.[cardObj.currentImageIndex || 0];
+                                if (!imageToMove || imageToMove.type !== "temp") return;
+
+                                cardObj._isMovingTempImage = true;
+                                cardObj.btnMove.style.opacity = "0.5";
+                                const moved = await moveTempImageToOutput(imageToMove);
+
+                                if (moved?.success) {
+                                    updateMovedImageReferences(liveState.images, imageToMove, moved);
+                                    updateMovedImageReferences(liveState.nodeOutputs, imageToMove, moved);
+                                    updateMovedImageReferences(out.images, imageToMove, moved);
+                                    store.updatePrompt(liveState.pid, liveState);
+                                    showNotification(t("Moved selected image to Outputs."), "success", t("Move to Outputs"));
+                                    renderSidebar();
+                                } else {
+                                    showNotification(t("Failed to move image to Outputs."), "error", t("Move to Outputs"));
+                                }
+
+                                cardObj._isMovingTempImage = false;
+                                cardObj.btnMove.style.opacity = "";
+                            };
+                        } else {
+                            cardObj.btnMove.onclick = null;
+                        }
                     }
 
                     if (out.images && out.images.length > 0) {

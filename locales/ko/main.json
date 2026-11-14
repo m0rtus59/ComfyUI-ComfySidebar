@@ -129,5 +129,9 @@
   "Search Gallery (Filename or Prompt)": "갤러리 검색 (파일명 또는 프롬프트)",
   "Search filenames or prompt metadata...": "파일명 또는 프롬프트 메타데이터 검색...",
   "Type to load saved workflow...": "저장된 워크플로우를 불러오려면 입력하세요...",
-  "No matching workflows": "일치하는 워크플로우가 없습니다"
+  "No matching workflows": "일치하는 워크플로우가 없습니다",
+  "Move to Outputs": "출력 폴더로 이동",
+  "Move selected image to Outputs (Ctrl+Click)": "선택한 이미지를 출력 폴더로 이동 (Ctrl+클릭)",
+  "Moved selected image to Outputs.": "선택한 이미지를 출력 폴더로 이동했습니다.",
+  "Failed to move image to Outputs.": "이미지를 출력 폴더로 이동하지 못했습니다."
 }

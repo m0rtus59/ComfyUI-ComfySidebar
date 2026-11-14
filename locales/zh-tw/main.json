@@ -129,5 +129,9 @@
   "Search Gallery (Filename or Prompt)": "搜尋圖庫 (檔案名稱或提示詞)",
   "Search filenames or prompt metadata...": "搜尋檔案名稱或提示詞元資料...",
   "Type to load saved workflow...": "輸入以載入已儲存的工作流程...",
-  "No matching workflows": "沒有符合的工作流程"
+  "No matching workflows": "沒有符合的工作流程",
+  "Move to Outputs": "移至輸出資料夾",
+  "Move selected image to Outputs (Ctrl+Click)": "將選取的圖片移至輸出資料夾 (Ctrl+點擊)",
+  "Moved selected image to Outputs.": "已將選取的圖片移至輸出資料夾。",
+  "Failed to move image to Outputs.": "無法將圖片移至輸出資料夾。"
 }
