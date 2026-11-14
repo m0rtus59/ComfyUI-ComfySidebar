@@ -481,15 +481,15 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
     const existingFile = wrapper.querySelector(".comfy-sidebar-file-wrapper");
 
     if (existingTopImg) {
+        // Keep the currently rendered frame visible while a replacement source loads.
+        // Clearing src here made every card refresh briefly collapse to an empty preview.
         if (existingTopImg.tagName === "VIDEO") {
             existingTopImg.onloadedmetadata = null;
             existingTopImg.pause();
-            existingTopImg.src = "";
-            existingTopImg.load();
         } else {
             existingTopImg.onload = null;
-            existingTopImg.src = "";
         }
+        existingTopImg.onerror = null;
     }
 
     if (is3D) {
