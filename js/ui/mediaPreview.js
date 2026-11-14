@@ -429,6 +429,21 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
 
     const idx = cardObj.currentImageIndex;
     const img = state.images[idx];
+
+    // The Queue's advanced action follows the currently selected batch image.
+    if (cardObj.btnMove) {
+        const canMoveToOutputs = Boolean(
+            img &&
+            img.type === "temp" &&
+            isImageFormat(img.filename || img.url)
+        );
+        if (canMoveToOutputs) {
+            cardObj.btnMove.style.removeProperty("display");
+        } else {
+            cardObj.btnMove.style.setProperty("display", "none", "important");
+        }
+    }
+
     if (!img) {
         cardObj.grid.innerHTML = "";
         cardObj.firstImgElement = null;
