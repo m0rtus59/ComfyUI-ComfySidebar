@@ -141,8 +141,6 @@ export function syncCardButtonVisibility(cardObj, state) {
 
                 cardObj._isMovingTempImage = true;
                 cardObj.btnMove.style.opacity = "0.5";
-                const oldFilename = selectedImage.filename;
-                const oldSubfolder = selectedImage.subfolder || "";
                 const moved = await moveTempImageToOutput(selectedImage);
 
                 if (moved?.success) {
@@ -165,9 +163,9 @@ export function syncCardButtonVisibility(cardObj, state) {
                     });
                     cardObj.lastImagesSignature = `${liveState.status || ""}:${liveState.images.map(img => img.url || img.filename).join("|")}`;
                     syncCardButtonVisibility(cardObj, liveState);
-                    showNotification(t("Moved selected image to Outputs."), "success", "Move to Outputs");
+                    showNotification(t("Moved selected image to Outputs."), "success", t("Move to Outputs"));
                 } else {
-                    showNotification(t("Failed to move image to Outputs."), "error", "Move to Outputs");
+                    showNotification(t("Failed to move image to Outputs."), "error", t("Move to Outputs"));
                 }
 
                 cardObj._isMovingTempImage = false;
