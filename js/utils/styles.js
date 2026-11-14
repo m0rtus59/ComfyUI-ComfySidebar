@@ -177,6 +177,11 @@ export function injectStyles() {
             border: 1px solid #ef4444 !important;
         }
 
+        /* Move to Outputs is an advanced Queue action: never show it outside Ctrl mode. */
+        .comfy-sidebar-btn-move {
+            display: none !important;
+        }
+
         /* Dynamic Ctrl Key Hover State */
         .comfy-sidebar-del-label {
             display: none;
