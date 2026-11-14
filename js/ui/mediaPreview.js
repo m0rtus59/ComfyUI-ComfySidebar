@@ -571,7 +571,7 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
         // Ignore a late error from the previous URL if this media element has
         // already been pointed at a replacement file (for example after Move).
         const failedUrl = new URL(src, window.location.origin).href;
-        const activeUrl = mediaEl.currentSrc || mediaEl.src;
+        const activeUrl = mediaEl.src;
         if (activeUrl && activeUrl !== failedUrl) return;
 
         // 1. If an intermediate output item is missing, remove only that image.
