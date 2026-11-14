@@ -941,10 +941,10 @@ export function renderSidebar() {
                                     updateMovedImageReferences(liveState.nodeOutputs, imageToMove, moved);
                                     updateMovedImageReferences(out.images, imageToMove, moved);
                                     store.updatePrompt(liveState.pid, liveState);
-                                    showNotification(t("Moved selected image to Outputs."), "success", "Move to Outputs");
+                                    showNotification(t("Moved selected image to Outputs."), "success", t("Move to Outputs"));
                                     renderSidebar();
                                 } else {
-                                    showNotification(t("Failed to move image to Outputs."), "error", "Move to Outputs");
+                                    showNotification(t("Failed to move image to Outputs."), "error", t("Move to Outputs"));
                                 }
 
                                 cardObj._isMovingTempImage = false;
