@@ -146,8 +146,9 @@ export function syncCardButtonVisibility(cardObj, state) {
                 const moved = await moveTempImageToOutput(selectedImage);
 
                 if (moved?.success) {
-                    updateMovedImageReferences(liveState.images, selectedImage, moved);
+                    // Update raw node outputs before the selected image object itself is mutated.
                     updateMovedImageReferences(liveState.nodeOutputs, selectedImage, moved);
+                    updateMovedImageReferences(liveState.images, selectedImage, moved);
                     store.updatePrompt(liveState.pid, liveState);
 
                     // Update the existing media element in place. Rebuilding the card here
