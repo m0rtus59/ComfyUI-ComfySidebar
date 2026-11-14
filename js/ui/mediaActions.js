@@ -77,6 +77,30 @@ export async function deleteFileOnServer(fileItem) {
     }
 }
 
+export async function moveTempImageToOutput(fileItem) {
+    if (!fileItem || !fileItem.filename || fileItem.type !== "temp") return null;
+    try {
+        const res = await fetch("/comfy-sidebar/move-temp-to-output", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                filename: fileItem.filename,
+                subfolder: fileItem.subfolder || "",
+                type: fileItem.type
+            })
+        });
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            console.error("Comfy Sidebar: Failed to move temp image", data.error || res.statusText);
+            return null;
+        }
+        return await res.json();
+    } catch (err) {
+        console.error("Comfy Sidebar: Failed to move temp image", err);
+        return null;
+    }
+}
+
 export function removeImageFromNodeOutputs(nodeOutputs, targetImg) {
     if (!nodeOutputs || !targetImg || !targetImg.filename) return;
 
