@@ -12,19 +12,6 @@
     "Show Pending Count Only": "Yalnızca Bekleyen Sayısını Göster",
     "Show Working Node Name": "Çalışan Düğüm Adını Göster"
   },
-  "settingsCategories": {
-    "Comfy Sidebar": "Comfy Sidebar",
-    "Auto Clear Interrupted": "Kesilenleri Otomatik Temizle",
-    "Comfy Layout": "Klasik Düzen",
-    "Enable Gallery": "Galeriyi Etkinleştir",
-    "Grid Columns Threshold": "Izgara Sütun Eşiği",
-    "Hide Junk": "Gereksiz Öğeleri Gizle",
-    "Latin Hotkeys On Any Layout": "Her Düzende Latin Kısayol Tuşları",
-    "Permanent Delete on Disk Deletion": "Diskten Kalıcı Olarak Sil",
-    "Quick Workflow Picker": "Hızlı İş Akışı Seçici",
-    "Show Pending Count Only": "Yalnızca Bekleyen Sayısını Göster",
-    "Show Working Node Name": "Çalışan Düğüm Adını Göster"
-  },
   "Queue": "Kuyruk",
   "Search History": "Geçmişte ara",
   "Toggle Ignore Selected Node(s) in Queue (Ctrl+Q)": "Seçili düğümleri kuyrukta yoksay/etkinleştir (Ctrl+Q)",
@@ -142,5 +129,9 @@
   "Search Gallery (Filename or Prompt)": "Galeride Ara (Dosya Adı veya Prompt)",
   "Search filenames or prompt metadata...": "Dosya adlarını veya prompt meta verilerini ara...",
   "Type to load saved workflow...": "Kayıtlı iş akışını yüklemek için yazın...",
-  "No matching workflows": "Eşleşen iş akışı yok"
+  "No matching workflows": "Eşleşen iş akışı yok",
+  "Move to Outputs": "Çıktılara taşı",
+  "Move selected image to Outputs (Ctrl+Click)": "Seçili görseli çıktılara taşı (Ctrl+tık)",
+  "Moved selected image to Outputs.": "Seçili görsel çıktılara taşındı.",
+  "Failed to move image to Outputs.": "Görsel çıktılara taşınamadı."
 }
