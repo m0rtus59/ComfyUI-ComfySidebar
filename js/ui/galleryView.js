@@ -1,7 +1,7 @@
 import { app } from "/scripts/app.js";
 import { SettingIds, PromptStatus } from "../core/constants.js";
 import { t } from "../core/i18n.js";
-import { deleteFileOnServer, openFileOrFolder } from "./mediaActions.js";
+import { deleteFileOnServer, openFileOrFolder, copyImageToClipboard } from "./mediaActions.js";
 import { extractWorkflowFromPng, isImageFormat, animateCardRemoval, getScrollContainer, calculateGridColumns, downloadJson, setupSpotlightTracker, attachDeleteConfirmation } from "../utils/utils.js";
 import { getSetting } from "../core/settings.js";
 import { renderCardImages } from "./mediaPreview.js";
