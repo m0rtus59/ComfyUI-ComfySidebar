@@ -149,20 +149,38 @@ export function syncCardButtonVisibility(cardObj, state) {
                     updateMovedImageReferences(liveState.images, selectedImage, moved);
                     store.updatePrompt(liveState.pid, liveState);
 
-                    // Update the existing media element in place. Rebuilding the card here
-                    // briefly removes the old image and makes the card visibly flicker.
-                    renderCardImages(cardObj, liveState, (st) => {
-                        const scrollEl = getScrollContainer(store.ui.cardStack);
-                        if (scrollEl) store.ui.mainQueueScrollTop = scrollEl.scrollTop;
-                        store.openBatchSubmenu({
-                            pid: st.pid,
-                            images: st.images,
-                            workflow: st.workflow,
-                            nodeOutputs: st.nodeOutputs
+                    // Keep the already-decoded temp image visible while the new output URL
+                    // is preloaded. Only switch the existing media element once the replacement
+                    // is ready, so the card never collapses to an empty preview in between.
+                    const selectedIndex = cardObj.currentImageIndex || 0;
+                    const currentMedia = cardObj.grid.querySelector(".comfy-sidebar-media-wrapper > img");
+                    const movedImage = liveState.images?.[selectedIndex];
+                    const nextSrc = movedImage
+                        ? (movedImage.url || (window.location.origin + `/view?filename=${encodeURIComponent(movedImage.filename)}&type=${movedImage.type || "output"}&subfolder=${encodeURIComponent(movedImage.subfolder || "")}${liveState.pid ? `&rand=${encodeURIComponent(liveState.pid)}` : ""}`))
+                        : null;
+                    const refreshPreview = () => {
+                        renderCardImages(cardObj, liveState, (st) => {
+                            const scrollEl = getScrollContainer(store.ui.cardStack);
+                            if (scrollEl) store.ui.mainQueueScrollTop = scrollEl.scrollTop;
+                            store.openBatchSubmenu({
+                                pid: st.pid,
+                                images: st.images,
+                                workflow: st.workflow,
+                                nodeOutputs: st.nodeOutputs
+                            });
                         });
-                    });
-                    cardObj.lastImagesSignature = `${liveState.status || ""}:${liveState.images.map(img => img.url || img.filename).join("|")}`;
-                    syncCardButtonVisibility(cardObj, liveState);
+                        cardObj.lastImagesSignature = `${liveState.status || ""}:${liveState.images.map(img => img.url || img.filename).join("|")}`;
+                        syncCardButtonVisibility(cardObj, liveState);
+                    };
+
+                    if (currentMedia && nextSrc && currentMedia.tagName === "IMG") {
+                        const preload = new Image();
+                        preload.onload = refreshPreview;
+                        preload.onerror = refreshPreview;
+                        preload.src = nextSrc;
+                    } else {
+                        refreshPreview();
+                    }
                     showNotification(t("Moved selected image to Outputs."), "success", t("Move to Outputs"));
                 } else {
                     showNotification(t("Failed to move image to Outputs."), "error", t("Move to Outputs"));
