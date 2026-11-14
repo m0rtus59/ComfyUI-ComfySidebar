@@ -3,7 +3,7 @@ import { PromptStatus } from "../core/constants.js";
 import { t } from "../core/i18n.js";
 import { store } from "../core/store.js";
 import { renderCardImages } from "./mediaPreview.js";
-import { copyImageToClipboard, openFileOrFolder, deleteFileOnServer, findNodeIdForImage, removeImageFromNodeOutputs } from "./mediaActions.js";
+import { copyImageToClipboard, openFileOrFolder, deleteFileOnServer, moveTempImageToOutput, findNodeIdForImage, removeImageFromNodeOutputs } from "./mediaActions.js";
 import { centerAndSelectCanvasNode } from "../comfy/adapter.js";
 import { getRunOutputs, extractWorkflowFromPng, isImageFormat, animateCardRemoval, downloadJson, getScrollContainer, attachDeleteConfirmation } from "../utils/utils.js";
 import { showFullscreenPreview } from "../utils/comparison.js";
@@ -118,6 +118,68 @@ export function syncCardButtonVisibility(cardObj, state) {
         cardObj.btnDel.title = hasRealDiskFiles 
             ? t("Delete Card (Hold Ctrl to delete file from disk)") 
             : t("Delete Card");
+    }
+
+    if (cardObj.btnMove) {
+        const canMoveCurrentImage = Boolean(
+            currentImg &&
+            currentImg.type === "temp" &&
+            isImageFormat(currentImg.filename || currentImg.url)
+        );
+
+        if (canMoveCurrentImage) {
+            cardObj.btnMove.style.removeProperty("display");
+            cardObj.btnMove.title = t("Move selected image to Outputs (Ctrl+Click)");
+            cardObj.btnMove.onclick = async (ev) => {
+                ev.stopPropagation();
+                if (!ev.ctrlKey && !ev.metaKey) return;
+                if (cardObj._isMovingTempImage) return;
+
+                const liveState = store.getPrompt(state.pid) || state;
+                const selectedImage = liveState.images?.[cardObj.currentImageIndex || 0];
+                if (!selectedImage || selectedImage.type !== "temp") return;
+
+                cardObj._isMovingTempImage = true;
+                cardObj.btnMove.style.opacity = "0.5";
+                const oldFilename = selectedImage.filename;
+                const oldSubfolder = selectedImage.subfolder || "";
+                const moved = await moveTempImageToOutput(selectedImage);
+
+                if (moved?.success) {
+                    const updateReferences = (obj) => {
+                        if (!obj || typeof obj !== "object") return;
+                        if (Array.isArray(obj)) {
+                            obj.forEach(updateReferences);
+                            return;
+                        }
+                        if (obj.filename === oldFilename && (obj.subfolder || "") === oldSubfolder && (obj.type || "temp") === "temp") {
+                            obj.filename = moved.filename;
+                            obj.subfolder = "";
+                            obj.type = "output";
+                            if (obj.url && !obj.url.startsWith("blob:")) delete obj.url;
+                        }
+                        Object.values(obj).forEach(value => {
+                            if (value && typeof value === "object") updateReferences(value);
+                        });
+                    };
+
+                    updateReferences(liveState.images);
+                    updateReferences(liveState.nodeOutputs);
+                    store.updatePrompt(liveState.pid, liveState);
+                    cardObj.lastImagesSignature = "";
+                    updateCardDOM(cardObj, liveState);
+                    showNotification(t("Moved selected image to Outputs."), "success", "Move to Outputs");
+                } else {
+                    showNotification(t("Failed to move image to Outputs."), "error", "Move to Outputs");
+                }
+
+                cardObj._isMovingTempImage = false;
+                cardObj.btnMove.style.opacity = "";
+            };
+        } else {
+            cardObj.btnMove.style.setProperty("display", "none", "important");
+            cardObj.btnMove.onclick = null;
+        }
     }
 
     if (cardObj.btnFocus) {
@@ -420,6 +482,11 @@ export function getOrCreateCard(state, callbacks = {}) {
     btnDelLabel.textContent = t("Delete File");
     btnDel.appendChild(btnDelLabel);
 
+    const btnMove = document.createElement("span");
+    btnMove.className = "pi pi-folder-open comfy-sidebar-card-action-btn comfy-sidebar-btn-move";
+    btnMove.title = t("Move selected image to Outputs (Ctrl+Click)");
+    btnMove.style.display = "none";
+
     const leftHoverPanel = document.createElement("div");
     leftHoverPanel.className = "comfy-sidebar-left-hover-panel";
     Object.assign(leftHoverPanel.style, {
@@ -434,7 +501,7 @@ export function getOrCreateCard(state, callbacks = {}) {
     leftHoverBtn.className = "pi pi-images comfy-sidebar-card-action-btn";
     leftHoverBtn.title = t("View all intermediate outputs");
 
-    hoverPanel.append(btnImg, btnJson, btnDel);
+    hoverPanel.append(btnImg, btnJson, btnDel, btnMove);
     leftHoverPanel.append(btnCopy, btnFocus, leftHoverBtn);
 
     // Appending grid FIRST ensures overlays (badges, cancel button) naturally render on top
@@ -459,6 +526,7 @@ export function getOrCreateCard(state, callbacks = {}) {
         btnJson,
         btnDel,
         btnDelLabel,
+        btnMove,
         canDeleteFromDisk: true,
         statusText,
         firstImgElement: null,
