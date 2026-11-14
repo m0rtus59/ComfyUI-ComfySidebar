@@ -129,5 +129,9 @@
   "Search Gallery (Filename or Prompt)": "جستجو در گالری (نام فایل یا پرامپت)",
   "Search filenames or prompt metadata...": "جستجوی نام فایل‌ها یا متادیتای پرامپت...",
   "Type to load saved workflow...": "برای بارگذاری گردش کار ذخیره‌شده تایپ کنید...",
-  "No matching workflows": "گردش کار مطابقی یافت نشد"
+  "No matching workflows": "گردش کار مطابقی یافت نشد",
+  "Move to Outputs": "انتقال به خروجی‌ها",
+  "Move selected image to Outputs (Ctrl+Click)": "انتقال تصویر انتخاب‌شده به خروجی‌ها (Ctrl+کلیک)",
+  "Moved selected image to Outputs.": "تصویر انتخاب‌شده به خروجی‌ها منتقل شد.",
+  "Failed to move image to Outputs.": "انتقال تصویر به خروجی‌ها ناموفق بود."
 }
