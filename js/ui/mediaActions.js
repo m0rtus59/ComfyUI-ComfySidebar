@@ -205,10 +205,10 @@ export function findNodeIdForImage(state, img) {
         for (const key in out) {
             const val = out[key];
             if (Array.isArray(val)) {
-                if (val.some(i => i && typeof i === "object" && i.filename === img.filename)) {
+                if (val.some(i => i && typeof i === "object" && i.filename === img.filename && (i.subfolder || "") === (img.subfolder || ""))) {
                     return nodeId;
                 }
-            } else if (val && typeof val === "object" && val.filename === img.filename) {
+            } else if (val && typeof val === "object" && val.filename === img.filename && (val.subfolder || "") === (img.subfolder || "")) {
                 return nodeId;
             }
         }

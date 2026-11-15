@@ -5,7 +5,7 @@ import { PromptStatus, StoreEvents, SettingIds } from "../core/constants.js";
 import { getSetting } from "../core/settings.js";
 import { createPromptState, activatePrompt, finalizePrompt } from "../core/promptState.js";
 import { normalizeQueueItem, normalizeHistoryItem } from "./queueNormalizer.js";
-import { findImagesInOutputs, findTextsInOutputs, getPrimaryOutputImages, getNodeTitle } from "../utils/utils.js";
+import { findTextsInOutputs, getPrimaryOutputImages, getNodeTitle } from "../utils/utils.js";
 
 function extractNodeTitles(outputs, workflow, promptGraph = null) {
     const titles = {};

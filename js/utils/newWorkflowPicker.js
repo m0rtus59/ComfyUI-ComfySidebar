@@ -10,6 +10,25 @@ function isTemporaryWorkflow(wf) {
     return wf.isTemporary === true || wf.isPersisted === false;
 }
 
+/**
+ * ComfyUI's workflow store calls `createNewTemporary(path?, workflowData?)` for *every* new unsaved tab:
+ * the "+" button / New command, but also loading a file (drag & drop, Open, PNG metadata, paste),
+ * templates, "load default" and "Duplicate". Only the first group should open the quick picker.
+ *
+ * What distinguishes them is the action's arguments:
+ *  - a file load / duplicate passes a name (the file name) as `path`;
+ *  - default workflow / templates / pasted graphs pass data that already contains nodes;
+ *  - a blank workflow has no name and an empty graph.
+ */
+export function isBlankWorkflowCreation(args) {
+    const [path, workflowData] = Array.isArray(args) ? args : [];
+    if (typeof path === "string" && path.trim() !== "") return false;
+    if (!workflowData || typeof workflowData !== "object") return true;
+    const hasNodes = Array.isArray(workflowData.nodes) && workflowData.nodes.length > 0;
+    const hasSubgraphs = Array.isArray(workflowData.definitions?.subgraphs) && workflowData.definitions.subgraphs.length > 0;
+    return !hasNodes && !hasSubgraphs;
+}
+
 function findNewWorkflowButton(target) {
     if (!target || typeof target.closest !== "function") return null;
 
@@ -460,7 +479,7 @@ export function setupNewWorkflowQuickPicker() {
     let unsubWorkflowAction = null;
     const wfMgr = app.extensionManager?.workflow;
     if (wfMgr && typeof wfMgr.$onAction === "function") {
-        unsubWorkflowAction = wfMgr.$onAction(({ name, after, onError }) => {
+        unsubWorkflowAction = wfMgr.$onAction(({ name, args, after, onError }) => {
             if (name === "closeWorkflow") {
                 activeCloseCount++;
                 after(() => { activeCloseCount = Math.max(0, activeCloseCount - 1); });
@@ -471,6 +490,10 @@ export function setupNewWorkflowQuickPicker() {
             if (name !== "createNewTemporary" && name !== "createTemporary") return;
             if (!getSetting(SettingIds.QUICK_WORKFLOW_PICKER, true)) return;
             if (isReplacing || activeCloseCount > 0 || wfMgr.tabsRestored === false) return;
+
+            // Loaded files, templates, the default graph and duplicates also go through
+            // createNewTemporary: they are not "new blank workflow" and must not open the picker.
+            if (!isBlankWorkflowCreation(args)) return;
 
             const isExplicitNew = name === "createNewTemporary" || Date.now() <= userInitiatedBlankUntil;
             if (!isExplicitNew) return;

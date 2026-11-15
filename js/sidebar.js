@@ -8,7 +8,7 @@ import { renumberNodesTopologically, setManualNodeId } from "./utils/nodeRenumbe
 import { applySidebarOverride } from "./comfy/adapter.js";
 import { syncAllNodeBadges, setupVueNodeObserver, toggleIgnoreActiveNode } from "./comfy/nodes.js";
 import { applyClassicLayout, setupPropertiesPanelToggleFix, syncClassicLayout, syncStockHistoryAndProgressSettings, destroyLayoutFix } from "./comfy/layout.js";
-import { initSessionAndHistory, syncQueue } from "./queue/queueService.js";
+import { initSessionAndHistory } from "./queue/queueService.js";
 import { setupExecutionTracker } from "./queue/executionTracker.js";
 import { setupSidebarView, renderSidebar, teardownSidebarView } from "./ui/sidebarView.js";
 import { setupGalleryView, teardownGalleryView } from "./ui/galleryView.js";
@@ -50,6 +50,22 @@ function setupKeydownShortcuts() {
     document.addEventListener("keydown", activeKeydownHandler, true);
 }
 
+function setGalleryButtonVisible(visible) {
+    try {
+        const buttons = document.querySelectorAll(".side-bar-button, [data-tab-id]");
+        for (const btn of buttons) {
+            if (btn.getAttribute("data-tab-id") === "classic-comfy-gallery" ||
+                btn.getAttribute("title")?.includes("Gallery") ||
+                btn.querySelector(".pi-folder")) {
+                btn.style.display = visible ? "" : "none";
+                break;
+            }
+        }
+    } catch (e) {
+        console.warn("[ComfySidebar] Error toggling gallery tab button:", e);
+    }
+}
+
 function registerSettings() {
     app.ui.settings.addSetting({
         id: SettingIds.GRID_COLUMNS_THRESHOLD,
@@ -78,22 +94,6 @@ function registerSettings() {
         type: "boolean",
         defaultValue: false
     });
-
-    const setGalleryButtonVisible = (visible) => {
-        try {
-            const buttons = document.querySelectorAll(".side-bar-button, [data-tab-id]");
-            for (const btn of buttons) {
-                if (btn.getAttribute("data-tab-id") === "classic-comfy-gallery" ||
-                    btn.getAttribute("title")?.includes("Gallery") ||
-                    btn.querySelector(".pi-folder")) {
-                    btn.style.display = visible ? "" : "none";
-                    break;
-                }
-            }
-        } catch (e) {
-            console.warn("[ComfySidebar] Error toggling gallery tab button:", e);
-        }
-    };
 
     app.ui.settings.addSetting({
         id: "Comfy Sidebar.Enable Gallery",

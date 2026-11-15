@@ -1,9 +1,8 @@
-import { app } from "/scripts/app.js";
 import { PromptStatus } from "../core/constants.js";
 import { t } from "../core/i18n.js";
 import { store } from "../core/store.js";
 import { renderCardImages } from "./mediaPreview.js";
-import { copyImageToClipboard, openFileOrFolder, deleteFileOnServer, moveTempImageToOutput, updateMovedImageReferences, findNodeIdForImage, removeImageFromNodeOutputs } from "./mediaActions.js";
+import { copyImageToClipboard, deleteFileOnServer, moveTempImageToOutput, updateMovedImageReferences, findNodeIdForImage, removeImageFromNodeOutputs } from "./mediaActions.js";
 import { centerAndSelectCanvasNode } from "../comfy/adapter.js";
 import { getRunOutputs, extractWorkflowFromPng, isImageFormat, animateCardRemoval, downloadJson, getScrollContainer, attachDeleteConfirmation } from "../utils/utils.js";
 import { showFullscreenPreview } from "../utils/comparison.js";
