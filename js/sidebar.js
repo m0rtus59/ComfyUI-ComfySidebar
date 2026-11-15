@@ -8,7 +8,7 @@ import { renumberNodesTopologically, setManualNodeId } from "./utils/nodeRenumbe
 import { applySidebarOverride } from "./comfy/adapter.js";
 import { syncAllNodeBadges, setupVueNodeObserver, toggleIgnoreActiveNode } from "./comfy/nodes.js";
 import { applyClassicLayout, setupPropertiesPanelToggleFix, syncClassicLayout, syncStockHistoryAndProgressSettings, destroyLayoutFix } from "./comfy/layout.js";
-import { initSessionAndHistory, syncQueue } from "./queue/queueService.js";
+import { initSessionAndHistory } from "./queue/queueService.js";
 import { setupExecutionTracker } from "./queue/executionTracker.js";
 import { setupSidebarView, renderSidebar, teardownSidebarView } from "./ui/sidebarView.js";
 import { setupGalleryView, teardownGalleryView } from "./ui/galleryView.js";

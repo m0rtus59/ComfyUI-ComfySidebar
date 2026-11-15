@@ -3,7 +3,6 @@ import { openFileOrFolder, removeImageFromNodeOutputs } from "./mediaActions.js"
 import { stopAllAudioPlayback, isAudioViewerOpen, setCurrentlyPlayingAudio, getCurrentlyPlayingAudio } from "./audioController.js";
 import { showFullscreenPreview } from "../utils/comparison.js";
 import { store } from "../core/store.js";
-import { PromptStatus } from "../core/constants.js";
 import { t } from "../core/i18n.js";
 
 export function findWorkflowBackgroundThumbnail(state, randParam = "") {

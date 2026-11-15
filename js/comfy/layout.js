@@ -1,4 +1,3 @@
-import { app } from "/scripts/app.js";
 import {
     findOriginalPropertiesButton,
     findTopbarContainer,

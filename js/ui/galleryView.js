@@ -1,4 +1,3 @@
-import { app } from "/scripts/app.js";
 import { SettingIds, PromptStatus } from "../core/constants.js";
 import { t } from "../core/i18n.js";
 import { deleteFileOnServer, openFileOrFolder, copyImageToClipboard } from "./mediaActions.js";

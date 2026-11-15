@@ -2,7 +2,7 @@ import { SidebarOverlay } from "./overlay.js";
 import { t } from "../core/i18n.js";
 
 // Global helper for code block copying in Markdown view
-window.moonCopyCode = function(button) {
+window.comfySidebarCopyCode = function(button) {
     try {
         const container = button.parentElement;
         if (!container) return;
@@ -92,7 +92,7 @@ function parseMarkdown(text) {
                 const rCode = codeContent.join("\n");
                 const langBadge = codeLang ? `<div style="position:absolute;top:6px;left:10px;color:#85c5ec;font-size:10px;font-family:sans-serif;font-weight:bold;text-transform:uppercase;opacity:0.8;user-select:none;">${codeLang}</div>` : '';
                 const btnStyle = "position:absolute;top:6px;right:6px;background:var(--secondary, #333);color:var(--muted-foreground, #aaa);border:1px solid var(--border, #555);border-radius:3px;padding:3px 8px;font-size:10px;cursor:pointer;";
-                htmlLines.push(`<div class="code-block-container" style="position:relative;margin:8px 0;">${langBadge}<button onclick="window.moonCopyCode(this)" style="${btnStyle}">${t("Copy")}</button><pre style="background:color-mix(in srgb, var(--card, #1e1e1e) 90%, black 10%);padding:10px;padding-top:28px;border-radius:4px;border:1px solid var(--border, #333);font-family:monospace;overflow-x:auto;margin:0;color:#85c5ec;"><code>${rCode}</code></pre></div>`);
+                htmlLines.push(`<div class="code-block-container" style="position:relative;margin:8px 0;">${langBadge}<button onclick="window.comfySidebarCopyCode(this)" style="${btnStyle}">${t("Copy")}</button><pre style="background:color-mix(in srgb, var(--card, #1e1e1e) 90%, black 10%);padding:10px;padding-top:28px;border-radius:4px;border:1px solid var(--border, #333);font-family:monospace;overflow-x:auto;margin:0;color:#85c5ec;"><code>${rCode}</code></pre></div>`);
                 codeContent = []; codeLang = ""; inCodeBlock = false;
             } else {
                 inCodeBlock = true; codeLang = trimmed.slice(3).trim();
