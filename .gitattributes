@@ -1,0 +1,5 @@
+# Keep the repository on LF so files never end up with mixed line endings.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.webp binary
