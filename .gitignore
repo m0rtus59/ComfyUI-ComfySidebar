@@ -3,3 +3,5 @@ __pycache__/
 Thumbs.db
 .DS_Store
 desktop.ini
+# Local test suite (kept out of the repository)
+tests/
