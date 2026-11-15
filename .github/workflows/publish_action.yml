@@ -28,8 +28,9 @@ jobs:
       - name: Extract Version
         id: get_version
         run: |
-          VERSION=$(grep -m 1 'version' pyproject.toml | cut -d '"' -f 2)
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          VERSION=$(sed -n '/^\[project\]/,/^\[/p' pyproject.toml | grep -m 1 '^version' | cut -d '"' -f 2)
+          test -n "$VERSION" || { echo "Failed to extract project version"; exit 1; }
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       # 2. Automatically create Git Tag & GitHub Release
       - name: Create GitHub Release
