@@ -255,6 +255,19 @@ export async function initSessionAndHistory() {
         }));
         normalized.sort((a, b) => a.norm.queueNumber - b.norm.queueNumber);
 
+        const maxItems = getSetting(SettingIds.MAX_HISTORY_ITEMS, 64);
+
+        // The server keeps runs that this sidebar already pruned (its history is bigger than the Queue
+        // limit). Re-adding those as brand-new cards would give them *higher* sequence numbers than the
+        // cards we saved, and the limit would then evict the newest runs instead of the oldest ones.
+        // So history that is older than a card we already have is only used to fill free slots, and is
+        // ranked below everything else.
+        const knownQueueNumbers = normalized
+            .filter(({ norm }) => store.hasPrompt(norm.pid))
+            .map(({ norm }) => norm.queueNumber);
+        const newestKnownQueueNumber = knownQueueNumbers.length > 0 ? Math.max(...knownQueueNumbers) : -Infinity;
+        const backfill = [];
+
         normalized.forEach(({ norm: item, promptGraph }) => {
             const { images, texts, nodeTitles: titles } = extractPromptOutputs(item.outputs, item.workflow, promptGraph);
 
@@ -288,8 +301,7 @@ export async function initSessionAndHistory() {
                 return;
             }
 
-            const seq = store.nextSequence();
-            const newState = createPromptState(item.pid, {
+            const stateInit = {
                 status: item.status,
                 images,
                 texts,
@@ -297,15 +309,33 @@ export async function initSessionAndHistory() {
                 nodeTitles: titles,
                 workflow: item.workflow,
                 progressText: "",
-                timestamp: seq,
                 rendered: true
-            });
-            store.setPrompt(item.pid, newState);
+            };
+
+            if (item.queueNumber <= newestKnownQueueNumber) {
+                backfill.push({ pid: item.pid, stateInit });
+                return;
+            }
+
+            store.setPrompt(item.pid, createPromptState(item.pid, { ...stateInit, timestamp: store.nextSequence() }));
         });
+
+        if (backfill.length > 0) {
+            const all = store.getAllPrompts();
+            const finishedCount = all.filter(s => s.status !== PromptStatus.PENDING && s.status !== PromptStatus.ACTIVE).length;
+            const room = Math.max(0, maxItems - finishedCount);
+            const take = room > 0 ? backfill.slice(-room) : [];
+            const lowest = all.reduce((min, s) => (s.timestamp > 0 ? Math.min(min, s.timestamp) : min), Infinity);
+            const base = Number.isFinite(lowest) ? lowest : 1;
+            take.forEach(({ pid, stateInit }, idx) => {
+                // Positive fractions below every existing card, oldest backfill lowest.
+                const timestamp = base * (idx + 1) / (take.length + 1);
+                store.setPrompt(pid, createPromptState(pid, { ...stateInit, timestamp }));
+            });
+        }
 
         await updatePromptSearchTexts(normalized.map(({ norm, promptGraph }) => ({ pid: norm.pid, promptGraph })));
 
-        const maxItems = getSetting(SettingIds.MAX_HISTORY_ITEMS, 64);
         store.pruneHistory(maxItems);
         await syncQueue();
     } catch (err) {

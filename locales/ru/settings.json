@@ -17,6 +17,9 @@
   "Comfy Sidebar_Permanent Delete on Disk Deletion": {
     "name": "Удалять файлы с диска безвозвратно (минуя Корзину)"
   },
+  "Comfy Sidebar_Remove Cards With Missing Files": {
+    "name": "Удалять карточки очереди, если их файлов больше нет (например, после очистки папки temp)"
+  },
   "Comfy Sidebar_Hide Junk_Assets": {
     "name": "Скрыть вкладку: Ассеты"
   },

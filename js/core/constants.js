@@ -27,6 +27,7 @@ export const SettingIds = Object.freeze({
     CLASSIC_LAYOUT: "Comfy Sidebar.Comfy Layout",
     LATIN_HOTKEYS: "Comfy Sidebar.Latin Hotkeys On Any Layout",
     PERMANENT_DELETE: "Comfy Sidebar.Permanent Delete on Disk Deletion",
+    REMOVE_MISSING_CARDS: "Comfy Sidebar.Remove Cards With Missing Files",
     QUICK_WORKFLOW_PICKER: "Comfy Sidebar.Quick Workflow Picker",
     MAX_HISTORY_ITEMS: "Comfy.Queue.MaxHistoryItems",
     DOCK_QUEUE: "Comfy.Queue.QPOV2",

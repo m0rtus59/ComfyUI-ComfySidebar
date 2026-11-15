@@ -25,7 +25,12 @@ export const PersistenceAdapter = {
                     return img;
                 }).filter(Boolean);
 
-                const includeWorkflow = cleanedImages.length === 0 || state.status !== PromptStatus.COMPLETED;
+                // The workflow is only dropped from storage when it can be read back from a saved PNG.
+                // Text-only jobs, temp previews (the TEMP folder gets cleared), videos/webp and unfinished
+                // jobs have no such copy, and ComfyUI's own history is gone after a server restart.
+                const recoverableFromFile = cleanedImages.some(img =>
+                    img.type === "output" && /\.png$/i.test(img.filename || ""));
+                const includeWorkflow = !recoverableFromFile || state.status !== PromptStatus.COMPLETED;
 
                 serializable.push({
                     pid: String(state.pid),
@@ -61,7 +66,11 @@ export const PersistenceAdapter = {
                     break;
                 } catch (e) {
                     if (e.name === "QuotaExceededError" || e.code === 22 || e.code === 1014) {
-                        serializable.shift();
+                        // Storage is full. First shed workflows, oldest card first, and only drop
+                        // whole cards once there is no workflow left to shed.
+                        const withWorkflow = serializable.find(item => item.workflow);
+                        if (withWorkflow) withWorkflow.workflow = null;
+                        else serializable.shift();
                     } else {
                         console.warn("Comfy Sidebar: LocalStorage error", e);
                         break;

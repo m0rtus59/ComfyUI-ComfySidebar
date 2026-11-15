@@ -3,6 +3,7 @@ import { openFileOrFolder, removeImageFromNodeOutputs } from "./mediaActions.js"
 import { stopAllAudioPlayback, isAudioViewerOpen, setCurrentlyPlayingAudio, getCurrentlyPlayingAudio } from "./audioController.js";
 import { showFullscreenPreview } from "../utils/comparison.js";
 import { store } from "../core/store.js";
+import { handleMissingMedia } from "../queue/missingFiles.js";
 import { t } from "../core/i18n.js";
 
 export function findWorkflowBackgroundThumbnail(state, randParam = "") {
@@ -630,37 +631,46 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
             return;
         }
 
-        // 3. Main card: if this file is gone, clean it up
+        // 3. Main card
         const liveState = store.getPrompt(state.pid);
         if (liveState) {
-            if (Array.isArray(liveState.images)) {
-                liveState.images = liveState.images.filter(i => 
-                    !(i.filename === img.filename && (i.subfolder || "") === (img.subfolder || ""))
-                );
-            }
-            if (liveState.nodeOutputs) {
-                removeImageFromNodeOutputs(liveState.nodeOutputs, img);
-            }
+            const sameFile = (i) => i.filename === img.filename && (i.subfolder || "") === (img.subfolder || "");
+            const remaining = Array.isArray(liveState.images) ? liveState.images.filter(i => !sameFile(i)) : [];
 
-            if (liveState.images && liveState.images.length > 0) {
-                cardObj.currentImageIndex = Math.min(cardObj.currentImageIndex || 0, liveState.images.length - 1);
+            if (remaining.length > 0) {
+                // Other images of this card are still there: only drop the broken one.
+                liveState.images = remaining;
+                if (liveState.nodeOutputs) removeImageFromNodeOutputs(liveState.nodeOutputs, img);
+                cardObj.currentImageIndex = Math.min(cardObj.currentImageIndex || 0, remaining.length - 1);
                 cardObj.lastImagesSignature = "";
                 store.updatePrompt(liveState.pid, liveState);
                 renderCardImages(cardObj, liveState, onNavigateBatch);
                 return;
             }
 
-            // Keep the history card even if its file was removed. Missing media should
-            // not erase history or prevent a later run from reusing the same output path.
-            renderCardImages(cardObj, liveState, onNavigateBatch);
-            cardObj.grid.innerHTML = "";
-            cardObj.firstImgElement = null;
-            cardObj.lastImagesSignature = "";
-            cardObj.placeholder.textContent = liveState.texts?.length
-                ? liveState.texts.join("\n\n")
-                : t("No Outputs");
-            cardObj.placeholder.style.display = "block";
-            store.updatePrompt(liveState.pid, liveState);
+            // The last image of this card failed to load. One failed request is not proof that the file is
+            // gone (race with Move, restart, a path reused by a newer run), so ask the server first.
+            handleMissingMedia(liveState, img).then((outcome) => {
+                if (outcome === "removed") {
+                    cardObj.element?.remove();
+                    return;
+                }
+                if (outcome !== "missing") return; // file exists, or we couldn't tell: leave the card alone
+
+                // Confirmed gone, and the user chose to keep history: show the card text-only. Its workflow
+                // stays available (drag / JSON button) because the card now has no images.
+                liveState.images = [];
+                if (liveState.nodeOutputs) removeImageFromNodeOutputs(liveState.nodeOutputs, img);
+                renderCardImages(cardObj, liveState, onNavigateBatch);
+                cardObj.grid.innerHTML = "";
+                cardObj.firstImgElement = null;
+                cardObj.lastImagesSignature = "";
+                cardObj.placeholder.textContent = liveState.texts?.length
+                    ? liveState.texts.join("\n\n")
+                    : t("No Outputs");
+                cardObj.placeholder.style.display = "block";
+                store.updatePrompt(liveState.pid, liveState);
+            });
             return;
         }
 

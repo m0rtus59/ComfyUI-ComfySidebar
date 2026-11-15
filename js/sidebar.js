@@ -9,6 +9,7 @@ import { applySidebarOverride } from "./comfy/adapter.js";
 import { syncAllNodeBadges, setupVueNodeObserver, toggleIgnoreActiveNode } from "./comfy/nodes.js";
 import { applyClassicLayout, setupPropertiesPanelToggleFix, syncClassicLayout, syncStockHistoryAndProgressSettings, destroyLayoutFix } from "./comfy/layout.js";
 import { initSessionAndHistory } from "./queue/queueService.js";
+import { sweepMissingCards } from "./queue/missingFiles.js";
 import { setupExecutionTracker } from "./queue/executionTracker.js";
 import { setupSidebarView, renderSidebar, teardownSidebarView } from "./ui/sidebarView.js";
 import { setupGalleryView, teardownGalleryView } from "./ui/galleryView.js";
@@ -103,6 +104,13 @@ function registerSettings() {
         onChange: (val) => {
             setGalleryButtonVisible(val ?? true);
         }
+    });
+
+    app.ui.settings.addSetting({
+        id: SettingIds.REMOVE_MISSING_CARDS,
+        name: t("Remove Queue cards whose output files no longer exist (e.g. after the temp folder is cleared)"),
+        type: "boolean",
+        defaultValue: true
     });
 
     app.ui.settings.addSetting({
@@ -407,6 +415,7 @@ app.registerExtension({
         const sidebarContainer = setupSidebarView();
 
         await initSessionAndHistory();
+        await sweepMissingCards();
         setupKeydownShortcuts();
 
         syncAllNodeBadges();

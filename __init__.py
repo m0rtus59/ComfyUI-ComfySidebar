@@ -528,3 +528,39 @@ async def promote_output_handler(request):
         return web.json_response({"name": dest_name})
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
+
+@PromptServer.instance.routes.post("/comfy-sidebar/files-exist")
+async def files_exist_handler(request):
+    """Reports which of the given output/input/temp files are still on disk.
+
+    Body: {"files": [{"filename": ..., "subfolder": ..., "type": "output|input|temp"}, ...]}
+    Answer: {"exists": [true, false, ...]} in the same order.
+
+    The Queue uses this to tell "the file is really gone" (temp folder cleared, file deleted) from a
+    one-off failed image request, so a card is never dropped just because a request failed.
+    Anything that can't be judged (unknown type, malformed entry) is reported as existing.
+    """
+    try:
+        data, error = await _read_json_body(request)
+        if error:
+            return error
+        files = data.get("files")
+        if not isinstance(files, list) or len(files) > 2000:
+            return web.json_response({"error": "Expected a list of at most 2000 files"}, status=400)
+
+        exists = []
+        for item in files:
+            if not isinstance(item, dict):
+                exists.append(True)
+                continue
+            filename = (item.get("filename") or "").strip()
+            subfolder = (item.get("subfolder") or "").strip()
+            folder_type = (item.get("type") or "output").strip()
+            if not filename or folder_type not in ("output", "input", "temp"):
+                exists.append(True)
+                continue
+            path, _ = resolve_existing_path(filename, subfolder, folder_type, strict=True)
+            exists.append(bool(path and os.path.isfile(path)))
+        return web.json_response({"exists": exists})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
