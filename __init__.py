@@ -2,6 +2,7 @@ import asyncio
 import os
 import platform
 import subprocess
+import sys
 import threading
 from aiohttp import web
 from server import PromptServer
@@ -349,20 +350,31 @@ async def delete_file_handler(request):
         if not target_file or not os.path.isfile(target_file) or not is_path_safe(root, target_file):
             return web.json_response({"error": "File not found or outside output directory"}, status=404)
 
-        # Try moving to Recycle Bin / Trash first, fallback to os.remove
-        permanent = bool(data.get("permanent", False))
-        action = "deleted"
-        if not permanent:
-            try:
-                import send2trash
-                send2trash.send2trash(target_file)
-                action = "trashed"
-            except Exception:
-                os.remove(target_file)
-                action = "deleted"
-        else:
+        # Never fall back to a permanent delete on our own: the user asked for the Recycle Bin.
+        # When the trash can't be used we report it (409) so the UI can offer to turn on
+        # direct deletion or help fix send2trash, instead of silently destroying the file.
+        permanent = data.get("permanent") is True
+        if permanent:
             os.remove(target_file)
             action = "deleted"
+        else:
+            try:
+                import send2trash
+            except ImportError:
+                return web.json_response({
+                    "error": "The send2trash package is not installed.",
+                    "code": "trash_unavailable",
+                    "python": sys.executable
+                }, status=409)
+            try:
+                send2trash.send2trash(target_file)
+                action = "trashed"
+            except Exception as e:
+                return web.json_response({
+                    "error": str(e) or e.__class__.__name__,
+                    "code": "trash_failed",
+                    "python": sys.executable
+                }, status=409)
 
         return web.json_response({"success": True, "deleted": target_file, "action": action})
     except Exception as e:

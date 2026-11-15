@@ -106,7 +106,7 @@ function registerSettings() {
     });
 
     app.ui.settings.addSetting({
-        id: "Comfy Sidebar.Permanent Delete on Disk Deletion",
+        id: SettingIds.PERMANENT_DELETE,
         name: t("Permanently delete files on disk deletion (bypasses Recycle Bin / Trash)"),
         type: "boolean",
         defaultValue: false

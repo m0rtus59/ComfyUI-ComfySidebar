@@ -1,4 +1,6 @@
-import { getSetting } from "../core/settings.js";
+import { getSetting, setSetting } from "../core/settings.js";
+import { SettingIds } from "../core/constants.js";
+import { askTrashFallback } from "./deleteFallbackDialog.js";
 
 export async function copyImageToClipboard(src) {
     try {
@@ -52,29 +54,68 @@ export async function openFileOrFolder(img) {
     a.remove();
 }
 
+// After the user cancels the "trash failed" dialog, stay quiet for the rest of the same
+// batch delete instead of asking once per file.
+const TRASH_DIALOG_QUIET_MS = 5000;
+let trashDialogQuietUntil = 0;
+
+/**
+ * Deletes a generated file on the server.
+ * Resolves to "trashed" / "deleted" on success, or null if nothing was deleted.
+ *
+ * If the Recycle Bin can't be used the server refuses to delete (HTTP 409) rather than silently
+ * deleting permanently; we then ask the user whether to turn on direct deletion or retry
+ * after fixing send2trash.
+ */
 export async function deleteFileOnServer(fileItem) {
     if (!fileItem || !fileItem.filename) return null;
-    const isPermanent = getSetting("Comfy Sidebar.Permanent Delete on Disk Deletion", false);
-    try {
-        const res = await fetch("/comfy-sidebar/delete-file", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                filename: fileItem.filename,
-                subfolder: fileItem.subfolder || "",
-                type: fileItem.type || "output",
-                permanent: isPermanent
-            })
-        });
-        if (res.ok) {
-            const data = await res.json();
-            return data.action || (isPermanent ? "deleted" : "trashed");
+    let permanent = !!getSetting(SettingIds.PERMANENT_DELETE, false);
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+        let res;
+        let data = {};
+        try {
+            res = await fetch("/comfy-sidebar/delete-file", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    filename: fileItem.filename,
+                    subfolder: fileItem.subfolder || "",
+                    type: fileItem.type || "output",
+                    permanent
+                })
+            });
+            data = await res.json().catch(() => ({}));
+        } catch (e) {
+            console.error("Comfy Sidebar: Failed to delete file on server", e);
+            return null;
         }
-        return null;
-    } catch (e) {
-        console.error("Comfy Sidebar: Failed to delete file on server", e);
-        return null;
+
+        if (res.ok) return data.action || (permanent ? "deleted" : "trashed");
+
+        const trashProblem = !permanent && (data.code === "trash_unavailable" || data.code === "trash_failed");
+        if (!trashProblem) {
+            console.error("Comfy Sidebar: Failed to delete file on server", data.error || res.statusText);
+            return null;
+        }
+        if (Date.now() < trashDialogQuietUntil) return null;
+
+        const choice = await askTrashFallback({
+            filename: fileItem.filename,
+            code: data.code,
+            error: data.error,
+            python: data.python
+        });
+
+        if (choice === "permanent") {
+            setSetting(SettingIds.PERMANENT_DELETE, true);
+            permanent = true;
+        } else if (choice !== "retry") {
+            trashDialogQuietUntil = Date.now() + TRASH_DIALOG_QUIET_MS;
+            return null;
+        }
     }
+    return null;
 }
 
 export async function moveTempImageToOutput(fileItem) {
