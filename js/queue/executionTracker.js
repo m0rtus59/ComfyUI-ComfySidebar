@@ -1,7 +1,7 @@
 import { api } from "/scripts/api.js";
 import { app } from "/scripts/app.js";
 import { store } from "../core/store.js";
-import { PromptStatus } from "../core/constants.js";
+import { PromptStatus, SettingIds } from "../core/constants.js";
 import { createPromptState, activatePrompt, updatePromptProgress } from "../core/promptState.js";
 import { syncQueue, concludeRun, initSessionAndHistory, clearCancelledOrFailed } from "./queueService.js";
 import { findImagesInOutputs, findTextsInOutputs } from "../utils/utils.js";

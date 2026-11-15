@@ -1,5 +1,4 @@
-import { store } from "../core/store.js";
-import { findActiveSidebars, findPropertiesPanel } from "../comfy/adapter.js";
+import { findActiveSidebars } from "../comfy/adapter.js";
 
 export class SidebarOverlay {
     constructor(options = {}) {

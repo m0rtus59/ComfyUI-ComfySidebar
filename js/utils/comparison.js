@@ -575,10 +575,6 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
     wrapper.appendChild(mediaA);
     let isZoomed = false;
 
-    if (!baseSrc) {
-        showPlaceholder();
-    }
-
     const slider = document.createElement("div");
     slider.className = "comfy-sidebar-comparison-slider";
     Object.assign(slider.style, {
@@ -622,6 +618,11 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
             el.load();
         }
     };
+
+    // Must run after `slider` and `cleanupMedia` are initialised (showPlaceholder uses both).
+    if (!baseSrc) {
+        showPlaceholder();
+    }
 
     const syncImageScales = () => {
         if (!mediaA) return;

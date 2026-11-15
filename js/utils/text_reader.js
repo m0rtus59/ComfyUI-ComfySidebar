@@ -2,7 +2,7 @@ import { SidebarOverlay } from "./overlay.js";
 import { t } from "../core/i18n.js";
 
 // Global helper for code block copying in Markdown view
-window.moonCopyCode = function(button) {
+window.comfySidebarCopyCode = function(button) {
     try {
         const container = button.parentElement;
         if (!container) return;
@@ -36,11 +36,11 @@ function parseInlineMarkdown(html) {
     html = html.replace(/`([^`]+)`/g, '<code style="background:#252525;padding:2px 6px;border-radius:3px;font-family:monospace;color:#e06c75;border:1px solid #333;font-size:12px;">$1</code>');
     html = html.replace(/\*\*\*(.*?)\*\*\*/g, '<strong style="color:#ffffff;font-weight:600;"><em>$1</em></strong>');
     html = html.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#ffffff;font-weight:600;">$1</strong>');
-    html = html.replace(/__(.*?)__/g, '<strong style="color:#ffffff;font-weight:600;">$1</strong>');
+    html = html.replace(/(?<![\w])__(.+?)__(?![\w])/g, '<strong style="color:#ffffff;font-weight:600;">$1</strong>');
     html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
-    html = html.replace(/_(.*?)_/g, '<em>$1</em>');
+    html = html.replace(/(?<![\w])_(.+?)_(?![\w])/g, '<em>$1</em>');
     html = html.replace(/~~(.*?)~~/g, '<span style="text-decoration:line-through;color:#888;">$1</span>');
-    html = html.replace(/\[([^\]]+)\]\(((?:https?:\/\/|\/)[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:var(--primary, #ea580c);text-decoration:none;border-bottom:1px dashed var(--primary, #ea580c);cursor:pointer;">$1</a>');
+    html = html.replace(/\[([^\]]+)\]\(((?:https?:\/\/|\/(?!\/))[^\s)"'<>`]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:var(--primary, #ea580c);text-decoration:none;border-bottom:1px dashed var(--primary, #ea580c);cursor:pointer;">$1</a>');
     html = html.replace(/\$(?!\s)([^\$]+?)(?<!\s)\$/g, '<span style="font-family:\'Times New Roman\',Times,serif;font-size:14px;color:#e5c07b;font-style:italic;padding:0 2px;">$1</span>');
     return html;
 }
@@ -92,7 +92,7 @@ function parseMarkdown(text) {
                 const rCode = codeContent.join("\n");
                 const langBadge = codeLang ? `<div style="position:absolute;top:6px;left:10px;color:#85c5ec;font-size:10px;font-family:sans-serif;font-weight:bold;text-transform:uppercase;opacity:0.8;user-select:none;">${codeLang}</div>` : '';
                 const btnStyle = "position:absolute;top:6px;right:6px;background:var(--secondary, #333);color:var(--muted-foreground, #aaa);border:1px solid var(--border, #555);border-radius:3px;padding:3px 8px;font-size:10px;cursor:pointer;";
-                htmlLines.push(`<div class="code-block-container" style="position:relative;margin:8px 0;">${langBadge}<button onclick="window.moonCopyCode(this)" style="${btnStyle}">${t("Copy")}</button><pre style="background:color-mix(in srgb, var(--card, #1e1e1e) 90%, black 10%);padding:10px;padding-top:28px;border-radius:4px;border:1px solid var(--border, #333);font-family:monospace;overflow-x:auto;margin:0;color:#85c5ec;"><code>${rCode}</code></pre></div>`);
+                htmlLines.push(`<div class="code-block-container" style="position:relative;margin:8px 0;">${langBadge}<button onclick="window.comfySidebarCopyCode(this)" style="${btnStyle}">${t("Copy")}</button><pre style="background:color-mix(in srgb, var(--card, #1e1e1e) 90%, black 10%);padding:10px;padding-top:28px;border-radius:4px;border:1px solid var(--border, #333);font-family:monospace;overflow-x:auto;margin:0;color:#85c5ec;"><code>${rCode}</code></pre></div>`);
                 codeContent = []; codeLang = ""; inCodeBlock = false;
             } else {
                 inCodeBlock = true; codeLang = trimmed.slice(3).trim();

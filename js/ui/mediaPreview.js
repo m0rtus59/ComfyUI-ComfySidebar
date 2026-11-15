@@ -3,7 +3,6 @@ import { openFileOrFolder, removeImageFromNodeOutputs } from "./mediaActions.js"
 import { stopAllAudioPlayback, isAudioViewerOpen, setCurrentlyPlayingAudio, getCurrentlyPlayingAudio } from "./audioController.js";
 import { showFullscreenPreview } from "../utils/comparison.js";
 import { store } from "../core/store.js";
-import { PromptStatus } from "../core/constants.js";
 import { t } from "../core/i18n.js";
 
 export function findWorkflowBackgroundThumbnail(state, randParam = "") {
@@ -368,7 +367,12 @@ export function renderGenericFileCardPreview(cardObj, wrapper, src, img, state) 
 
         const folderInfo = document.createElement("div");
         folderInfo.className = "comfy-sidebar-file-subtext";
-        folderInfo.innerHTML = `<i class="pi pi-folder" style="font-size: 10px;"></i><span>${folderName}</span>`;
+        const folderIcon = document.createElement("i");
+        folderIcon.className = "pi pi-folder";
+        folderIcon.style.fontSize = "10px";
+        const folderLabel = document.createElement("span");
+        folderLabel.textContent = folderName; // folder names are user/workflow-controlled: never innerHTML
+        folderInfo.append(folderIcon, folderLabel);
 
         const openHint = document.createElement("div");
         openHint.className = "comfy-sidebar-file-subtext";
@@ -771,7 +775,7 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
     }
 
     const currentSrc = mediaEl.getAttribute("src") || mediaEl.src;
-    if (currentSrc !== src && currentSrc !== (currentSrc + "#t=0.001")) {
+    if (currentSrc !== src && currentSrc !== (src + "#t=0.001")) {
         if (src.startsWith("blob:") && !isVideo) {
             const tempImg = new Image();
             tempImg.onload = () => {
