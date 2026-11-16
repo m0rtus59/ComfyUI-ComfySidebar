@@ -306,6 +306,7 @@ export function setupSidebarView() {
         { label: t("Clean Text-only and Interrupted"), action: clearTextOnlyAndInterrupted },
         { label: t("Clean Everything"), action: clearAllHistory }
     ];
+    const resetCleanOptions = [];
 
     for (const optionConfig of cleanOptions) {
         const option = document.createElement("button");
@@ -328,6 +329,7 @@ export function setupSidebarView() {
                 confirmTimeout = null;
             }
         };
+        resetCleanOptions.push(resetOption);
 
         option.addEventListener("mouseenter", () => {
             if (!armed) option.style.background = "var(--comfy-menu-bg-hover, rgba(128, 128, 128, 0.2))";
@@ -346,20 +348,32 @@ export function setupSidebarView() {
             }
 
             resetOption();
-            cleanMenu.style.display = "none";
+            closeCleanMenu();
             await optionConfig.action();
             renderSidebar();
         });
         cleanMenu.appendChild(option);
     }
 
+    const closeCleanMenu = () => {
+        cleanMenu.style.display = "none";
+        resetCleanOptions.forEach((reset) => reset());
+    };
+
     btnClean.addEventListener("click", (ev) => {
         ev.stopPropagation();
-        cleanMenu.style.display = cleanMenu.style.display === "none" ? "flex" : "none";
+        if (cleanMenu.style.display === "none") {
+            cleanMenu.style.display = "flex";
+        } else {
+            closeCleanMenu();
+        }
     });
 
+    if (cleanMenuOutsideClickHandler) {
+        document.removeEventListener("click", cleanMenuOutsideClickHandler);
+    }
     cleanMenuOutsideClickHandler = (ev) => {
-        if (!actionsGroup.contains(ev.target)) cleanMenu.style.display = "none";
+        if (!actionsGroup.contains(ev.target)) closeCleanMenu();
     };
     document.addEventListener("click", cleanMenuOutsideClickHandler);
 
