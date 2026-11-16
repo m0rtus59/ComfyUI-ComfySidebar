@@ -1,6 +1,7 @@
 import { PromptStatus, StoreEvents } from "./constants.js";
 import { createPromptState, revokePromptBlobs } from "./promptState.js";
 import { PersistenceAdapter } from "./persistence.js";
+import { getRunOutputs } from "../utils/utils.js";
 
 class Store {
     constructor() {
@@ -158,8 +159,10 @@ class Store {
         const toDelete = [];
         for (const [pid, state] of this.prompts.entries()) {
             const isInterrupted = state.status === PromptStatus.CANCELLED || state.status === PromptStatus.ERROR;
-            const files = Array.isArray(state.images) ? state.images : [];
-            const hasNonTextOutput = files.some((file) => {
+            const files = Array.isArray(state.images) ? [...state.images] : [];
+            const intermediateFiles = getRunOutputs(state.nodeOutputs, state.workflow)
+                .flatMap((output) => output.images || []);
+            const hasNonTextOutput = [...files, ...intermediateFiles].some((file) => {
                 const filename = file?.filename || "";
                 return !filename || !/\.txt$/i.test(filename);
             });
