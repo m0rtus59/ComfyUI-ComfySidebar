@@ -405,3 +405,19 @@ export async function clearCancelledOrFailed() {
         console.error("Comfy Sidebar: Failed to clear cancelled or failed tasks", e);
     }
 }
+
+export async function clearTextOnlyAndInterrupted() {
+    try {
+        const toDelete = store.clearTextOnlyAndInterrupted();
+        if (toDelete.length > 0) {
+            await api.fetchApi("/history", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ delete: toDelete })
+            });
+        }
+        await syncQueue();
+    } catch (e) {
+        console.error("Comfy Sidebar: Failed to clear text-only and interrupted tasks", e);
+    }
+}
