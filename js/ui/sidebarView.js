@@ -262,38 +262,6 @@ export function setupSidebarView() {
         return btn;
     };
 
-    const createActionBtn = (iconClass, tooltip, hoverColor, onClickFn) => {
-        const btn = document.createElement("button");
-        btn.className = `${iconClass} comfy-sidebar-header-btn`;
-        btn.title = tooltip;
-
-        let timeout = null, isPending = false;
-        const reset = () => {
-            isPending = false;
-            Object.assign(btn.style, {
-                color: "", background: "",
-                borderColor: "", boxShadow: ""
-            });
-            if (timeout) { clearTimeout(timeout); timeout = null; }
-        };
-
-        btn.addEventListener("click", async (ev) => {
-            ev.stopPropagation();
-            if (!isPending) {
-                isPending = true;
-                Object.assign(btn.style, {
-                    color: "#fff", background: hoverColor, borderColor: hoverColor,
-                    boxShadow: `0 0 8px ${hoverColor}80`
-                });
-                timeout = setTimeout(reset, 1500);
-            } else {
-                reset();
-                await onClickFn();
-            }
-        });
-        return btn;
-    };
-
     const btnToggleIgnore = createInstantBtn("pi pi-eye-slash", t("Toggle Ignore Selected Node(s) in Queue (Ctrl+Q)"), () => {
         const raw = app.canvas?.selected_nodes;
         const selected = raw instanceof Map || raw instanceof Set
