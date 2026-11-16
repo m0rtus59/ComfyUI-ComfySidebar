@@ -154,6 +154,27 @@ class Store {
         return toDelete;
     }
 
+    clearTextOnlyAndInterrupted() {
+        const toDelete = [];
+        for (const [pid, state] of this.prompts.entries()) {
+            const isInterrupted = state.status === PromptStatus.CANCELLED || state.status === PromptStatus.ERROR;
+            const files = Array.isArray(state.images) ? state.images : [];
+            const hasNonTextOutput = files.some((file) => {
+                const filename = file?.filename || "";
+                return !filename || !/\.txt$/i.test(filename);
+            });
+
+            if (isInterrupted || (state.status === PromptStatus.COMPLETED && !hasNonTextOutput)) {
+                toDelete.push(pid);
+            }
+        }
+        for (const pid of toDelete) {
+            this.deletePrompt(pid);
+        }
+        this.emit(StoreEvents.PROMPTS_CLEARED, { count: toDelete.length });
+        return toDelete;
+    }
+
     setSearchQuery(query) {
         this.ui.searchQuery = (query || "").trim();
         this.emit(StoreEvents.SEARCH_CHANGED, { query: this.ui.searchQuery });
