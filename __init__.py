@@ -1,6 +1,8 @@
 import asyncio
+import filecmp
 import os
 import platform
+import shutil
 import subprocess
 import sys
 import threading
@@ -27,6 +29,41 @@ def is_path_safe(base_dir, target_path):
     except ValueError:
         # Raised if paths are on different drives on Windows
         return False
+
+
+async def _read_json_body(request):
+    """Returns (data, error_response). Requires an explicit application/json content type.
+
+    A web page on another origin can send a "simple" cross-site POST (e.g. text/plain) to a local
+    ComfyUI without any CORS preflight. Insisting on application/json forces a preflight, which
+    ComfyUI's CORS policy rejects, so these file-changing endpoints can't be triggered that way.
+    """
+    if request.content_type != "application/json":
+        return None, web.json_response({"error": "Content-Type must be application/json"}, status=415)
+    data = await request.json()
+    if not isinstance(data, dict):
+        return None, web.json_response({"error": "Expected a JSON object"}, status=400)
+    return data, None
+
+
+def _reserve_unique_path(directory, filename):
+    """Atomically creates an empty placeholder for `filename` inside `directory`.
+
+    If the name is taken, " (1)", " (2)", ... is added, so an existing file is never overwritten.
+    Returns (path, name). The caller fills the placeholder and removes it again on failure.
+    """
+    stem, ext = os.path.splitext(filename)
+    name = filename
+    suffix = 1
+    while True:
+        path = os.path.join(directory, name)
+        try:
+            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o666)
+            os.close(fd)
+            return path, name
+        except FileExistsError:
+            name = f"{stem} ({suffix}){ext}"
+            suffix += 1
 
 
 def get_all_candidate_roots(subfolder="", folder_type="output"):
@@ -166,8 +203,10 @@ def _list_gallery(subfolder, search, cancel):
 
     Returns (http_status, json_payload).
     """
-    output_dir = folder_paths.get_output_directory()
-    target_dir = os.path.realpath(os.path.join(output_dir, subfolder)) if subfolder else os.path.realpath(output_dir)
+    # Resolve links up front: everything below is relative to realpath'd directories, so a symlinked or
+    # junctioned output folder would otherwise produce "../.." subfolders.
+    output_dir = os.path.realpath(folder_paths.get_output_directory())
+    target_dir = os.path.realpath(os.path.join(output_dir, subfolder)) if subfolder else output_dir
 
     if not is_path_safe(output_dir, target_dir):
         return 403, {"error": "Unsafe path"}
@@ -289,7 +328,9 @@ async def gallery_list_handler(request):
 async def queue_prompt_search_handler(request):
     """Extract searchable prompt text from Queue API-format prompt graphs."""
     try:
-        data = await request.json()
+        data, error = await _read_json_body(request)
+        if error:
+            return error
         prompts = data.get("prompts", [])
         if not isinstance(prompts, list) or len(prompts) > 32:
             return web.json_response({"error": "Expected up to 32 prompt graphs"}, status=400)
@@ -312,7 +353,9 @@ async def queue_prompt_search_handler(request):
 @PromptServer.instance.routes.post("/comfy-sidebar/open-folder")
 async def open_folder_handler(request):
     try:
-        data = await request.json()
+        data, error = await _read_json_body(request)
+        if error:
+            return error
         filename = (data.get("filename") or "").strip()
         subfolder = (data.get("subfolder") or "").strip()
         folder_type = (data.get("type") or "output").strip()
@@ -330,7 +373,9 @@ async def open_folder_handler(request):
 @PromptServer.instance.routes.post("/comfy-sidebar/delete-file")
 async def delete_file_handler(request):
     try:
-        data = await request.json()
+        data, error = await _read_json_body(request)
+        if error:
+            return error
         filename = (data.get("filename") or "").strip()
         subfolder = (data.get("subfolder") or "").strip()
         folder_type = (data.get("type") or "output").strip()
@@ -384,8 +429,9 @@ async def delete_file_handler(request):
 @PromptServer.instance.routes.post("/comfy-sidebar/move-temp-to-output")
 async def move_temp_to_output_handler(request):
     try:
-        import shutil
-        data = await request.json()
+        data, error = await _read_json_body(request)
+        if error:
+            return error
         filename = (data.get("filename") or "").strip()
         subfolder = (data.get("subfolder") or "").strip()
         folder_type = (data.get("type") or "").strip()
@@ -412,30 +458,25 @@ async def move_temp_to_output_handler(request):
             return web.json_response({"error": "Temp image not found"}, status=404)
 
         os.makedirs(output_dir, exist_ok=True)
-        stem, ext = os.path.splitext(filename)
-        destination_name = filename
-        suffix = 1
 
         # Reserve a unique destination without ever overwriting an existing output.
-        while True:
-            destination_path = os.path.join(output_dir, destination_name)
-            try:
-                fd = os.open(destination_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o666)
-                os.close(fd)
-                break
-            except FileExistsError:
-                destination_name = f"{stem} ({suffix}){ext}"
-                suffix += 1
+        destination_path, destination_name = _reserve_unique_path(output_dir, filename)
 
         try:
             shutil.copy2(source_path, destination_path)
-            os.remove(source_path)
         except Exception:
             try:
                 os.remove(destination_path)
             except OSError:
                 pass
             raise
+
+        # The copy is what matters. On Windows the source can still be locked (for example by a browser
+        # tab that is displaying it); a leftover temp file is harmless because ComfyUI clears temp on start.
+        try:
+            os.remove(source_path)
+        except OSError:
+            pass
 
         return web.json_response({
             "success": True,
@@ -450,23 +491,40 @@ async def move_temp_to_output_handler(request):
 @PromptServer.instance.routes.post("/comfy-sidebar/promote-output")
 async def promote_output_handler(request):
     try:
-        import shutil
-        data = await request.json()
+        data, error = await _read_json_body(request)
+        if error:
+            return error
         raw_filename = (data.get("filename") or "").strip()
         filename = os.path.basename(raw_filename)
         subfolder = (data.get("subfolder") or "").strip()
         folder_type = (data.get("type") or "output").strip()
 
-        target_file, root = resolve_existing_path(raw_filename, subfolder, folder_type)
+        # Strict lookup: exactly <root for `type`>/<subfolder>/<filename>. The lenient search used before
+        # could pick a same-named file from another folder (or another subfolder) and copy the wrong image.
+        target_file, root = resolve_existing_path(raw_filename, subfolder, folder_type, strict=True)
         if not target_file or not os.path.isfile(target_file):
             return web.json_response({"error": "File not found"}, status=404)
 
         input_dir = folder_paths.get_input_directory()
+        os.makedirs(input_dir, exist_ok=True)
         dest_path = os.path.join(input_dir, filename)
         if not is_path_safe(input_dir, dest_path):
             return web.json_response({"error": "Unsafe destination path"}, status=403)
 
-        shutil.copy2(target_file, dest_path)
-        return web.json_response({"name": filename})
+        # Promoting the same image twice reuses the existing input file. A *different* image that
+        # merely shares the name (output counters restart per prefix) must never overwrite it.
+        if os.path.isfile(dest_path) and filecmp.cmp(target_file, dest_path, shallow=False):
+            return web.json_response({"name": filename})
+
+        dest_path, dest_name = _reserve_unique_path(input_dir, filename)
+        try:
+            shutil.copy2(target_file, dest_path)
+        except Exception:
+            try:
+                os.remove(dest_path)
+            except OSError:
+                pass
+            raise
+        return web.json_response({"name": dest_name})
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
