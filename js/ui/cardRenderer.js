@@ -2,7 +2,7 @@ import { PromptStatus } from "../core/constants.js";
 import { t } from "../core/i18n.js";
 import { store } from "../core/store.js";
 import { renderCardImages } from "./mediaPreview.js";
-import { copyImageToClipboard, deleteFileOnServer, moveTempImageToOutput, updateMovedImageReferences, findNodeIdForImage, removeImageFromNodeOutputs } from "./mediaActions.js";
+import { copyImageToClipboard, deleteFilesWithFeedback, moveTempImageToOutput, updateMovedImageReferences, findNodeIdForImage, removeImageFromNodeOutputs } from "./mediaActions.js";
 import { centerAndSelectCanvasNode } from "../comfy/adapter.js";
 import { getRunOutputs, extractWorkflowFromPng, isImageFormat, animateCardRemoval, downloadJson, getScrollContainer, attachDeleteConfirmation } from "../utils/utils.js";
 import { showFullscreenPreview } from "../utils/comparison.js";
@@ -585,44 +585,30 @@ export function getOrCreateCard(state, callbacks = {}) {
         confirmTitle: t("Click again to confirm removing card"),
         confirmDiskTitle: t("Ctrl+Click again to delete file from DISK / TRASH"),
         onConfirm: async (shouldDeleteFromDisk) => {
-            animateCardRemoval(card, async () => {
+            if (shouldDeleteFromDisk) {
                 const liveState = store.getPrompt(state.pid) || state;
-
-                if (shouldDeleteFromDisk) {
-                    const filesToDelete = [];
-                    const seen = new Set();
-                    const addFile = (item) => {
-                        if (item && item.filename) {
-                            const key = `${item.type || ""}/${item.subfolder || ""}/${item.filename}`;
-                            if (!seen.has(key)) {
-                                seen.add(key);
-                                filesToDelete.push(item);
-                            }
-                        }
-                    };
-
-                    (liveState.images || []).forEach(addFile);
-                    const allOutputs = getRunOutputs(liveState.nodeOutputs, liveState.workflow);
-                    allOutputs.forEach(out => (out.images || []).forEach(addFile));
-
-                    let deletedCount = 0;
-                    let lastAction = "trashed";
-                    for (const fileItem of filesToDelete) {
-                        const action = await deleteFileOnServer(fileItem);
-                        if (action) {
-                            deletedCount++;
-                            lastAction = action;
+                const filesToDelete = [];
+                const seen = new Set();
+                const addFile = (item) => {
+                    if (item && item.filename) {
+                        const key = `${item.type || ""}/${item.subfolder || ""}/${item.filename}`;
+                        if (!seen.has(key)) {
+                            seen.add(key);
+                            filesToDelete.push(item);
                         }
                     }
+                };
 
-                    if (deletedCount > 0) {
-                        const msg = lastAction === "trashed"
-                            ? `Moved ${deletedCount} file${deletedCount > 1 ? "s" : ""} to Recycle Bin.`
-                            : `Permanently deleted ${deletedCount} file${deletedCount > 1 ? "s" : ""}.`;
-                        showNotification(msg, "success", "Delete Files");
-                    }
-                }
+                (liveState.images || []).forEach(addFile);
+                const allOutputs = getRunOutputs(liveState.nodeOutputs, liveState.workflow);
+                allOutputs.forEach(out => (out.images || []).forEach(addFile));
 
+                // Delete first, animate afterwards: if a file can't be deleted (for example the user
+                // cancelled the Recycle Bin dialog) the card must stay.
+                if (!(await deleteFilesWithFeedback(filesToDelete))) return;
+            }
+
+            animateCardRemoval(card, () => {
                 deleteHistoryItem(state.pid);
             });
         }

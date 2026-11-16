@@ -1,6 +1,8 @@
 import { getSetting, setSetting } from "../core/settings.js";
 import { SettingIds } from "../core/constants.js";
 import { askTrashFallback } from "./deleteFallbackDialog.js";
+import { showNotification } from "../utils/nodeRenumber.js";
+import { t } from "../core/i18n.js";
 
 export async function copyImageToClipboard(src) {
     try {
@@ -54,20 +56,16 @@ export async function openFileOrFolder(img) {
     a.remove();
 }
 
-// After the user cancels the "trash failed" dialog, stay quiet for the rest of the same
-// batch delete instead of asking once per file.
-const TRASH_DIALOG_QUIET_MS = 5000;
-let trashDialogQuietUntil = 0;
-
 /**
  * Deletes a generated file on the server.
- * Resolves to "trashed" / "deleted" on success, or null if nothing was deleted.
+ * Resolves to "trashed" / "deleted" on success, "missing" if the file was already gone,
+ * or null if it could not be deleted (error, or the user cancelled the trash-failed dialog).
  *
  * If the Recycle Bin can't be used the server refuses to delete (HTTP 409) rather than silently
  * deleting permanently; we then ask the user whether to turn on direct deletion or retry
  * after fixing send2trash.
  */
-export async function deleteFileOnServer(fileItem) {
+export async function deleteFileOnServer(fileItem, { suppressDialog = false } = {}) {
     if (!fileItem || !fileItem.filename) return null;
     let permanent = !!getSetting(SettingIds.PERMANENT_DELETE, false);
 
@@ -92,13 +90,14 @@ export async function deleteFileOnServer(fileItem) {
         }
 
         if (res.ok) return data.action || (permanent ? "deleted" : "trashed");
+        if (res.status === 404) return "missing"; // already gone (e.g. temp folder was cleared)
 
         const trashProblem = !permanent && (data.code === "trash_unavailable" || data.code === "trash_failed");
         if (!trashProblem) {
             console.error("Comfy Sidebar: Failed to delete file on server", data.error || res.statusText);
             return null;
         }
-        if (Date.now() < trashDialogQuietUntil) return null;
+        if (suppressDialog) return null; // the user already said "cancel" for this batch
 
         const choice = await askTrashFallback({
             filename: fileItem.filename,
@@ -111,11 +110,44 @@ export async function deleteFileOnServer(fileItem) {
             setSetting(SettingIds.PERMANENT_DELETE, true);
             permanent = true;
         } else if (choice !== "retry") {
-            trashDialogQuietUntil = Date.now() + TRASH_DIALOG_QUIET_MS;
             return null;
         }
     }
     return null;
+}
+
+/**
+ * Deletes several files from disk and tells the user what happened.
+ * Returns true when nothing was left undeleted. Files that were already gone count as done.
+ * Callers must keep their card when this returns false (e.g. the user cancelled the dialog),
+ * otherwise the card would vanish while its files are still on disk.
+ */
+export async function deleteFilesWithFeedback(files, title = "Delete Files") {
+    let deleted = 0;
+    let blocked = 0;
+    let lastAction = "trashed";
+    let cancelled = false;
+    for (const file of files) {
+        // After one cancelled dialog, don't ask again for the rest of this batch.
+        const action = await deleteFileOnServer(file, { suppressDialog: cancelled });
+        if (action === "trashed" || action === "deleted") {
+            deleted++;
+            lastAction = action;
+        } else if (action !== "missing") {
+            blocked++;
+            cancelled = true;
+        }
+    }
+    if (deleted > 0) {
+        const msg = lastAction === "trashed"
+            ? t("Moved {count} file(s) to Recycle Bin.", { count: deleted })
+            : t("Permanently deleted {count} file(s).", { count: deleted });
+        showNotification(msg, "success", title);
+    }
+    if (blocked > 0) {
+        showNotification(t("Could not delete {count} file(s). The card was kept.", { count: blocked }), "warn", title);
+    }
+    return blocked === 0;
 }
 
 export async function moveTempImageToOutput(fileItem) {

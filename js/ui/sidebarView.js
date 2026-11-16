@@ -8,7 +8,7 @@ import { updateSidebarBadge, centerAndSelectCanvasNode } from "../comfy/adapter.
 import { matchesFilter, getRunOutputs, isImageFormat, animateCardRemoval, getScrollContainer, calculateGridColumns, setupSpotlightTracker, attachDeleteConfirmation } from "../utils/utils.js";
 import { getSetting } from "../core/settings.js";
 import { renderCardImages } from "./mediaPreview.js";
-import { deleteFileOnServer, moveTempImageToOutput, updateMovedImageReferences, removeImageFromNodeOutputs, copyImageToClipboard, findNodeIdForImage } from "./mediaActions.js";
+import { deleteFilesWithFeedback, moveTempImageToOutput, updateMovedImageReferences, removeImageFromNodeOutputs, copyImageToClipboard, findNodeIdForImage } from "./mediaActions.js";
 import { toggleIgnoreActiveNode } from "../comfy/nodes.js";
 import { renumberNodesTopologically, showNotification } from "../utils/nodeRenumber.js";
 
@@ -557,15 +557,13 @@ export function renderSidebar() {
                         confirmTitle: t("Click again to confirm removing from batch"),
                         confirmDiskTitle: t("Ctrl+Click again to delete file from DISK / TRASH"),
                         onConfirm: async (shouldDeleteFromDisk) => {
-                            animateCardRemoval(card, async () => {
-                                if (shouldDeleteFromDisk && img && img.filename) {
-                                    const action = await deleteFileOnServer(img);
-                                    if (action) {
-                                        const msg = action === "trashed" ? t("Moved file to Recycle Bin.") : t("Permanently deleted file.");
-                                        showNotification(msg, "success", t("Delete File"));
-                                    }
-                                }
+                            // Delete first: if the file can't be deleted (e.g. the Recycle Bin dialog was
+                            // cancelled) the card has to stay.
+                            if (shouldDeleteFromDisk && img && img.filename) {
+                                if (!(await deleteFilesWithFeedback([img], t("Delete File")))) return;
+                            }
 
+                            animateCardRemoval(card, async () => {
                                 const pid = batchInfo.parentPromptId || batchInfo.pid;
                                 const state = store.getPrompt(pid);
                                 const imgIdx = batchInfo.images.indexOf(img);
@@ -817,22 +815,11 @@ export function renderSidebar() {
                             confirmTitle: t("Click again to confirm removing output"),
                             confirmDiskTitle: t("Ctrl+Click again to delete this node's files from DISK / TRASH"),
                             onConfirm: async (shouldDeleteFromDisk) => {
-                                animateCardRemoval(card, async () => {
-                                    if (shouldDeleteFromDisk && out.images) {
-                                        let count = 0;
-                                        let lastAct = "trashed";
-                                        for (const imgItem of out.images) {
-                                            const action = await deleteFileOnServer(imgItem);
-                                            if (action) { count++; lastAct = action; }
-                                        }
-                                        if (count > 0) {
-                                            const msg = lastAct === "trashed"
-                                                ? `Moved ${count} file${count > 1 ? "s" : ""} to Recycle Bin.`
-                                                : `Permanently deleted ${count} file${count > 1 ? "s" : ""}.`;
-                                            showNotification(msg, "success", "Delete Files");
-                                        }
-                                    }
+                                if (shouldDeleteFromDisk && out.images) {
+                                    if (!(await deleteFilesWithFeedback(out.images))) return;
+                                }
 
+                                animateCardRemoval(card, async () => {
                                     if (st.nodeOutputs && st.nodeOutputs[out.nodeId]) {
                                         delete st.nodeOutputs[out.nodeId];
                                     }

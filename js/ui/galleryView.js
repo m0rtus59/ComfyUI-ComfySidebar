@@ -338,8 +338,10 @@ function createFileCard(file) {
         onConfirm: async () => {
             const action = await deleteFileOnServer(fileAsset);
             if (action) {
-                const msg = action === "trashed" ? t("Moved file to Recycle Bin.") : t("Permanently deleted file.");
-                showNotification(msg, "success", t("Delete File"));
+                if (action !== "missing") {
+                    const msg = action === "trashed" ? t("Moved file to Recycle Bin.") : t("Permanently deleted file.");
+                    showNotification(msg, "success", t("Delete File"));
+                }
                 cachedFiles = cachedFiles.filter(f => f.filename !== file.filename || f.subfolder !== file.subfolder);
                 displayedFilesCount = Math.max(0, displayedFilesCount - 1);
 

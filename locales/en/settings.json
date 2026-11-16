@@ -17,6 +17,9 @@
   "Comfy Sidebar_Permanent Delete on Disk Deletion": {
     "name": "Permanently delete files on disk deletion (bypasses Recycle Bin / Trash)"
   },
+  "Comfy Sidebar_Remove Cards With Missing Files": {
+    "name": "Remove Queue cards whose output files no longer exist (e.g. after the temp folder is cleared)"
+  },
   "Comfy Sidebar_Hide Junk_Assets": {
     "name": "Hide Tab: Assets"
   },
