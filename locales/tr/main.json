@@ -12,19 +12,6 @@
     "Show Pending Count Only": "Yalnızca Bekleyen Sayısını Göster",
     "Show Working Node Name": "Çalışan Düğüm Adını Göster"
   },
-  "settingsCategories": {
-    "Comfy Sidebar": "Comfy Sidebar",
-    "Auto Clear Interrupted": "Kesilenleri Otomatik Temizle",
-    "Comfy Layout": "Klasik Düzen",
-    "Enable Gallery": "Galeriyi Etkinleştir",
-    "Grid Columns Threshold": "Izgara Sütun Eşiği",
-    "Hide Junk": "Gereksiz Öğeleri Gizle",
-    "Latin Hotkeys On Any Layout": "Her Düzende Latin Kısayol Tuşları",
-    "Permanent Delete on Disk Deletion": "Diskten Kalıcı Olarak Sil",
-    "Quick Workflow Picker": "Hızlı İş Akışı Seçici",
-    "Show Pending Count Only": "Yalnızca Bekleyen Sayısını Göster",
-    "Show Working Node Name": "Çalışan Düğüm Adını Göster"
-  },
   "Queue": "Kuyruk",
   "Search History": "Geçmişte ara",
   "Toggle Ignore Selected Node(s) in Queue (Ctrl+Q)": "Seçili düğümleri kuyrukta yoksay/etkinleştir (Ctrl+Q)",
@@ -146,5 +133,13 @@
   "Move to Outputs": "Çıktılara taşı",
   "Move selected image to Outputs (Ctrl+Click)": "Seçili görseli çıktılara taşı (Ctrl+tık)",
   "Moved selected image to Outputs.": "Seçili görsel çıktılara taşındı.",
-  "Failed to move image to Outputs.": "Görsel çıktılara taşınamadı."
+  "Failed to move image to Outputs.": "Görsel çıktılara taşınamadı.",
+  "Clear All History (also clears TEMP)": "Tüm Geçmişi Temizle (TEMP de temizlenir)",
+  "Click again to clear all history and TEMP files": "Tüm geçmişi ve TEMP dosyalarını temizlemek için tekrar tıklayın",
+  "Could not inspect the TEMP directory.": "TEMP klasörü incelenemedi.",
+  "Finish or cancel queued workflows before clearing history and TEMP.": "Geçmişi ve TEMP'i temizlemeden önce sıradaki iş akışlarını tamamlayın veya iptal edin.",
+  "Moved {count} TEMP item(s) to Recycle Bin.": "{count} TEMP öğesi Geri Dönüşüm Kutusu'na taşındı.",
+  "Permanently deleted {count} TEMP item(s).": "{count} TEMP öğesi kalıcı olarak silindi.",
+  "Could not delete {count} TEMP item(s).": "{count} TEMP öğesi silinemedi.",
+  "TEMP cleanup stopped because a workflow entered the queue.": "Kuyruğa bir iş akışı eklendiği için TEMP temizliği durduruldu."
 }
