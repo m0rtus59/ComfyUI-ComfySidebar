@@ -141,5 +141,6 @@
   "Moved {count} TEMP item(s) to Recycle Bin.": "{count} TEMP öğesi Geri Dönüşüm Kutusu'na taşındı.",
   "Permanently deleted {count} TEMP item(s).": "{count} TEMP öğesi kalıcı olarak silindi.",
   "Could not delete {count} TEMP item(s).": "{count} TEMP öğesi silinemedi.",
-  "TEMP cleanup stopped because a workflow entered the queue.": "Kuyruğa bir iş akışı eklendiği için TEMP temizliği durduruldu."
+  "TEMP cleanup stopped because a workflow entered the queue.": "Kuyruğa bir iş akışı eklendiği için TEMP temizliği durduruldu.",
+  "Click again to clear all history": "Tüm geçmişi temizlemek için tekrar tıklayın"
 }
