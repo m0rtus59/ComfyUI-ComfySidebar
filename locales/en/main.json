@@ -32,7 +32,7 @@
   "Moved {count} TEMP item(s) to Recycle Bin.": "Moved {count} TEMP item(s) to Recycle Bin.",
   "Permanently deleted {count} TEMP item(s).": "Permanently deleted {count} TEMP item(s).",
   "Could not delete {count} TEMP item(s).": "Could not delete {count} TEMP item(s).",
-  "TEMP cleanup stopped because a workflow entered the queue.": "TEMP cleanup stopped because a workflow entered the queue."
+  "TEMP cleanup stopped because a workflow entered the queue.": "TEMP cleanup stopped because a workflow entered the queue.",
   "Filter by text, images, nodes...": "Filter by text, images, nodes...",
   "Clear & Close Search": "Clear & Close Search",
   "Scroll to Top": "Scroll to Top",
