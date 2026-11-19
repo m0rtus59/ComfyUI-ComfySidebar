@@ -92,7 +92,9 @@ export async function deleteFileOnServer(fileItem, { suppressDialog = false, end
         if (res.ok) return data.action || (permanent ? "deleted" : "trashed");
         if (res.status === 404) return "missing"; // already gone (e.g. temp folder was cleared)
 
-        if (data.code === "queue_busy") return "busy";\n\n        const trashProblem = !permanent && (data.code === "trash_unavailable" || data.code === "trash_failed");
+        if (data.code === "queue_busy") return "busy";
+
+        const trashProblem = !permanent && (data.code === "trash_unavailable" || data.code === "trash_failed");
         if (!trashProblem) {
             console.error("Comfy Sidebar: Failed to delete file on server", data.error || res.statusText);
             return null;
