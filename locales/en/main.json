@@ -158,5 +158,6 @@
   "Move selected image to Outputs (Ctrl+Click)": "Move selected image to Outputs (Ctrl+Click)",
   "Moved selected image to Outputs.": "Moved selected image to Outputs.",
   "Failed to move image to Outputs.": "Failed to move image to Outputs.",
-  "Move to Outputs": "Move to Outputs"
+  "Move to Outputs": "Move to Outputs",
+  "Click again to clear all history": "Click again to clear all history"
 }
