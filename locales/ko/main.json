@@ -141,5 +141,6 @@
   "Moved {count} TEMP item(s) to Recycle Bin.": "TEMP 항목 {count}개를 휴지통으로 이동했습니다.",
   "Permanently deleted {count} TEMP item(s).": "TEMP 항목 {count}개를 영구 삭제했습니다.",
   "Could not delete {count} TEMP item(s).": "TEMP 항목 {count}개를 삭제할 수 없습니다.",
-  "TEMP cleanup stopped because a workflow entered the queue.": "워크플로가 대기열에 추가되어 TEMP 정리를 중단했습니다."
+  "TEMP cleanup stopped because a workflow entered the queue.": "워크플로가 대기열에 추가되어 TEMP 정리를 중단했습니다.",
+  "Click again to clear all history": "모든 기록을 지우려면 한 번 더 클릭하세요"
 }
