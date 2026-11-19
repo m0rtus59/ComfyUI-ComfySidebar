@@ -141,5 +141,6 @@
   "Moved {count} TEMP item(s) to Recycle Bin.": "TEMP項目を{count}件ゴミ箱に移動しました。",
   "Permanently deleted {count} TEMP item(s).": "TEMP項目を{count}件完全に削除しました。",
   "Could not delete {count} TEMP item(s).": "TEMP項目を{count}件削除できませんでした。",
-  "TEMP cleanup stopped because a workflow entered the queue.": "ワークフローがキューに追加されたため、TEMPのクリーンアップを中止しました。"
+  "TEMP cleanup stopped because a workflow entered the queue.": "ワークフローがキューに追加されたため、TEMPのクリーンアップを中止しました。",
+  "Click again to clear all history": "もう一度クリックすると、すべての履歴を消去します"
 }
