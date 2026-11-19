@@ -426,6 +426,113 @@ async def delete_file_handler(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
+def _comfy_queue_is_idle():
+    """Fail closed if ComfyUI's queue state cannot be inspected."""
+    try:
+        running, pending = PromptServer.instance.prompt_queue.get_current_queue()
+        return not running and not pending
+    except Exception:
+        return False
+
+
+@PromptServer.instance.routes.get("/comfy-sidebar/temp-items")
+async def temp_items_handler(request):
+    """List direct children of TEMP, refusing cleanup while ComfyUI has queued work."""
+    if not _comfy_queue_is_idle():
+        return web.json_response({
+            "error": "ComfyUI has a running or pending workflow.",
+            "code": "queue_busy"
+        }, status=409)
+
+    try:
+        temp_dir = os.path.realpath(folder_paths.get_temp_directory())
+        if not os.path.isdir(temp_dir):
+            return web.json_response({"entries": []})
+
+        entries = []
+        with os.scandir(temp_dir) as children:
+            for entry in children:
+                try:
+                    if entry.is_symlink():
+                        is_dir = False
+                    else:
+                        is_dir = entry.is_dir(follow_symlinks=False)
+                        if not is_dir and not entry.is_file(follow_symlinks=False):
+                            continue
+                    entries.append({"filename": entry.name, "is_dir": is_dir})
+                except (PermissionError, FileNotFoundError):
+                    continue
+
+        entries.sort(key=lambda item: item["filename"].casefold())
+        return web.json_response({"entries": entries})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+
+@PromptServer.instance.routes.post("/comfy-sidebar/delete-temp-item")
+async def delete_temp_item_handler(request):
+    """Move one direct TEMP child to the system trash, or permanently delete it by setting."""
+    try:
+        data, error = await _read_json_body(request)
+        if error:
+            return error
+
+        if not _comfy_queue_is_idle():
+            return web.json_response({
+                "error": "ComfyUI has a running or pending workflow.",
+                "code": "queue_busy"
+            }, status=409)
+
+        filename = (data.get("filename") or "").strip()
+        if not filename or os.path.basename(filename) != filename or filename in (".", ".."):
+            return web.json_response({"error": "Invalid TEMP entry name"}, status=400)
+
+        temp_dir = os.path.realpath(folder_paths.get_temp_directory())
+        target_path = os.path.abspath(os.path.join(temp_dir, filename))
+        if os.path.dirname(target_path) != temp_dir or not os.path.lexists(target_path):
+            return web.json_response({"error": "TEMP entry not found"}, status=404)
+
+        # Only direct children are accepted. Symlinks are trashed as links, never followed.
+        if os.path.islink(target_path):
+            is_dir = False
+        elif os.path.isdir(target_path):
+            is_dir = True
+        elif os.path.isfile(target_path):
+            is_dir = False
+        else:
+            return web.json_response({"error": "Unsupported TEMP entry"}, status=400)
+
+        permanent = data.get("permanent") is True
+        if permanent:
+            if is_dir:
+                shutil.rmtree(target_path)
+            else:
+                os.remove(target_path)
+            action = "deleted"
+        else:
+            try:
+                import send2trash
+            except ImportError:
+                return web.json_response({
+                    "error": "The send2trash package is not installed.",
+                    "code": "trash_unavailable",
+                    "python": sys.executable
+                }, status=409)
+            try:
+                send2trash.send2trash(target_path)
+                action = "trashed"
+            except Exception as e:
+                return web.json_response({
+                    "error": str(e) or e.__class__.__name__,
+                    "code": "trash_failed",
+                    "python": sys.executable
+                }, status=409)
+
+        return web.json_response({"success": True, "deleted": target_path, "action": action})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+
 @PromptServer.instance.routes.post("/comfy-sidebar/move-temp-to-output")
 async def move_temp_to_output_handler(request):
     try:
