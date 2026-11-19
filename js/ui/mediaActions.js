@@ -65,7 +65,7 @@ export async function openFileOrFolder(img) {
  * deleting permanently; we then ask the user whether to turn on direct deletion or retry
  * after fixing send2trash.
  */
-export async function deleteFileOnServer(fileItem, { suppressDialog = false } = {}) {
+export async function deleteFileOnServer(fileItem, { suppressDialog = false, endpoint = "/comfy-sidebar/delete-file" } = {}) {
     if (!fileItem || !fileItem.filename) return null;
     let permanent = !!getSetting(SettingIds.PERMANENT_DELETE, false);
 
@@ -73,7 +73,7 @@ export async function deleteFileOnServer(fileItem, { suppressDialog = false } = 
         let res;
         let data = {};
         try {
-            res = await fetch("/comfy-sidebar/delete-file", {
+            res = await fetch(endpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -92,7 +92,7 @@ export async function deleteFileOnServer(fileItem, { suppressDialog = false } = 
         if (res.ok) return data.action || (permanent ? "deleted" : "trashed");
         if (res.status === 404) return "missing"; // already gone (e.g. temp folder was cleared)
 
-        const trashProblem = !permanent && (data.code === "trash_unavailable" || data.code === "trash_failed");
+        if (data.code === "queue_busy") return "busy";\n\n        const trashProblem = !permanent && (data.code === "trash_unavailable" || data.code === "trash_failed");
         if (!trashProblem) {
             console.error("Comfy Sidebar: Failed to delete file on server", data.error || res.statusText);
             return null;
@@ -114,6 +114,17 @@ export async function deleteFileOnServer(fileItem, { suppressDialog = false } = 
         }
     }
     return null;
+}
+
+/**
+ * Deletes one direct child of ComfyUI's TEMP directory using the shared disk-deletion policy.
+ */
+export async function deleteTempEntryOnServer(entry, options = {}) {
+    if (!entry?.filename) return null;
+    return deleteFileOnServer(
+        { filename: entry.filename, subfolder: "", type: "temp" },
+        { ...options, endpoint: "/comfy-sidebar/delete-temp-item" }
+    );
 }
 
 export function createDeleteTally() {
