@@ -141,5 +141,6 @@
   "Moved {count} TEMP item(s) to Recycle Bin.": "تم نقل {count} من عناصر TEMP إلى سلة المحذوفات.",
   "Permanently deleted {count} TEMP item(s).": "تم حذف {count} من عناصر TEMP نهائيًا.",
   "Could not delete {count} TEMP item(s).": "تعذّر حذف {count} من عناصر TEMP.",
-  "TEMP cleanup stopped because a workflow entered the queue.": "توقّف تنظيف TEMP بسبب دخول مهمة سير عمل إلى قائمة الانتظار."
+  "TEMP cleanup stopped because a workflow entered the queue.": "توقّف تنظيف TEMP بسبب دخول مهمة سير عمل إلى قائمة الانتظار.",
+  "Click again to clear all history": "انقر مرة أخرى لمسح السجل بالكامل"
 }
