@@ -1,7 +1,7 @@
 import { PromptStatus, StoreEvents } from "./constants.js";
 import { createPromptState, revokePromptBlobs } from "./promptState.js";
 import { PersistenceAdapter } from "./persistence.js";
-import { getRunOutputs } from "../utils/utils.js";
+import { collectCardFiles } from "../utils/utils.js";
 
 class Store {
     constructor() {
@@ -155,27 +155,28 @@ class Store {
         return toDelete;
     }
 
-    clearTextOnlyAndInterrupted() {
-        const toDelete = [];
+    /**
+     * Finished cards that hold nothing saved: text-only cards, and cards whose files are all in
+     * the TEMP folder. A card with even one file anywhere else (Outputs) is kept as a whole.
+     * Returns [{ pid, files }] without changing anything.
+     */
+    getTemporaryPrompts() {
+        const result = [];
         for (const [pid, state] of this.prompts.entries()) {
-            const isInterrupted = state.status === PromptStatus.CANCELLED || state.status === PromptStatus.ERROR;
-            const files = Array.isArray(state.images) ? [...state.images] : [];
-            const intermediateFiles = getRunOutputs(state.nodeOutputs, state.workflow)
-                .flatMap((output) => output.images || []);
-            const hasNonTextOutput = [...files, ...intermediateFiles].some((file) => {
-                const filename = file?.filename || "";
-                return !filename || !/\.txt$/i.test(filename);
-            });
-
-            if (isInterrupted || (state.status === PromptStatus.COMPLETED && !hasNonTextOutput)) {
-                toDelete.push(pid);
-            }
+            if (state.status === PromptStatus.PENDING || state.status === PromptStatus.ACTIVE) continue;
+            const files = collectCardFiles(state);
+            if (files.some((file) => (file.type || "output") !== "temp")) continue;
+            result.push({ pid, files });
         }
-        for (const pid of toDelete) {
+        return result;
+    }
+
+    removePrompts(pids) {
+        for (const pid of pids) {
             this.deletePrompt(pid);
         }
-        this.emit(StoreEvents.PROMPTS_CLEARED, { count: toDelete.length });
-        return toDelete;
+        this.emit(StoreEvents.PROMPTS_CLEARED, { count: pids.length });
+        return pids;
     }
 
     setSearchQuery(query) {

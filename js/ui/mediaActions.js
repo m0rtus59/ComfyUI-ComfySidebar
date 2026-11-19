@@ -116,6 +116,43 @@ export async function deleteFileOnServer(fileItem, { suppressDialog = false } = 
     return null;
 }
 
+export function createDeleteTally() {
+    return { deleted: 0, blocked: 0, lastAction: "trashed", cancelled: false };
+}
+
+/**
+ * Deletes files one by one and records the outcome in `tally`.
+ * Returns true when nothing was left undeleted. Files that were already gone count as done.
+ * After one cancelled Recycle Bin dialog the tally remembers it, so a batch never asks twice.
+ */
+export async function deleteFilesIntoTally(files, tally) {
+    let blockedHere = 0;
+    for (const file of files) {
+        const action = await deleteFileOnServer(file, { suppressDialog: tally.cancelled });
+        if (action === "trashed" || action === "deleted") {
+            tally.deleted++;
+            tally.lastAction = action;
+        } else if (action !== "missing") {
+            tally.blocked++;
+            blockedHere++;
+            tally.cancelled = true;
+        }
+    }
+    return blockedHere === 0;
+}
+
+export function notifyDeleteTally(tally, title = "Delete Files", blockedMessage = "Could not delete {count} file(s). The card was kept.") {
+    if (tally.deleted > 0) {
+        const msg = tally.lastAction === "trashed"
+            ? t("Moved {count} file(s) to Recycle Bin.", { count: tally.deleted })
+            : t("Permanently deleted {count} file(s).", { count: tally.deleted });
+        showNotification(msg, "success", title);
+    }
+    if (tally.blocked > 0) {
+        showNotification(t(blockedMessage, { count: tally.blocked }), "warn", title);
+    }
+}
+
 /**
  * Deletes several files from disk and tells the user what happened.
  * Returns true when nothing was left undeleted. Files that were already gone count as done.
@@ -123,31 +160,10 @@ export async function deleteFileOnServer(fileItem, { suppressDialog = false } = 
  * otherwise the card would vanish while its files are still on disk.
  */
 export async function deleteFilesWithFeedback(files, title = "Delete Files") {
-    let deleted = 0;
-    let blocked = 0;
-    let lastAction = "trashed";
-    let cancelled = false;
-    for (const file of files) {
-        // After one cancelled dialog, don't ask again for the rest of this batch.
-        const action = await deleteFileOnServer(file, { suppressDialog: cancelled });
-        if (action === "trashed" || action === "deleted") {
-            deleted++;
-            lastAction = action;
-        } else if (action !== "missing") {
-            blocked++;
-            cancelled = true;
-        }
-    }
-    if (deleted > 0) {
-        const msg = lastAction === "trashed"
-            ? t("Moved {count} file(s) to Recycle Bin.", { count: deleted })
-            : t("Permanently deleted {count} file(s).", { count: deleted });
-        showNotification(msg, "success", title);
-    }
-    if (blocked > 0) {
-        showNotification(t("Could not delete {count} file(s). The card was kept.", { count: blocked }), "warn", title);
-    }
-    return blocked === 0;
+    const tally = createDeleteTally();
+    const ok = await deleteFilesIntoTally(files, tally);
+    notifyDeleteTally(tally, title);
+    return ok;
 }
 
 export async function moveTempImageToOutput(fileItem) {

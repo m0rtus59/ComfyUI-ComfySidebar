@@ -3,14 +3,15 @@ import { PromptStatus, StoreEvents, SettingIds } from "../core/constants.js";
 import { store } from "../core/store.js";
 import { t } from "../core/i18n.js";
 import { getOrCreateCard, updateCardDOM, resetAllCardHoverStates, cardPool } from "./cardRenderer.js";
-import { clearCancelledOrFailed, clearTextOnlyAndInterrupted, clearAllHistory, cancelAllPending } from "../queue/queueService.js";
+import { clearCancelledOrFailed, clearAllHistory, cancelAllPending } from "../queue/queueService.js";
 import { updateSidebarBadge, centerAndSelectCanvasNode } from "../comfy/adapter.js";
 import { matchesFilter, getRunOutputs, isImageFormat, animateCardRemoval, getScrollContainer, calculateGridColumns, setupSpotlightTracker, attachDeleteConfirmation } from "../utils/utils.js";
 import { getSetting } from "../core/settings.js";
 import { renderCardImages } from "./mediaPreview.js";
 import { deleteFilesWithFeedback, moveTempImageToOutput, updateMovedImageReferences, removeImageFromNodeOutputs, copyImageToClipboard, findNodeIdForImage } from "./mediaActions.js";
 import { toggleIgnoreActiveNode } from "../comfy/nodes.js";
-import { renumberNodesTopologically, showNotification } from "../utils/nodeRenumber.js";
+import { showNotification } from "../utils/nodeRenumber.js";
+import { clearTemporaryCards, countTemporaryCards } from "./clearTemporary.js";
 
 let scrollToTopBtnEl = null;
 let globalClickRegistered = false;
@@ -21,7 +22,6 @@ let stickyHeaderGroupEl = null;
 let lastScrollTop = 0;
 let scrollDeltaAccumulator = 0;
 let isHeaderHidden = false;
-let cleanMenuOutsideClickHandler = null;
 
 function mountCards(cardStack, fullWidthEls, cardEls, cols = 1) {
     if (!cardStack) return;
@@ -247,7 +247,7 @@ export function setupSidebarView() {
     standardHeader.appendChild(titleGroup);
 
     const actionsGroup = document.createElement("div");
-    Object.assign(actionsGroup.style, { display: "flex", gap: "5px", alignItems: "center", position: "relative" });
+    Object.assign(actionsGroup.style, { display: "flex", gap: "5px", alignItems: "center" });
 
     const createInstantBtn = (iconClass, tooltip, onClickFn) => {
         const btn = document.createElement("button");
@@ -258,6 +258,44 @@ export function setupSidebarView() {
             btn.style.transform = "scale(0.88)";
             setTimeout(() => { btn.style.transform = ""; }, 120);
             await onClickFn();
+        });
+        return btn;
+    };
+
+    // `onArm` runs on the first press. Return false to cancel arming (nothing to confirm),
+    // or a string to show as the tooltip while the button waits for its confirming press.
+    const createActionBtn = (iconClass, tooltip, hoverColor, onClickFn, onArm = null) => {
+        const btn = document.createElement("button");
+        btn.className = `${iconClass} comfy-sidebar-header-btn`;
+        btn.title = tooltip;
+
+        let timeout = null, isPending = false;
+        const reset = () => {
+            isPending = false;
+            btn.title = tooltip;
+            Object.assign(btn.style, {
+                color: "", background: "",
+                borderColor: "", boxShadow: ""
+            });
+            if (timeout) { clearTimeout(timeout); timeout = null; }
+        };
+
+        btn.addEventListener("click", async (ev) => {
+            ev.stopPropagation();
+            if (!isPending) {
+                const armed = onArm ? onArm() : true;
+                if (armed === false) return;
+                if (typeof armed === "string") btn.title = armed;
+                isPending = true;
+                Object.assign(btn.style, {
+                    color: "#fff", background: hoverColor, borderColor: hoverColor,
+                    boxShadow: `0 0 8px ${hoverColor}80`
+                });
+                timeout = setTimeout(reset, 1500);
+            } else {
+                reset();
+                await onClickFn();
+            }
         });
         return btn;
     };
@@ -277,111 +315,39 @@ export function setupSidebarView() {
         toggleIgnoreActiveNode(() => renderSidebar());
     });
 
-    const btnRenumber = createInstantBtn("pi pi-sort-numeric-down", t("Renumber All Nodes by Execution Order (Alt+R)"), async () => {
-        await renumberNodesTopologically();
-    });
-
     const divider = document.createElement("div");
     Object.assign(divider.style, {
         width: "1px", height: "14px", background: "var(--border, var(--border-color, #444))",
         margin: "0 2px", opacity: "0.6"
     });
 
-    const btnClean = document.createElement("button");
-    btnClean.className = "pi pi-eraser comfy-sidebar-header-btn";
-    btnClean.title = t("Clean History");
-
-    const cleanMenu = document.createElement("div");
-    cleanMenu.className = "comfy-sidebar-clean-menu";
-    Object.assign(cleanMenu.style, {
-        position: "absolute", top: "calc(100% + 6px)", right: "0", zIndex: "1000",
-        display: "none", flexDirection: "column", gap: "3px", minWidth: "210px",
-        padding: "5px", background: "var(--comfy-menu-bg, var(--comfy-input-bg, #222))",
-        border: "1px solid var(--border, #555)", borderRadius: "6px",
-        boxShadow: "0 6px 18px rgba(0, 0, 0, 0.35)"
+    const btnClearInterrupted = createActionBtn("pi pi-eraser", t("Clear Cancelled & Failed"), "#ffc107", async () => {
+        await clearCancelledOrFailed();
+        renderSidebar();
     });
 
-    const cleanOptions = [
-        { label: t("Clean Interrupted"), action: clearCancelledOrFailed },
-        { label: t("Clean Text-only and Interrupted"), action: clearTextOnlyAndInterrupted },
-        { label: t("Clean Everything"), action: clearAllHistory }
-    ];
-    const resetCleanOptions = [];
-
-    for (const optionConfig of cleanOptions) {
-        const option = document.createElement("button");
-        option.type = "button";
-        option.textContent = optionConfig.label;
-        Object.assign(option.style, {
-            width: "100%", padding: "7px 9px", textAlign: "left", cursor: "pointer",
-            color: "var(--fg-color, #eee)", background: "transparent", border: "0",
-            borderRadius: "4px", fontSize: "12px"
-        });
-
-        let armed = false;
-        let confirmTimeout = null;
-        const resetOption = () => {
-            armed = false;
-            option.textContent = optionConfig.label;
-            option.style.background = "transparent";
-            if (confirmTimeout) {
-                clearTimeout(confirmTimeout);
-                confirmTimeout = null;
-            }
-        };
-        resetCleanOptions.push(resetOption);
-
-        option.addEventListener("mouseenter", () => {
-            if (!armed) option.style.background = "var(--comfy-menu-bg-hover, rgba(128, 128, 128, 0.2))";
-        });
-        option.addEventListener("mouseleave", () => {
-            if (!armed) option.style.background = "transparent";
-        });
-        option.addEventListener("click", async (ev) => {
-            ev.stopPropagation();
-            if (!armed) {
-                armed = true;
-                option.textContent = `${t("Confirm")}: ${optionConfig.label}?`;
-                option.style.background = "var(--comfy-menu-bg-hover, rgba(128, 128, 128, 0.25))";
-                confirmTimeout = setTimeout(resetOption, 1800);
-                return;
-            }
-
-            resetOption();
-            closeCleanMenu();
-            await optionConfig.action();
-            renderSidebar();
-        });
-        cleanMenu.appendChild(option);
-    }
-
-    const closeCleanMenu = () => {
-        cleanMenu.style.display = "none";
-        resetCleanOptions.forEach((reset) => reset());
-    };
-
-    btnClean.addEventListener("click", (ev) => {
-        ev.stopPropagation();
-        if (cleanMenu.style.display === "none") {
-            cleanMenu.style.display = "flex";
-        } else {
-            closeCleanMenu();
+    const btnClearTemporary = createActionBtn("pi pi-hourglass", t("Clear Temporary (cards and files not saved to Outputs)"), "#fd7e14", async () => {
+        await clearTemporaryCards();
+        renderSidebar();
+    }, () => {
+        const count = countTemporaryCards();
+        if (count === 0) {
+            showNotification(t("Nothing temporary to clear."), "success", t("Clear Temporary"));
+            return false;
         }
+        return t("Click again to clear {count} temporary card(s)", { count });
     });
 
-    if (cleanMenuOutsideClickHandler) {
-        document.removeEventListener("click", cleanMenuOutsideClickHandler);
-    }
-    cleanMenuOutsideClickHandler = (ev) => {
-        if (!actionsGroup.contains(ev.target)) closeCleanMenu();
-    };
-    document.addEventListener("click", cleanMenuOutsideClickHandler);
+    const btnClearAll = createActionBtn("pi pi-trash", t("Clear All History"), "#dc3545", async () => {
+        await clearAllHistory();
+        renderSidebar();
+    });
 
     actionsGroup.appendChild(btnToggleIgnore);
-    actionsGroup.appendChild(btnRenumber);
     actionsGroup.appendChild(divider);
-    actionsGroup.appendChild(btnClean);
-    actionsGroup.appendChild(cleanMenu);
+    actionsGroup.appendChild(btnClearInterrupted);
+    actionsGroup.appendChild(btnClearTemporary);
+    actionsGroup.appendChild(btnClearAll);
     standardHeader.appendChild(actionsGroup);
 
     const searchContainer = document.createElement("div");
@@ -1132,10 +1098,6 @@ export function renderSidebar() {
 }
 
 export function teardownSidebarView() {
-    if (cleanMenuOutsideClickHandler) {
-        document.removeEventListener("click", cleanMenuOutsideClickHandler);
-        cleanMenuOutsideClickHandler = null;
-    }
     window.removeEventListener("keydown", handleGlobalKeyDown);
     window.removeEventListener("keyup", handleGlobalKeyUp);
     window.removeEventListener("blur", handleGlobalBlur);
