@@ -26,7 +26,7 @@
   "Moved {count} TEMP item(s) to Recycle Bin.": "Элементов TEMP перемещено в корзину: {count}.",
   "Permanently deleted {count} TEMP item(s).": "Элементов TEMP удалено безвозвратно: {count}.",
   "Could not delete {count} TEMP item(s).": "Не удалось удалить элементов TEMP: {count}.",
-  "TEMP cleanup stopped because a workflow entered the queue.": "Очистка TEMP остановлена: в очереди появилось задание."
+  "TEMP cleanup stopped because a workflow entered the queue.": "Очистка TEMP остановлена: в очереди появилось задание.",
   "Filter by text, images, nodes...": "Поиск по тексту, файлам, нодам...",
   "Clear & Close Search": "Очистить и закрыть поиск",
   "Scroll to Top": "Наверх",
