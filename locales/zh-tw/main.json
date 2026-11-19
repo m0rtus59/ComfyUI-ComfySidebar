@@ -133,5 +133,13 @@
   "Move to Outputs": "移至輸出資料夾",
   "Move selected image to Outputs (Ctrl+Click)": "將選取的圖片移至輸出資料夾 (Ctrl+點擊)",
   "Moved selected image to Outputs.": "已將選取的圖片移至輸出資料夾。",
-  "Failed to move image to Outputs.": "無法將圖片移至輸出資料夾。"
+  "Failed to move image to Outputs.": "無法將圖片移至輸出資料夾。",
+  "Clear All History (also clears TEMP)": "清除所有歷史記錄（同時清除 TEMP）",
+  "Click again to clear all history and TEMP files": "再次點擊以清除所有歷史記錄和 TEMP 檔案",
+  "Could not inspect the TEMP directory.": "無法檢查 TEMP 資料夾。",
+  "Finish or cancel queued workflows before clearing history and TEMP.": "清除歷史記錄和 TEMP 前，請先完成或取消佇列中的工作流程。",
+  "Moved {count} TEMP item(s) to Recycle Bin.": "已將 {count} 個 TEMP 項目移至資源回收筒。",
+  "Permanently deleted {count} TEMP item(s).": "已永久刪除 {count} 個 TEMP 項目。",
+  "Could not delete {count} TEMP item(s).": "無法刪除 {count} 個 TEMP 項目。",
+  "TEMP cleanup stopped because a workflow entered the queue.": "工作流程進入佇列，因此已停止 TEMP 清理。"
 }
