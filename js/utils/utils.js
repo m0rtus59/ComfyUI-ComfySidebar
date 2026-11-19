@@ -406,6 +406,26 @@ export function getRunOutputs(nodeOutputs, rawWorkflow, promptGraph = null) {
     return list;
 }
 
+/**
+ * Every file of a card that lives on the server's disk: its own files plus the files of all
+ * node outputs. Live preview blobs are not on disk and are skipped.
+ */
+export function collectCardFiles(state) {
+    const files = [];
+    const seen = new Set();
+    const addFile = (item) => {
+        if (!item || !item.filename) return;
+        if (item.url && item.url.startsWith("blob:")) return;
+        const key = `${item.type || "output"}/${item.subfolder || ""}/${item.filename}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        files.push(item);
+    };
+    (state?.images || []).forEach(addFile);
+    getRunOutputs(state?.nodeOutputs, state?.workflow).forEach((out) => (out.images || []).forEach(addFile));
+    return files;
+}
+
 export function getPrimaryOutputImages(nodeOutputs, rawWorkflow) {
     if (!nodeOutputs) return findImagesInOutputs(null, rawWorkflow);
     const runOutputs = getRunOutputs(nodeOutputs, rawWorkflow);

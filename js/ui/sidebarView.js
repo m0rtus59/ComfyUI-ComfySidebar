@@ -10,7 +10,8 @@ import { getSetting } from "../core/settings.js";
 import { renderCardImages } from "./mediaPreview.js";
 import { deleteFilesWithFeedback, moveTempImageToOutput, updateMovedImageReferences, removeImageFromNodeOutputs, copyImageToClipboard, findNodeIdForImage } from "./mediaActions.js";
 import { toggleIgnoreActiveNode } from "../comfy/nodes.js";
-import { renumberNodesTopologically, showNotification } from "../utils/nodeRenumber.js";
+import { showNotification } from "../utils/nodeRenumber.js";
+import { clearTemporaryCards, countTemporaryCards } from "./clearTemporary.js";
 
 let scrollToTopBtnEl = null;
 let globalClickRegistered = false;
@@ -261,7 +262,9 @@ export function setupSidebarView() {
         return btn;
     };
 
-    const createActionBtn = (iconClass, tooltip, hoverColor, onClickFn) => {
+    // `onArm` runs on the first press. Return false to cancel arming (nothing to confirm),
+    // or a string to show as the tooltip while the button waits for its confirming press.
+    const createActionBtn = (iconClass, tooltip, hoverColor, onClickFn, onArm = null) => {
         const btn = document.createElement("button");
         btn.className = `${iconClass} comfy-sidebar-header-btn`;
         btn.title = tooltip;
@@ -269,6 +272,7 @@ export function setupSidebarView() {
         let timeout = null, isPending = false;
         const reset = () => {
             isPending = false;
+            btn.title = tooltip;
             Object.assign(btn.style, {
                 color: "", background: "",
                 borderColor: "", boxShadow: ""
@@ -279,6 +283,9 @@ export function setupSidebarView() {
         btn.addEventListener("click", async (ev) => {
             ev.stopPropagation();
             if (!isPending) {
+                const armed = onArm ? onArm() : true;
+                if (armed === false) return;
+                if (typeof armed === "string") btn.title = armed;
                 isPending = true;
                 Object.assign(btn.style, {
                     color: "#fff", background: hoverColor, borderColor: hoverColor,
@@ -308,10 +315,6 @@ export function setupSidebarView() {
         toggleIgnoreActiveNode(() => renderSidebar());
     });
 
-    const btnRenumber = createInstantBtn("pi pi-sort-numeric-down", t("Renumber All Nodes by Execution Order (Alt+R)"), async () => {
-        await renumberNodesTopologically();
-    });
-
     const divider = document.createElement("div");
     Object.assign(divider.style, {
         width: "1px", height: "14px", background: "var(--border, var(--border-color, #444))",
@@ -323,15 +326,27 @@ export function setupSidebarView() {
         renderSidebar();
     });
 
+    const btnClearTemporary = createActionBtn("pi pi-hourglass", t("Clear Temporary (cards and files not saved to Outputs)"), "#fd7e14", async () => {
+        await clearTemporaryCards();
+        renderSidebar();
+    }, () => {
+        const count = countTemporaryCards();
+        if (count === 0) {
+            showNotification(t("Nothing temporary to clear."), "success", t("Clear Temporary"));
+            return false;
+        }
+        return t("Click again to clear {count} temporary card(s)", { count });
+    });
+
     const btnClearAll = createActionBtn("pi pi-trash", t("Clear All History"), "#dc3545", async () => {
         await clearAllHistory();
         renderSidebar();
     });
 
     actionsGroup.appendChild(btnToggleIgnore);
-    actionsGroup.appendChild(btnRenumber);
     actionsGroup.appendChild(divider);
     actionsGroup.appendChild(btnClearInterrupted);
+    actionsGroup.appendChild(btnClearTemporary);
     actionsGroup.appendChild(btnClearAll);
     standardHeader.appendChild(actionsGroup);
 

@@ -405,3 +405,18 @@ export async function clearCancelledOrFailed() {
         console.error("Comfy Sidebar: Failed to clear cancelled or failed tasks", e);
     }
 }
+
+export async function removeHistoryItems(pids) {
+    if (!pids || pids.length === 0) return;
+    try {
+        store.removePrompts(pids);
+        await api.fetchApi("/history", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ delete: pids })
+        });
+        await syncQueue();
+    } catch (e) {
+        console.error("Comfy Sidebar: Failed to remove history items", e);
+    }
+}
