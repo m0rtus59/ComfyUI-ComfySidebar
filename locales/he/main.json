@@ -133,5 +133,13 @@
   "Move to Outputs": "העבר לפלט",
   "Move selected image to Outputs (Ctrl+Click)": "העבר את התמונה שנבחרה לפלט (Ctrl+לחיצה)",
   "Moved selected image to Outputs.": "התמונה שנבחרה הועברה לפלט.",
-  "Failed to move image to Outputs.": "העברת התמונה לפלט נכשלה."
+  "Failed to move image to Outputs.": "העברת התמונה לפלט נכשלה.",
+  "Clear All History (also clears TEMP)": "ניקוי כל ההיסטוריה (כולל TEMP)",
+  "Click again to clear all history and TEMP files": "לחצו שוב כדי לנקות את כל ההיסטוריה ואת קובצי TEMP",
+  "Could not inspect the TEMP directory.": "לא ניתן לבדוק את תיקיית TEMP.",
+  "Finish or cancel queued workflows before clearing history and TEMP.": "יש לסיים או לבטל תהליכי עבודה שבתור לפני ניקוי ההיסטוריה ו-TEMP.",
+  "Moved {count} TEMP item(s) to Recycle Bin.": "{count} פריטי TEMP הועברו לסל המיחזור.",
+  "Permanently deleted {count} TEMP item(s).": "{count} פריטי TEMP נמחקו לצמיתות.",
+  "Could not delete {count} TEMP item(s).": "לא ניתן למחוק {count} פריטי TEMP.",
+  "TEMP cleanup stopped because a workflow entered the queue.": "ניקוי TEMP נעצר כי תהליך עבודה נוסף לתור."
 }
