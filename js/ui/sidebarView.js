@@ -338,10 +338,11 @@ export function setupSidebarView() {
         return t("Click again to clear {count} temporary card(s)", { count });
     });
 
-    const btnClearAll = createActionBtn("pi pi-trash", t("Clear All History"), "#dc3545", async () => {
-        await clearAllHistory();
+    const btnClearAll = createActionBtn("pi pi-trash", t("Clear All History (also clears TEMP)"), "#dc3545", async () => {
+        const result = await clearTemporaryDirectory();
+        if (result.ok) await clearAllHistory();
         renderSidebar();
-    });
+    }, () => t("Click again to clear all history and TEMP files"));
 
     actionsGroup.appendChild(btnToggleIgnore);
     actionsGroup.appendChild(divider);
