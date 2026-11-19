@@ -133,5 +133,13 @@
   "Move to Outputs": "نقل إلى المخرجات",
   "Move selected image to Outputs (Ctrl+Click)": "انقل الصورة المحددة إلى المخرجات (Ctrl+نقرة)",
   "Moved selected image to Outputs.": "تم نقل الصورة المحددة إلى المخرجات.",
-  "Failed to move image to Outputs.": "تعذر نقل الصورة إلى المخرجات."
+  "Failed to move image to Outputs.": "تعذر نقل الصورة إلى المخرجات.",
+  "Clear All History (also clears TEMP)": "مسح كل السجل (مع مسح TEMP أيضًا)",
+  "Click again to clear all history and TEMP files": "انقر مرة أخرى لمسح السجل بالكامل وملفات TEMP",
+  "Could not inspect the TEMP directory.": "تعذّر فحص مجلد TEMP.",
+  "Finish or cancel queued workflows before clearing history and TEMP.": "أكمل مهام سير العمل في قائمة الانتظار أو ألغِها قبل مسح السجل وTEMP.",
+  "Moved {count} TEMP item(s) to Recycle Bin.": "تم نقل {count} من عناصر TEMP إلى سلة المحذوفات.",
+  "Permanently deleted {count} TEMP item(s).": "تم حذف {count} من عناصر TEMP نهائيًا.",
+  "Could not delete {count} TEMP item(s).": "تعذّر حذف {count} من عناصر TEMP.",
+  "TEMP cleanup stopped because a workflow entered the queue.": "توقّف تنظيف TEMP بسبب دخول مهمة سير عمل إلى قائمة الانتظار."
 }
