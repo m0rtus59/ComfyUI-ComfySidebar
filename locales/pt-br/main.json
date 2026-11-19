@@ -141,5 +141,6 @@
   "Moved {count} TEMP item(s) to Recycle Bin.": "{count} item(ns) TEMP movido(s) para a Lixeira.",
   "Permanently deleted {count} TEMP item(s).": "{count} item(ns) TEMP excluído(s) permanentemente.",
   "Could not delete {count} TEMP item(s).": "Não foi possível excluir {count} item(ns) TEMP.",
-  "TEMP cleanup stopped because a workflow entered the queue.": "A limpeza de TEMP foi interrompida porque um fluxo de trabalho entrou na fila."
+  "TEMP cleanup stopped because a workflow entered the queue.": "A limpeza de TEMP foi interrompida porque um fluxo de trabalho entrou na fila.",
+  "Click again to clear all history": "Clique novamente para limpar todo o histórico"
 }
