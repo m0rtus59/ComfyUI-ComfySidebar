@@ -141,5 +141,6 @@
   "Moved {count} TEMP item(s) to Recycle Bin.": "已將 {count} 個 TEMP 項目移至資源回收筒。",
   "Permanently deleted {count} TEMP item(s).": "已永久刪除 {count} 個 TEMP 項目。",
   "Could not delete {count} TEMP item(s).": "無法刪除 {count} 個 TEMP 項目。",
-  "TEMP cleanup stopped because a workflow entered the queue.": "工作流程進入佇列，因此已停止 TEMP 清理。"
+  "TEMP cleanup stopped because a workflow entered the queue.": "工作流程進入佇列，因此已停止 TEMP 清理。",
+  "Click again to clear all history": "再次點擊以清除所有歷史記錄"
 }
