@@ -302,7 +302,7 @@ def _get_extension_build_info():
             pyproject = f.read()
         project_match = re.search(r"(?ms)^\[project\]\s*(.*?)(?=^\[|\Z)", pyproject)
         if project_match:
-            version_match = re.search(r"(?m)^\s*version\s*=\s*["']([^"']+)["']", project_match.group(1))
+            version_match = re.search(r'(?m)^\s*version\s*=\s*"([^"]+)"', project_match.group(1))
             if version_match:
                 version = version_match.group(1)
     except (OSError, UnicodeError):
