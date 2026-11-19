@@ -19,6 +19,20 @@ export function resetAllCardHoverStates() {
     }
 }
 
+/**
+ * Re-check intermediate files after Queue cleanup has removed TEMP images.
+ * The normal card update path caches this validation, so invalidate it first.
+ */
+export function revalidateIntermediateResults(pid) {
+    const state = store.getPrompt(pid);
+    const cardObj = cardPool.get(String(pid));
+    if (!state || !cardObj) return;
+
+    state._hasValidatedIntermediates = false;
+    cardObj._isCheckingIntermediates = false;
+    syncCardButtonVisibility(cardObj, state);
+}
+
 export function syncCardButtonVisibility(cardObj, state) {
     if (!cardObj) return;
 
