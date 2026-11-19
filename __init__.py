@@ -2,6 +2,7 @@ import asyncio
 import filecmp
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -288,6 +289,46 @@ def _list_gallery(subfolder, search, cancel):
 
 _LOCALES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "locales")
 _ALLOWED_LOCALE_FILES = {"main.json", "settings.json"}
+
+
+def _get_extension_build_info():
+    """Read the package version and the checked-out Git commit for the About panel."""
+    version = "unknown"
+    commit = "unknown"
+
+    try:
+        pyproject_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "pyproject.toml")
+        with open(pyproject_path, "r", encoding="utf-8") as f:
+            pyproject = f.read()
+        project_match = re.search(r"(?ms)^\[project\]\s*(.*?)(?=^\[|\Z)", pyproject)
+        if project_match:
+            version_match = re.search(r'(?m)^\s*version\s*=\s*"([^"]+)"', project_match.group(1))
+            if version_match:
+                version = version_match.group(1)
+    except (OSError, UnicodeError):
+        pass
+
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short=7", "HEAD"],
+            cwd=os.path.dirname(os.path.realpath(__file__)),
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=2
+        )
+        candidate = result.stdout.strip()
+        if re.fullmatch(r"[0-9a-fA-F]{7,40}", candidate):
+            commit = candidate[:7]
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+    return {"version": version, "commit": commit}
+
+
+@PromptServer.instance.routes.get("/comfy-sidebar/version")
+async def version_handler(request):
+    return web.json_response(_get_extension_build_info())
 
 
 @PromptServer.instance.routes.get("/comfy-sidebar/locales/{lang}/{filename}")

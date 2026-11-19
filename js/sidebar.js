@@ -19,6 +19,28 @@ import { getScrollContainer } from "./utils/utils.js";
 import { store } from "./core/store.js";
 import { getSetting, setSetting } from "./core/settings.js";
 
+// The About panel supports extension-provided badges. Resolve build metadata before
+// registering the extension so the badge is part of its initial registration.
+let aboutPageBadges = [];
+try {
+    const response = await fetch("/comfy-sidebar/version", { cache: "no-store" });
+    if (response.ok) {
+        const { version, commit } = await response.json();
+        if (version && version !== "unknown") {
+            const hasCommit = typeof commit === "string" && /^[0-9a-f]{7}$/i.test(commit);
+            aboutPageBadges = [{
+                label: `Comfy Sidebar v${version}${hasCommit ? ` (${commit})` : ""}`,
+                url: hasCommit
+                    ? `https://github.com/m0rtus59/ComfyUI-ComfySidebar/commit/${commit}`
+                    : "https://github.com/m0rtus59/ComfyUI-ComfySidebar",
+                icon: "icon-[lucide--github]"
+            }];
+        }
+    }
+} catch (error) {
+    console.warn("[ComfySidebar] Could not load version information for the About panel:", error);
+}
+
 let isInitialized = false;
 let activeKeydownHandler = null;
 let cleanupFns = [];
@@ -301,6 +323,7 @@ function setupWorkflowTabsPositionWatcher() {
 
 app.registerExtension({
     name: "ComfySidebar.ClassicRestore",
+    aboutPageBadges,
 
     async init() {
         await initI18n();
