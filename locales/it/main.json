@@ -141,5 +141,6 @@
   "Moved {count} TEMP item(s) to Recycle Bin.": "{count} elementi TEMP spostati nel Cestino.",
   "Permanently deleted {count} TEMP item(s).": "{count} elementi TEMP eliminati definitivamente.",
   "Could not delete {count} TEMP item(s).": "Impossibile eliminare {count} elementi TEMP.",
-  "TEMP cleanup stopped because a workflow entered the queue.": "Pulizia di TEMP interrotta perché è stato aggiunto un flusso di lavoro alla coda."
+  "TEMP cleanup stopped because a workflow entered the queue.": "Pulizia di TEMP interrotta perché è stato aggiunto un flusso di lavoro alla coda.",
+  "Click again to clear all history": "Fai di nuovo clic per cancellare tutta la cronologia"
 }
