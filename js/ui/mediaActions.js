@@ -118,17 +118,6 @@ export async function deleteFileOnServer(fileItem, { suppressDialog = false, end
     return null;
 }
 
-/**
- * Deletes one direct child of ComfyUI's TEMP directory using the shared disk-deletion policy.
- */
-export async function deleteTempEntryOnServer(entry, options = {}) {
-    if (!entry?.filename) return null;
-    return deleteFileOnServer(
-        { filename: entry.filename, subfolder: "", type: "temp" },
-        { ...options, endpoint: "/comfy-sidebar/delete-temp-item" }
-    );
-}
-
 export function createDeleteTally() {
     return { deleted: 0, blocked: 0, lastAction: "trashed", cancelled: false };
 }
