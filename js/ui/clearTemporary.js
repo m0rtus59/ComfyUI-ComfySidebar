@@ -86,6 +86,8 @@ export async function clearTemporaryDirectory() {
         if (action === "trashed" || action === "deleted") {
             tally.deleted++;
             tally.lastAction = action;
+        } else if (action === "missing") {
+            continue;
         } else if (action === "busy") {
             tally.blocked += entries.length - i;
             queueBecameBusy = true;
