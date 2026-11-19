@@ -453,8 +453,9 @@ async def temp_items_handler(request):
         with os.scandir(temp_dir) as children:
             for entry in children:
                 try:
-                    if entry.is_symlink():
-                        is_dir = False
+                    is_link = entry.is_symlink() or getattr(os.path, "isjunction", lambda path: False)(entry.path)
+                    if is_link:
+                        continue
                     else:
                         is_dir = entry.is_dir(follow_symlinks=False)
                         if not is_dir and not entry.is_file(follow_symlinks=False):
@@ -492,9 +493,10 @@ async def delete_temp_item_handler(request):
         if os.path.dirname(target_path) != temp_dir or not os.path.lexists(target_path):
             return web.json_response({"error": "TEMP entry not found"}, status=404)
 
-        # Only direct children are accepted. Symlinks are trashed as links, never followed.
-        if os.path.islink(target_path):
-            is_dir = False
+        # Never follow symlinks or Windows junctions out of the TEMP tree.
+        is_link = os.path.islink(target_path) or getattr(os.path, "isjunction", lambda path: False)(target_path)
+        if is_link:
+            return web.json_response({"error": "Linked TEMP entries are skipped for safety"}, status=400)
         elif os.path.isdir(target_path):
             is_dir = True
         elif os.path.isfile(target_path):
