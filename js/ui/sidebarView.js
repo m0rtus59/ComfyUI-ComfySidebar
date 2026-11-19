@@ -11,7 +11,7 @@ import { renderCardImages } from "./mediaPreview.js";
 import { deleteFilesWithFeedback, moveTempImageToOutput, updateMovedImageReferences, removeImageFromNodeOutputs, copyImageToClipboard, findNodeIdForImage } from "./mediaActions.js";
 import { toggleIgnoreActiveNode } from "../comfy/nodes.js";
 import { showNotification } from "../utils/nodeRenumber.js";
-import { clearTemporaryCards, countTemporaryCards } from "./clearTemporary.js";
+import { clearTemporaryCards, countTemporaryCards, clearTemporaryDirectory } from "./clearTemporary.js";
 
 let scrollToTopBtnEl = null;
 let globalClickRegistered = false;
