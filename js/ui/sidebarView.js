@@ -11,7 +11,7 @@ import { renderCardImages } from "./mediaPreview.js";
 import { deleteFilesWithFeedback, moveTempImageToOutput, updateMovedImageReferences, removeImageFromNodeOutputs, copyImageToClipboard, findNodeIdForImage } from "./mediaActions.js";
 import { toggleIgnoreActiveNode } from "../comfy/nodes.js";
 import { showNotification } from "../utils/nodeRenumber.js";
-import { clearTemporaryCards, countTemporaryCards, clearTemporaryDirectory } from "./clearTemporary.js";
+import { clearTemporaryCards, countTemporaryCards } from "./clearTemporary.js";
 
 let scrollToTopBtnEl = null;
 let globalClickRegistered = false;
@@ -338,11 +338,11 @@ export function setupSidebarView() {
         return t("Click again to clear {count} temporary card(s)", { count });
     });
 
-    const btnClearAll = createActionBtn("pi pi-trash", t("Clear All History (also clears TEMP)"), "#dc3545", async () => {
-        const result = await clearTemporaryDirectory();
-        if (result.ok) await clearAllHistory();
+    const btnClearAll = createActionBtn("pi pi-trash", t("Clear All History"), "#dc3545", async () => {
+        await clearTemporaryCards();
+        await clearAllHistory();
         renderSidebar();
-    }, () => t("Click again to clear all history and TEMP files"));
+    }, () => t("Click again to clear all history"));
 
     actionsGroup.appendChild(btnToggleIgnore);
     actionsGroup.appendChild(divider);
