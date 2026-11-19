@@ -141,5 +141,6 @@
   "Moved {count} TEMP item(s) to Recycle Bin.": "{count} פריטי TEMP הועברו לסל המיחזור.",
   "Permanently deleted {count} TEMP item(s).": "{count} פריטי TEMP נמחקו לצמיתות.",
   "Could not delete {count} TEMP item(s).": "לא ניתן למחוק {count} פריטי TEMP.",
-  "TEMP cleanup stopped because a workflow entered the queue.": "ניקוי TEMP נעצר כי תהליך עבודה נוסף לתור."
+  "TEMP cleanup stopped because a workflow entered the queue.": "ניקוי TEMP נעצר כי תהליך עבודה נוסף לתור.",
+  "Click again to clear all history": "לחצו שוב כדי לנקות את כל ההיסטוריה"
 }
