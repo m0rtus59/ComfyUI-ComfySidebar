@@ -152,5 +152,6 @@
   "Move to Outputs": "Переместить в Outputs",
   "Move selected image to Outputs (Ctrl+Click)": "Переместить выбранное изображение в Outputs (Ctrl+щелчок)",
   "Moved selected image to Outputs.": "Выбранное изображение перемещено в Outputs.",
-  "Failed to move image to Outputs.": "Не удалось переместить изображение в Outputs."
+  "Failed to move image to Outputs.": "Не удалось переместить изображение в Outputs.",
+  "Click again to clear all history": "Нажмите ещё раз, чтобы очистить всю историю"
 }
