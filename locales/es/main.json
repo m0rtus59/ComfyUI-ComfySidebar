@@ -133,5 +133,14 @@
   "Move to Outputs": "Mover a resultados",
   "Move selected image to Outputs (Ctrl+Click)": "Mover la imagen seleccionada a resultados (Ctrl+clic)",
   "Moved selected image to Outputs.": "Imagen seleccionada movida a resultados.",
-  "Failed to move image to Outputs.": "No se pudo mover la imagen a resultados."
+  "Failed to move image to Outputs.": "No se pudo mover la imagen a resultados.",
+  "Clear All History (also clears TEMP)": "Borrar todo el historial (también TEMP)",
+  "Click again to clear all history and TEMP files": "Haz clic de nuevo para borrar todo el historial y los archivos TEMP",
+  "Could not inspect the TEMP directory.": "No se pudo inspeccionar la carpeta TEMP.",
+  "Finish or cancel queued workflows before clearing history and TEMP.": "Finaliza o cancela los flujos de trabajo en cola antes de borrar el historial y TEMP.",
+  "Moved {count} TEMP item(s) to Recycle Bin.": "Se movieron {count} elementos TEMP a la papelera.",
+  "Permanently deleted {count} TEMP item(s).": "Se eliminaron permanentemente {count} elementos TEMP.",
+  "Could not delete {count} TEMP item(s).": "No se pudieron eliminar {count} elementos TEMP.",
+  "TEMP cleanup stopped because a workflow entered the queue.": "La limpieza de TEMP se detuvo porque se añadió un flujo de trabajo a la cola.",
+  "Click again to clear all history": "Haz clic de nuevo para borrar todo el historial"
 }

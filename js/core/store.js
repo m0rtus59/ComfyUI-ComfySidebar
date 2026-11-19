@@ -156,8 +156,8 @@ class Store {
     }
 
     /**
-     * Finished cards that hold nothing saved: text-only cards, and cards whose files are all in
-     * the TEMP folder. A card with even one file anywhere else (Outputs) is kept as a whole.
+     * Finished cards eligible for temporary cleanup. TEMP files are removed individually;
+     * cards with surviving Output files remain in the Queue.
      * Returns [{ pid, files }] without changing anything.
      */
     getTemporaryPrompts() {
@@ -165,8 +165,9 @@ class Store {
         for (const [pid, state] of this.prompts.entries()) {
             if (state.status === PromptStatus.PENDING || state.status === PromptStatus.ACTIVE) continue;
             const files = collectCardFiles(state);
-            if (files.some((file) => (file.type || "output") !== "temp")) continue;
-            result.push({ pid, files });
+            const hasTemp = files.some((file) => file.type === "temp");
+            const hasOutput = files.some((file) => (file.type || "output") !== "temp");
+            if (hasTemp || !hasOutput) result.push({ pid, files });
         }
         return result;
     }

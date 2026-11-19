@@ -133,5 +133,14 @@
   "Move to Outputs": "انتقال به خروجی‌ها",
   "Move selected image to Outputs (Ctrl+Click)": "انتقال تصویر انتخاب‌شده به خروجی‌ها (Ctrl+کلیک)",
   "Moved selected image to Outputs.": "تصویر انتخاب‌شده به خروجی‌ها منتقل شد.",
-  "Failed to move image to Outputs.": "انتقال تصویر به خروجی‌ها ناموفق بود."
+  "Failed to move image to Outputs.": "انتقال تصویر به خروجی‌ها ناموفق بود.",
+  "Clear All History (also clears TEMP)": "پاک کردن کل تاریخچه (همراه با TEMP)",
+  "Click again to clear all history and TEMP files": "برای پاک کردن کل تاریخچه و فایل‌های TEMP دوباره کلیک کنید",
+  "Could not inspect the TEMP directory.": "بررسی پوشه TEMP ممکن نشد.",
+  "Finish or cancel queued workflows before clearing history and TEMP.": "پیش از پاک کردن تاریخچه و TEMP، کارهای در صف را تمام یا لغو کنید.",
+  "Moved {count} TEMP item(s) to Recycle Bin.": "{count} مورد TEMP به سطل زباله منتقل شد.",
+  "Permanently deleted {count} TEMP item(s).": "{count} مورد TEMP برای همیشه حذف شد.",
+  "Could not delete {count} TEMP item(s).": "حذف {count} مورد TEMP ممکن نشد.",
+  "TEMP cleanup stopped because a workflow entered the queue.": "پاک‌سازی TEMP متوقف شد، چون یک گردش‌کار وارد صف شد.",
+  "Click again to clear all history": "برای پاک کردن کل تاریخچه دوباره کلیک کنید"
 }

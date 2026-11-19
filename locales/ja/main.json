@@ -133,5 +133,14 @@
   "Move to Outputs": "出力フォルダーへ移動",
   "Move selected image to Outputs (Ctrl+Click)": "選択した画像を出力フォルダーへ移動 (Ctrl+クリック)",
   "Moved selected image to Outputs.": "選択した画像を出力フォルダーへ移動しました。",
-  "Failed to move image to Outputs.": "画像を出力フォルダーへ移動できませんでした。"
+  "Failed to move image to Outputs.": "画像を出力フォルダーへ移動できませんでした。",
+  "Clear All History (also clears TEMP)": "すべての履歴を消去（TEMPも消去）",
+  "Click again to clear all history and TEMP files": "もう一度クリックすると、すべての履歴とTEMPファイルを消去します",
+  "Could not inspect the TEMP directory.": "TEMPフォルダーを確認できませんでした。",
+  "Finish or cancel queued workflows before clearing history and TEMP.": "履歴とTEMPを消去する前に、キュー内のワークフローを完了またはキャンセルしてください。",
+  "Moved {count} TEMP item(s) to Recycle Bin.": "TEMP項目を{count}件ゴミ箱に移動しました。",
+  "Permanently deleted {count} TEMP item(s).": "TEMP項目を{count}件完全に削除しました。",
+  "Could not delete {count} TEMP item(s).": "TEMP項目を{count}件削除できませんでした。",
+  "TEMP cleanup stopped because a workflow entered the queue.": "ワークフローがキューに追加されたため、TEMPのクリーンアップを中止しました。",
+  "Click again to clear all history": "もう一度クリックすると、すべての履歴を消去します"
 }

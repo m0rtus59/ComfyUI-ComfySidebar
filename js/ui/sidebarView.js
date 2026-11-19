@@ -339,9 +339,10 @@ export function setupSidebarView() {
     });
 
     const btnClearAll = createActionBtn("pi pi-trash", t("Clear All History"), "#dc3545", async () => {
+        await clearTemporaryCards();
         await clearAllHistory();
         renderSidebar();
-    });
+    }, () => t("Click again to clear all history"));
 
     actionsGroup.appendChild(btnToggleIgnore);
     actionsGroup.appendChild(divider);
