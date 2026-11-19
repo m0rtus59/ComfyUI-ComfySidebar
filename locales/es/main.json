@@ -141,5 +141,6 @@
   "Moved {count} TEMP item(s) to Recycle Bin.": "Se movieron {count} elementos TEMP a la papelera.",
   "Permanently deleted {count} TEMP item(s).": "Se eliminaron permanentemente {count} elementos TEMP.",
   "Could not delete {count} TEMP item(s).": "No se pudieron eliminar {count} elementos TEMP.",
-  "TEMP cleanup stopped because a workflow entered the queue.": "La limpieza de TEMP se detuvo porque se añadió un flujo de trabajo a la cola."
+  "TEMP cleanup stopped because a workflow entered the queue.": "La limpieza de TEMP se detuvo porque se añadió un flujo de trabajo a la cola.",
+  "Click again to clear all history": "Haz clic de nuevo para borrar todo el historial"
 }
