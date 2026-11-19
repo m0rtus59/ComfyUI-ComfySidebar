@@ -141,5 +141,6 @@
   "Moved {count} TEMP item(s) to Recycle Bin.": "{count} مورد TEMP به سطل زباله منتقل شد.",
   "Permanently deleted {count} TEMP item(s).": "{count} مورد TEMP برای همیشه حذف شد.",
   "Could not delete {count} TEMP item(s).": "حذف {count} مورد TEMP ممکن نشد.",
-  "TEMP cleanup stopped because a workflow entered the queue.": "پاک‌سازی TEMP متوقف شد، چون یک گردش‌کار وارد صف شد."
+  "TEMP cleanup stopped because a workflow entered the queue.": "پاک‌سازی TEMP متوقف شد، چون یک گردش‌کار وارد صف شد.",
+  "Click again to clear all history": "برای پاک کردن کل تاریخچه دوباره کلیک کنید"
 }
