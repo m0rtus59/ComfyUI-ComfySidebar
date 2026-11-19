@@ -5,6 +5,7 @@ import { removeHistoryItems } from "../queue/queueService.js";
 import { createDeleteTally, deleteFilesIntoTally, notifyDeleteTally } from "./mediaActions.js";
 import { showNotification } from "../utils/nodeRenumber.js";
 import { sweepMissingCards } from "../queue/missingFiles.js";
+import { revalidateIntermediateResults } from "./cardRenderer.js";
 
 /**
  * Number of cards "Clear Temporary" would remove right now.
@@ -44,6 +45,12 @@ export async function clearTemporaryCards() {
 
     // Reuse the existing missing-file sweep to repair cards whose intermediates were just removed.
     await sweepMissingCards();
+
+    // TEMP files may also be referenced by intermediate node outputs. Re-run the
+    // card's cached existence check so stale "show intermediate results" buttons vanish.
+    for (const { pid } of candidates) {
+        revalidateIntermediateResults(pid);
+    }
 
     const title = t("Clear Temporary");
     if (removable.length > 0) {
