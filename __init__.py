@@ -396,9 +396,13 @@ async def gallery_similar_prompts_handler(request):
         threshold = min(0.9, max(0.25, threshold))
         cancel = threading.Event()
         loop = asyncio.get_running_loop()
-        status, payload = await loop.run_in_executor(
-            None, _find_similar_prompts, subfolder, threshold, cancel
-        )
+        try:
+            status, payload = await loop.run_in_executor(
+                None, _find_similar_prompts, subfolder, threshold, cancel
+            )
+        except asyncio.CancelledError:
+            cancel.set()
+            raise
         return web.json_response(payload, status=status)
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
