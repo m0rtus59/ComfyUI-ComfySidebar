@@ -904,7 +904,6 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}, navigationItems =
             mediaB = null;
         }
         slider.style.display = "none";
-        if (isRuntimePreviewActive) isZoomed = false;
         mediaA.style.display = "none";
         mediaA.src = targetSrc;
         mediaA.onload = () => {
