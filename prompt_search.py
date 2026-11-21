@@ -197,3 +197,109 @@ def get_prompt_search_text(path):
 def clear_cache():
     with _cache_lock:
         _cache.clear()
+
+
+# --------------------------------------------------------------------------- #
+# Similar-prompt grouping
+# --------------------------------------------------------------------------- #
+
+def find_similar_prompt_groups(documents, threshold=0.55):
+    """Group prompt documents by token-set Jaccard similarity.
+
+    Documents are dictionaries containing an id and prompt text. Candidate
+    pairs are generated through an inverted index, avoiding a full all-pairs
+    comparison for unrelated prompts.
+    """
+    import re
+
+    docs = []
+    for item in documents:
+        text = str(item.get("prompt") or "").lower()
+        tokens = {
+            token for token in re.findall(r"[a-z0-9_]+", text)
+            if len(token) > 2
+        }
+        if tokens:
+            docs.append({**item, "_tokens": tokens})
+
+    if len(docs) < 2:
+        return []
+
+    # Remove very common tokens: they add little evidence of a duplicate.
+    frequencies = {}
+    for doc in docs:
+        for token in doc["_tokens"]:
+            frequencies[token] = frequencies.get(token, 0) + 1
+    common_limit = max(3, int(len(docs) * 0.45))
+    for doc in docs:
+        doc["_tokens"] = {
+            token for token in doc["_tokens"]
+            if frequencies[token] <= common_limit
+        }
+
+    inverted = {}
+    for index, doc in enumerate(docs):
+        for token in doc["_tokens"]:
+            inverted.setdefault(token, []).append(index)
+
+    candidates = set()
+    for indices in inverted.values():
+        if len(indices) > 500:
+            continue
+        for offset, left in enumerate(indices):
+            for right in indices[offset + 1:]:
+                candidates.add((left, right))
+
+    parent = list(range(len(docs)))
+    rank = [0] * len(docs)
+
+    def find(index):
+        while parent[index] != index:
+            parent[index] = parent[parent[index]]
+            index = parent[index]
+        return index
+
+    def union(left, right):
+        left_root, right_root = find(left), find(right)
+        if left_root == right_root:
+            return
+        if rank[left_root] < rank[right_root]:
+            left_root, right_root = right_root, left_root
+        parent[right_root] = left_root
+        if rank[left_root] == rank[right_root]:
+            rank[left_root] += 1
+
+    scores = {}
+    for left, right in candidates:
+        a, b = docs[left]["_tokens"], docs[right]["_tokens"]
+        if not a or not b:
+            continue
+        score = len(a & b) / len(a | b)
+        if score >= threshold:
+            scores[(left, right)] = score
+            union(left, right)
+
+    groups = {}
+    for index in range(len(docs)):
+        root = find(index)
+        groups.setdefault(root, []).append(index)
+
+    result = []
+    for indices in groups.values():
+        if len(indices) < 2:
+            continue
+        member_scores = []
+        for (left, right), score in scores.items():
+            if left in indices and right in indices:
+                member_scores.append(score)
+        items = []
+        for index in indices:
+            item = {key: value for key, value in docs[index].items() if key != "_tokens"}
+            items.append(item)
+        result.append({
+            "similarity": round(max(member_scores, default=0) * 100),
+            "items": items
+        })
+
+    result.sort(key=lambda group: (group["similarity"], len(group["items"])), reverse=True)
+    return result
