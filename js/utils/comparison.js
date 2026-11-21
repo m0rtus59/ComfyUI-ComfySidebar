@@ -654,7 +654,7 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}, navigationItems =
 
         if (!mediaB) {
             slider.style.display = "none";
-            wrapper.style.cursor = isBaseVideo ? "default" : (isZoomed ? "zoom-out" : "zoom-in");
+            wrapper.style.cursor = isBaseVideo || isRuntimePreviewActive ? "default" : (isZoomed ? "zoom-out" : "zoom-in");
             if (mediaA) mediaA.style.pointerEvents = isBaseVideo ? "none" : "auto";
             if (isZoomed && !isRuntimePreviewActive) {
                 wrapper.style.maxWidth = "none";
