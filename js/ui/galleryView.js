@@ -551,7 +551,11 @@ async function openSimilarPromptsDialog() {
     content.append(heading, controls, results);
 
     let requestId = 0;
+    let requestController = null;
     const loadGroups = async () => {
+        if (requestController) requestController.abort();
+        const controller = new AbortController();
+        requestController = controller;
         const id = ++requestId;
         status.textContent = t("Scanning prompts...");
         results.replaceChildren();
@@ -561,7 +565,9 @@ async function openSimilarPromptsDialog() {
                 subfolder: currentSubfolder,
                 threshold: (Number(threshold.value) / 100).toFixed(2)
             });
-            const response = await fetch("/comfy-sidebar/gallery/similar-prompts?" + params.toString());
+            const response = await fetch("/comfy-sidebar/gallery/similar-prompts?" + params.toString(), {
+                signal: controller.signal
+            });
             if (!response.ok) throw new Error("HTTP " + response.status);
             const data = await response.json();
             if (id !== requestId) return;
@@ -627,12 +633,14 @@ async function openSimilarPromptsDialog() {
                 results.appendChild(section);
             });
         } catch (error) {
-            if (id !== requestId) return;
+            if (error?.name === "AbortError" || id !== requestId) return;
             status.textContent = t("Could not scan prompts");
             const message = document.createElement("div");
             message.textContent = error?.message || String(error);
             message.style.cssText = "padding:20px;color:var(--error-text,#f87171);font-size:12px";
             results.appendChild(message);
+        } finally {
+            if (requestController === controller) requestController = null;
         }
     };
     let debounce = null;
