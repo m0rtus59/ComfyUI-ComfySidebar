@@ -230,7 +230,7 @@ def find_similar_prompt_groups(documents, threshold=0.55):
     for doc in docs:
         for token in doc["_tokens"]:
             frequencies[token] = frequencies.get(token, 0) + 1
-    common_limit = max(3, int(len(docs) * 0.45))
+    common_limit = max(3, int(len(docs) * 0.8))
     for doc in docs:
         doc["_tokens"] = {
             token for token in doc["_tokens"]
