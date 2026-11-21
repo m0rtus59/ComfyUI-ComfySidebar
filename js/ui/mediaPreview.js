@@ -564,7 +564,18 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
                 activeSrc = canvas.toDataURL("image/png");
             } catch (_) {}
         }
-        showFullscreenPreview([activeSrc], ev.shiftKey, state?.pid); 
+        const sourceItems = state?._previewImages || state?.images || [img];
+        const previewItems = sourceItems
+            .filter(item => item && isImageFormat(item.filename || item.url))
+            .map(item => item.url || "/view?filename=" + encodeURIComponent(item.filename) +
+                "&type=" + encodeURIComponent(item.type || "output") +
+                "&subfolder=" + encodeURIComponent(item.subfolder || "") +
+                (state?.pid ? "&rand=" + encodeURIComponent(state.pid) : ""));
+        const currentIndex = Math.max(0, sourceItems.findIndex(item =>
+            item && item.filename === img.filename && (item.subfolder || "") === (img.subfolder || "")
+        ));
+        if (previewItems.length) previewItems[currentIndex] = activeSrc;
+        showFullscreenPreview(previewItems.length ? previewItems : [activeSrc], ev.shiftKey, state?.pid, currentIndex);
     };
 
     mediaEl.onerror = () => {
