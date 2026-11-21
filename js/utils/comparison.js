@@ -463,10 +463,13 @@ const setupVideoPlayback = (vid, container) => {
     };
 };
 
-function createComparisonViewer(baseSrc, onDestroy = () => {}) {
+function createComparisonViewer(baseSrc, onDestroy = () => {}, navigationItems = [], startIndex = 0) {
     const isBaseVideo = isVideoFormat(baseSrc);
-    let splitRatio = 50; 
+    let splitRatio = 50;
     let mediaB = null;
+    let navItems = Array.isArray(navigationItems) ? navigationItems.filter(Boolean) : [];
+    let navIndex = Math.max(0, Math.min(startIndex, navItems.length - 1));
+    let navigate = () => {};
 
     const overlay = new SidebarOverlay({
         onDestroy,
@@ -474,7 +477,11 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
             if (isRuntimePreviewActive) setRuntimePreviewEnabled(false, false);
         },
         onKeyDown: (e) => {
-            if (e.key === " " && mediaB) {
+            if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && navItems.length > 1) {
+                e.preventDefault();
+                e.stopPropagation();
+                navigate(e.key === "ArrowRight" ? 1 : -1);
+            } else if (e.key === " " && mediaB) {
                 e.preventDefault();
                 updateSliderPosition(splitRatio > 50 ? 0 : 100);
             }
@@ -649,7 +656,7 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
             slider.style.display = "none";
             wrapper.style.cursor = isBaseVideo ? "default" : (isZoomed ? "zoom-out" : "zoom-in");
             if (mediaA) mediaA.style.pointerEvents = isBaseVideo ? "none" : "auto";
-            if (isZoomed) {
+            if (isZoomed && !isRuntimePreviewActive) {
                 wrapper.style.maxWidth = "none";
                 wrapper.style.maxHeight = "none";
                 wrapper.style.width = `${wA}px`;
@@ -776,7 +783,7 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
     }
 
     const toggleZoom = () => {
-        if (isBaseVideo) return;
+        if (isBaseVideo || isRuntimePreviewActive) return;
         isZoomed = !isZoomed;
         syncImageScales();
         if (!isZoomed) {
@@ -861,8 +868,72 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
         cleanupMedia(mediaB);
     });
 
+    const navButtonStyle = {
+        position: "absolute", top: "50%", transform: "translateY(-50%)",
+        width: "42px", height: "56px", borderRadius: "8px",
+        border: "1px solid var(--border-color, rgba(255,255,255,.18))",
+        background: "color-mix(in srgb, var(--card, #181818) 88%, transparent)",
+        color: "var(--fg-color, #eee)", fontSize: "24px", cursor: "pointer",
+        zIndex: "35", pointerEvents: "auto", backdropFilter: "blur(8px)"
+    };
+    const prevButton = document.createElement("button");
+    prevButton.type = "button";
+    prevButton.textContent = "‹";
+    prevButton.title = t("Previous image (←)");
+    Object.assign(prevButton.style, navButtonStyle, { left: "18px" });
+    const nextButton = document.createElement("button");
+    nextButton.type = "button";
+    nextButton.textContent = "›";
+    nextButton.title = t("Next image (→)");
+    Object.assign(nextButton.style, navButtonStyle, { right: "18px" });
+
+    const updateNavigation = () => {
+        const visible = navItems.length > 1;
+        prevButton.style.display = nextButton.style.display = visible ? "flex" : "none";
+        prevButton.style.alignItems = nextButton.style.alignItems = "center";
+        prevButton.style.justifyContent = nextButton.style.justifyContent = "center";
+    };
+    navigate = (delta) => {
+        if (navItems.length < 2) return;
+        navIndex = (navIndex + delta + navItems.length) % navItems.length;
+        const targetSrc = navItems[navIndex];
+        if (!targetSrc) return;
+        if (mediaB) {
+            cleanupMedia(mediaB);
+            mediaB.remove();
+            mediaB = null;
+        }
+        slider.style.display = "none";
+        if (isRuntimePreviewActive) isZoomed = false;
+        mediaA.style.display = "none";
+        mediaA.src = targetSrc;
+        mediaA.onload = () => {
+            hidePlaceholder();
+            infoText.style.color = "#aaa";
+            infoText.textContent = t("Click image to zoom (100%/Fit) | Shift+Click another card to compare.");
+            syncImageScales();
+        };
+        if (mediaA.complete && mediaA.naturalWidth) {
+            hidePlaceholder();
+            syncImageScales();
+        }
+        if (!isZoomed) {
+            scrollContainer.scrollTop = 0;
+            scrollContainer.scrollLeft = 0;
+        }
+    };
+    prevButton.onclick = (e) => { e.stopPropagation(); navigate(-1); };
+    nextButton.onclick = (e) => { e.stopPropagation(); navigate(1); };
+    overlay.container.append(prevButton, nextButton);
+    updateNavigation();
+
     return {
         is3D: false,
+        setNavigationItems(items, index = 0) {
+            navItems = Array.isArray(items) ? items.filter(Boolean) : [];
+            navIndex = Math.max(0, Math.min(index, navItems.length - 1));
+            updateNavigation();
+        },
         isAudio: false,
         isText: false,
         loadTarget(targetSrc, isShiftClick) {
@@ -915,10 +986,14 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
     };
 }
 
-export function showFullscreenPreview(imgSrcs, isShiftClick = false, pid = null) {
+export function showFullscreenPreview(imgSrcs, isShiftClick = false, pid = null, startIndex = 0) {
     if (!imgSrcs || imgSrcs.length === 0) return;
 
-    const item = imgSrcs[0];
+    const selectedIndex = Math.max(0, Math.min(Number(startIndex) || 0, imgSrcs.length - 1));
+    const item = imgSrcs[selectedIndex];
+    const navigationItems = imgSrcs.map(entry =>
+        typeof entry === "string" ? entry : (entry?.url || entry?.filename || "")
+    ).filter(Boolean);
     const targetPid = pid || (typeof item === "object" && item ? item.pid : null);
     const pidStr = targetPid ? String(targetPid) : null;
 
@@ -1006,14 +1081,17 @@ export function showFullscreenPreview(imgSrcs, isShiftClick = false, pid = null)
             activeComparisonViewer = null;
         } else {
             activeComparisonViewer.targetPid = pidStr;
+            activeComparisonViewer.setNavigationItems?.(navigationItems, selectedIndex);
             activeComparisonViewer.loadTarget(src, isShiftClick);
             return;
         }
     }
 
     activeComparisonViewer = createComparisonViewer(
-        src, 
-        () => { activeComparisonViewer = null; }
+        src,
+        () => { activeComparisonViewer = null; },
+        navigationItems,
+        selectedIndex
     );
     if (activeComparisonViewer) {
         activeComparisonViewer.targetPid = pidStr;
