@@ -284,20 +284,23 @@ def find_similar_prompt_groups(documents, threshold=0.55):
         root = find(index)
         groups.setdefault(root, []).append(index)
 
+    group_scores = {}
+    for (left, _right), score in scores.items():
+        group_scores.setdefault(find(left), []).append(score)
+
     result = []
-    for indices in groups.values():
+    for root, indices in groups.items():
         if len(indices) < 2:
             continue
-        member_scores = []
-        for (left, right), score in scores.items():
-            if left in indices and right in indices:
-                member_scores.append(score)
         items = []
         for index in indices:
             item = {key: value for key, value in docs[index].items() if key != "_tokens"}
             items.append(item)
+        items.sort(key=lambda item: item.get("mtime", 0), reverse=True)
+        matched_scores = group_scores.get(root, [])
+        average_score = sum(matched_scores) / len(matched_scores) if matched_scores else 0
         result.append({
-            "similarity": round(max(member_scores, default=0) * 100),
+            "similarity": round(average_score * 100),
             "items": items
         })
 
