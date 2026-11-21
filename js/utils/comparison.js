@@ -885,12 +885,12 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}, navigationItems =
     };
     const prevButton = document.createElement("button");
     prevButton.type = "button";
-    prevButton.textContent = "‹";
+    prevButton.textContent = "<";
     prevButton.title = t("Previous image (←)");
     Object.assign(prevButton.style, navButtonStyle, { left: "18px" });
     const nextButton = document.createElement("button");
     nextButton.type = "button";
-    nextButton.textContent = "›";
+    nextButton.textContent = ">";
     nextButton.title = t("Next image (→)");
     Object.assign(nextButton.style, navButtonStyle, { right: "18px" });
 
