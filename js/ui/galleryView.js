@@ -1,6 +1,7 @@
 import { SettingIds, PromptStatus } from "../core/constants.js";
 import { t } from "../core/i18n.js";
 import { app } from "/scripts/app.js";
+import { showFullscreenPreview } from "../utils/comparison.js";
 import { deleteFileOnServer, openFileOrFolder, copyImageToClipboard } from "./mediaActions.js";
 import { extractWorkflowFromPng, isImageFormat, animateCardRemoval, getScrollContainer, calculateGridColumns, downloadJson, setupSpotlightTracker, attachDeleteConfirmation } from "../utils/utils.js";
 import { getSetting } from "../core/settings.js";
@@ -603,9 +604,15 @@ async function openSimilarPromptsDialog() {
                         background: "rgba(0,0,0,.18)", borderRadius: "5px", cursor: "pointer"
                     });
                     image.onclick = () => {
-                        const url = image.src;
+                        const urls = group.items.map(entry =>
+                            "/view?filename=" + encodeURIComponent(entry.filename) +
+                            "&type=output&subfolder=" + encodeURIComponent(entry.subfolder || "")
+                        );
+                        const selected = group.items.findIndex(entry =>
+                            entry.filename === item.filename && (entry.subfolder || "") === (item.subfolder || "")
+                        );
                         app.ui.dialog.close();
-                        window.open(url, "_blank");
+                        showFullscreenPreview(urls, false, null, Math.max(0, selected));
                     };
                     const name = document.createElement("span");
                     name.textContent = item.filename;
