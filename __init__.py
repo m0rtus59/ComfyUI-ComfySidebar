@@ -345,6 +345,65 @@ async def locale_file_handler(request):
     return web.FileResponse(target_file)
 
 
+
+def _find_similar_prompts(subfolder, threshold, cancel):
+    output_dir = os.path.realpath(folder_paths.get_output_directory())
+    target_dir = os.path.realpath(os.path.join(output_dir, subfolder)) if subfolder else output_dir
+    if not is_path_safe(output_dir, target_dir):
+        return 403, {"error": "Unsafe path"}
+    if not os.path.isdir(target_dir):
+        return 200, {"groups": []}
+
+    documents = []
+    for root, dirs, fnames in os.walk(target_dir):
+        dirs[:] = [d for d in dirs if not d.startswith(".")]
+        for filename in fnames:
+            if cancel.is_set():
+                return 200, {"groups": []}
+            if filename.startswith(".") or os.path.splitext(filename)[1].lower() != ".png":
+                continue
+            path = os.path.join(root, filename)
+            prompt = prompt_search.get_prompt_search_text(path)
+            if not prompt:
+                continue
+            try:
+                stat = os.stat(path)
+            except (PermissionError, FileNotFoundError):
+                continue
+            documents.append({
+                "id": len(documents),
+                "filename": filename,
+                "subfolder": _relative_subfolder(root, output_dir),
+                "mtime": stat.st_mtime,
+                "prompt": prompt
+            })
+
+    groups = prompt_search.find_similar_prompt_groups(documents, threshold)
+    for group in groups:
+        for item in group["items"]:
+            item.pop("prompt", None)
+    return 200, {"groups": groups, "scanned": len(documents)}
+
+
+@PromptServer.instance.routes.get("/comfy-sidebar/gallery/similar-prompts")
+async def gallery_similar_prompts_handler(request):
+    try:
+        subfolder = request.query.get("subfolder", "").strip().strip("/\\\\")
+        try:
+            threshold = float(request.query.get("threshold", "0.55"))
+        except (TypeError, ValueError):
+            threshold = 0.55
+        threshold = min(0.9, max(0.25, threshold))
+        cancel = threading.Event()
+        loop = asyncio.get_running_loop()
+        status, payload = await loop.run_in_executor(
+            None, _find_similar_prompts, subfolder, threshold, cancel
+        )
+        return web.json_response(payload, status=status)
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+
 @PromptServer.instance.routes.get("/comfy-sidebar/gallery/list")
 async def gallery_list_handler(request):
     try:
