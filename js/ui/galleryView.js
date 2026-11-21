@@ -1,6 +1,6 @@
 import { SettingIds, PromptStatus } from "../core/constants.js";
 import { t } from "../core/i18n.js";
-import { app } from "/scripts/app.js";
+import { ComfyDialog } from "/scripts/ui.js";
 import { showFullscreenPreview } from "../utils/comparison.js";
 import { deleteFileOnServer, openFileOrFolder, copyImageToClipboard } from "./mediaActions.js";
 import { extractWorkflowFromPng, isImageFormat, animateCardRemoval, getScrollContainer, calculateGridColumns, downloadJson, setupSpotlightTracker, attachDeleteConfirmation } from "../utils/utils.js";
@@ -19,6 +19,7 @@ let lastScrollTop = 0;
 let scrollDeltaAccumulator = 0;
 let isHeaderHidden = false;
 let galleryResizeObserver = null;
+let similarPromptsDialog = null;
 
 // Module-level so teardownGalleryView() can remove the exact same references
 const handleCtrlDown = (e) => {
@@ -511,6 +512,7 @@ async function navigateToSubfolder(subfolder) {
 
 
 async function openSimilarPromptsDialog() {
+    const dialog = similarPromptsDialog || (similarPromptsDialog = new ComfyDialog());
     const content = document.createElement("div");
     content.className = "comfy-sidebar-similar-prompts-dialog";
     Object.assign(content.style, {
@@ -611,7 +613,7 @@ async function openSimilarPromptsDialog() {
                         const selected = group.items.findIndex(entry =>
                             entry.filename === item.filename && (entry.subfolder || "") === (item.subfolder || "")
                         );
-                        app.ui.dialog.close();
+                        dialog.close();
                         showFullscreenPreview(urls, false, null, Math.max(0, selected));
                     };
                     const name = document.createElement("span");
@@ -639,7 +641,7 @@ async function openSimilarPromptsDialog() {
         clearTimeout(debounce);
         debounce = setTimeout(loadGroups, 250);
     });
-    app.ui.dialog.show(content);
+    dialog.show(content);
     await loadGroups();
 }
 
@@ -864,6 +866,10 @@ export function teardownGalleryView() {
     if (galleryResizeObserver) {
         galleryResizeObserver.disconnect();
         galleryResizeObserver = null;
+    }
+    if (similarPromptsDialog) {
+        similarPromptsDialog.element.remove();
+        similarPromptsDialog = null;
     }
     // Reset header-reveal state so a re-opened gallery starts with a visible header
     lastScrollTop = 0;
