@@ -637,6 +637,13 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}, navigationItems =
         const hA = mediaA.naturalHeight || mediaA.videoHeight || 0;
         if (!wA || !hA) return;
 
+        // Runtime previews always stay centered and fitted, without changing the
+        // zoom preference retained for ordinary image inspection.
+        if (isRuntimePreviewActive) {
+            scrollContainer.scrollTop = 0;
+            scrollContainer.scrollLeft = 0;
+        }
+
         // Calculate available space inside the preview area
         const availW = Math.max(100, (scrollContainer.clientWidth || window.innerWidth) - 48);
         const availH = Math.max(100, (scrollContainer.clientHeight || window.innerHeight) - 96);
