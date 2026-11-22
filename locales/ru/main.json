@@ -153,5 +153,21 @@
   "Move selected image to Outputs (Ctrl+Click)": "Переместить выбранное изображение в Outputs (Ctrl+щелчок)",
   "Moved selected image to Outputs.": "Выбранное изображение перемещено в Outputs.",
   "Failed to move image to Outputs.": "Не удалось переместить изображение в Outputs.",
-  "Click again to clear all history": "Нажмите ещё раз, чтобы очистить всю историю"
+  "Click again to clear all history": "Нажмите ещё раз, чтобы очистить всю историю",
+  "Card size": "Размер карточки",
+  "Click again to confirm deleting this image": "Нажмите ещё раз, чтобы подтвердить удаление этого изображения",
+  "Could not scan prompts": "Не удалось просканировать промпты",
+  "Delete current image": "Удалить текущее изображение",
+  "Delete file": "Удалить файл",
+  "Find Similar Prompts": "Найти похожие промпты",
+  "Group": "Группа",
+  "Next image (→)": "Следующее изображение (→)",
+  "No similar prompt groups found at this threshold.": "При этом пороге похожих групп промптов не найдено.",
+  "Previous image (←)": "Предыдущее изображение (←)",
+  "Scanning prompts...": "Сканирование промптов...",
+  "Similar prompt groups": "Группы похожих промптов",
+  "Similarity threshold": "Порог сходства",
+  "images": "изображений",
+  "similarity": "сходство",
+  "{count} groups · {scanned} PNGs scanned": "Групп: {count} · Просканировано PNG: {scanned}"
 }
