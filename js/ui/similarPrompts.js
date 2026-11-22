@@ -31,7 +31,7 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
         position: "absolute", inset: "0", width: "100%", height: "100%",
         minHeight: "0", display: "flex", flexDirection: "column", gap: "12px",
         padding: "20px 24px", boxSizing: "border-box", font: "inherit",
-        pointerEvents: "auto", userSelect: "auto", overflow: "hidden"
+        pointerEvents: "auto", userSelect: "auto", overflow: "hidden", zIndex: "20"
     });
 
     const heading = document.createElement("div");
@@ -63,8 +63,8 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
     const thresholdValue = document.createElement("span");
     Object.assign(thresholdValue.style, { alignSelf: "center", minWidth: "34px", fontVariantNumeric: "tabular-nums" });
     thresholdValue.textContent = "55%";
-    thresholdLabel.appendChild(threshold);
-    controls.append(thresholdLabel, thresholdValue);
+    thresholdLabel.append(threshold, thresholdValue);
+    controls.appendChild(thresholdLabel);
 
     const cardSizeLabel = document.createElement("label");
     cardSizeLabel.textContent = t("Card size");
