@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/banner.png" alt="Comfy Sidebar" width="100%">
+</p>
+
 # ComfyUI-ComfySidebar
 
 A compact and powerful layout overhaul for ComfyUI that makes generation results easier to browse, preview, compare, and manage.
