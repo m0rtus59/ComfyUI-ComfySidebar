@@ -21,29 +21,17 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
         className: "comfy-sidebar-similar-prompts-overlay",
         background: "rgba(0, 0, 0, 0.58)",
         zIndex: 1000,
-        closeButton: false,
         onUserClose: closeGroupViewer
     });
 
-    const panel = document.createElement("div");
-    panel.className = "comfy-sidebar-similar-prompts-panel";
-    Object.assign(panel.style, {
-        position: "relative", zIndex: "20", pointerEvents: "auto",
-        width: "min(1180px, 92vw)", height: "min(82vh, 900px)",
-        maxWidth: "calc(100vw - 32px)", maxHeight: "calc(100vh - 32px)",
-        minWidth: "320px", padding: "16px", boxSizing: "border-box",
-        border: "1px solid var(--border-color, rgba(255,255,255,.16))",
-        borderRadius: "10px", background: "var(--comfy-menu-bg, var(--comfy-input-bg, #222))",
-        color: "var(--fg-color, var(--foreground, #eee))",
-        boxShadow: "var(--shadow-lg, 0 18px 60px rgba(0,0,0,.55))",
-        overflow: "hidden", userSelect: "auto"
-    });
-    overlay.container.appendChild(panel);
-
+    // Render directly on the shared overlay. Its bounds already account for
+    // open sidebars, so the group UI naturally uses the remaining workspace.
     const content = document.createElement("div");
     Object.assign(content.style, {
-        width: "100%", height: "100%", minHeight: "0", display: "flex",
-        flexDirection: "column", gap: "12px", font: "inherit"
+        position: "absolute", inset: "0", width: "100%", height: "100%",
+        minHeight: "0", display: "flex", flexDirection: "column", gap: "12px",
+        padding: "20px 24px", boxSizing: "border-box", font: "inherit",
+        pointerEvents: "auto", userSelect: "auto", overflow: "hidden"
     });
 
     const heading = document.createElement("div");
@@ -54,43 +42,40 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
     title.textContent = t("Similar prompt groups");
     const status = document.createElement("span");
     Object.assign(status.style, { marginLeft: "auto", fontSize: "11px", opacity: "0.65" });
-    const closeButton = document.createElement("button");
-    closeButton.type = "button";
-    closeButton.textContent = "×";
-    closeButton.title = t("Close");
-    Object.assign(closeButton.style, {
-        width: "30px", height: "30px", padding: "0", border: "0", borderRadius: "5px",
-        background: "transparent", color: "inherit", cursor: "pointer", fontSize: "22px"
-    });
-    closeButton.addEventListener("click", () => overlay.destroy());
-    heading.append(title, status, closeButton);
+    // SidebarOverlay supplies the same round close control used by previews.
+    heading.append(title, status);
 
     const controls = document.createElement("div");
     Object.assign(controls.style, {
-        display: "flex", alignItems: "center", flexWrap: "wrap", gap: "10px",
-        fontSize: "12px", flex: "none"
+        display: "flex", alignItems: "center", flexWrap: "wrap", gap: "18px",
+        fontSize: "12px", flex: "none", padding: "4px 0"
     });
     const thresholdLabel = document.createElement("label");
     thresholdLabel.textContent = t("Similarity threshold");
+    Object.assign(thresholdLabel.style, { display: "flex", alignItems: "center", gap: "10px", lineHeight: "1" });
     const threshold = document.createElement("input");
     threshold.type = "range";
     threshold.min = "25";
     threshold.max = "90";
     threshold.step = "5";
     threshold.value = "55";
+    Object.assign(threshold.style, { verticalAlign: "middle", accentColor: "var(--p-primary-color, var(--fg-color, #888))", cursor: "pointer" });
     const thresholdValue = document.createElement("span");
+    Object.assign(thresholdValue.style, { alignSelf: "center", minWidth: "34px", fontVariantNumeric: "tabular-nums" });
     thresholdValue.textContent = "55%";
     thresholdLabel.appendChild(threshold);
     controls.append(thresholdLabel, thresholdValue);
 
     const cardSizeLabel = document.createElement("label");
     cardSizeLabel.textContent = t("Card size");
+    Object.assign(cardSizeLabel.style, { display: "flex", alignItems: "center", gap: "10px", lineHeight: "1" });
     const cardSize = document.createElement("input");
     cardSize.type = "range";
     cardSize.min = "100";
     cardSize.max = "280";
     cardSize.step = "10";
     cardSize.value = "150";
+    Object.assign(cardSize.style, { verticalAlign: "middle", accentColor: "var(--p-primary-color, var(--fg-color, #888))", cursor: "pointer" });
     cardSizeLabel.appendChild(cardSize);
     controls.appendChild(cardSizeLabel);
 
@@ -100,7 +85,7 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
         display: "flex", flexDirection: "column", gap: "12px"
     });
     content.append(heading, controls, results);
-    panel.appendChild(content);
+    overlay.container.appendChild(content);
     overlay.addCleanup(closeGroupViewer);
     setupSpotlightTracker(results, ".comfy-sidebar-card");
 
