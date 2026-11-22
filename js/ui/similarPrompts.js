@@ -3,7 +3,7 @@ import { t } from "../core/i18n.js";
 import { showFullscreenPreview } from "../utils/comparison.js";
 import { deleteFileOnServer } from "./mediaActions.js";
 import { attachDeleteConfirmation, setupSpotlightTracker } from "../utils/utils.js";
-import { showNotification } from "./nodeRenumber.js";
+import { showNotification } from "../utils/nodeRenumber.js";
 
 export async function openSimilarPromptsDialog(currentSubfolder = "") {
     const dialog = new ComfyDialog();
