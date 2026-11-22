@@ -149,7 +149,12 @@ export function injectStyles() {
             font-size: 13px !important;
             border-radius: 6px !important;
             cursor: pointer !important;
-            transition: all 0.15s ease !important;
+            /* Constant box: Ctrl mode only recolors the border, so size and padding
+               never animate. Only colors transition (no slide/grow effects). */
+            box-sizing: border-box;
+            border: 1px solid transparent;
+            transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease,
+                        box-shadow 0.15s ease, opacity 0.15s ease !important;
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
             z-index: 20 !important;
             transform: translateZ(0);
@@ -231,7 +236,7 @@ export function injectStyles() {
             display: inline-flex !important;
             background-color: #166534 !important;
             color: #ffffff !important;
-            border: 1px solid #22c55e !important;
+            border-color: #22c55e !important;
             width: auto !important;
             padding: 0 8px !important;
         }
@@ -239,15 +244,31 @@ export function injectStyles() {
         body.comfy-sidebar-ctrl-active .comfy-sidebar-btn-del {
             background-color: #991b1b !important;
             color: #ffffff !important;
-            border: 1px solid #ef4444 !important;
-            width: auto !important;
-            padding: 0 8px !important;
+            border-color: #ef4444 !important;
             border-radius: 6px !important;
             box-shadow: 0 0 10px rgba(239, 68, 68, 0.6) !important;
         }
 
+        /* Only buttons that gain a text label (Queue/Gallery) get wider; icon-only
+           delete buttons (Similar Prompts) keep their size and just glow. */
+        body.comfy-sidebar-ctrl-active .comfy-sidebar-btn-del:has(.comfy-sidebar-del-label) {
+            width: auto !important;
+            padding: 0 8px !important;
+        }
+
         body.comfy-sidebar-ctrl-active .comfy-sidebar-btn-del .comfy-sidebar-del-label {
             display: inline;
+        }
+
+        /* Anything that appears because Ctrl is held fades in instead of sliding/growing. */
+        @keyframes comfy-sidebar-fade-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        body.comfy-sidebar-ctrl-active .comfy-sidebar-btn-move,
+        body.comfy-sidebar-ctrl-active .comfy-sidebar-gallery-btn-del,
+        body.comfy-sidebar-ctrl-active .comfy-sidebar-btn-del .comfy-sidebar-del-label {
+            animation: comfy-sidebar-fade-in 0.15s ease both;
         }
 
         /* Translucent Folder Indicator on Ctrl Press */
