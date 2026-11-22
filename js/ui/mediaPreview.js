@@ -607,7 +607,9 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
             }
             const ownerState = asset._sidebarOwnerState || state;
             const ownerCardObj = asset._sidebarOwnerCardObj || cardObj;
-            if (typeof ownerState?._onPreviewAssetDeleted === "function") {
+            if (typeof asset?._onPreviewAssetDeleted === "function") {
+                asset._onPreviewAssetDeleted();
+            } else if (typeof ownerState?._onPreviewAssetDeleted === "function") {
                 ownerState._onPreviewAssetDeleted(asset);
             } else {
                 const sameFile = candidate => candidate &&
