@@ -1,4 +1,4 @@
-import { isVideoFormat, is3DFormat, isAudioFormat, getFilenameFromUrl, isImageFormat, findImagesInOutputs } from "./utils.js";
+import { isVideoFormat, is3DFormat, isAudioFormat, getFilenameFromUrl, isImageFormat, findImagesInOutputs, attachDeleteConfirmation } from "./utils.js";
 import { create3DViewer } from "./viewer3d.js";
 import { createTextReader } from "./text_reader.js";
 import { stopAllAudioPlayback } from "../ui/audioController.js";
@@ -6,7 +6,6 @@ import { SidebarOverlay } from "./overlay.js";
 import { store } from "../core/store.js";
 import { PromptStatus } from "../core/constants.js";
 import { t } from "../core/i18n.js";
-import { attachDeleteConfirmation } from "./utils.js";
 import { deleteFileOnServer } from "../ui/mediaActions.js";
 import { showNotification } from "./nodeRenumber.js";
 
@@ -929,9 +928,10 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}, navigationItems =
         display: "none", alignItems: "center", justifyContent: "center"
     });
     attachDeleteConfirmation(deleteButton, {
+        canDiskDelete: false,
         idleTitle: t("Delete current image"),
         confirmTitle: t("Click again to confirm deleting this image"),
-        confirmDiskTitle: t("Ctrl+Click again to permanently delete this image"),
+        confirmDiskTitle: t("Click again to confirm deleting this image"),
         onConfirm: async () => {
             const asset = navAssets[navIndex];
             if (!asset || typeof previewOptions.onDelete !== "function") return;
