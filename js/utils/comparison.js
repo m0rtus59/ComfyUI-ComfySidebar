@@ -520,6 +520,7 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}, navigationItems =
     let navigate = () => {};
 
     const overlay = new SidebarOverlay({
+        zIndex: 1100,
         onDestroy,
         onUserClose: () => {
             if (isRuntimePreviewActive) setRuntimePreviewEnabled(false, false);
@@ -960,18 +961,41 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}, navigationItems =
     nextIcon.style.pointerEvents = "none";
     nextButton.appendChild(nextIcon);
 
-    const deleteButton = document.createElement("span");
-    deleteButton.className = "pi pi-trash comfy-sidebar-preview-delete";
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "comfy-sidebar-preview-delete";
     deleteButton.title = t("Delete current image");
     Object.assign(deleteButton.style, navButtonStyle, {
         top: "auto", bottom: "24px", right: "24px", transform: "none",
+        padding: "0", lineHeight: "1", appearance: "none",
         fontSize: "15px", display: "none", alignItems: "center", justifyContent: "center"
     });
+    const deleteIcon = document.createElement("span");
+    deleteIcon.className = "pi pi-trash";
+    Object.assign(deleteIcon.style, {
+        display: "block", lineHeight: "1", pointerEvents: "none",
+        transform: "translateX(-0.75px)"
+    });
+    deleteButton.appendChild(deleteIcon);
     attachDeleteConfirmation(deleteButton, {
         canDiskDelete: false,
         idleTitle: t("Delete current image"),
         confirmTitle: t("Click again to confirm deleting this image"),
         confirmDiskTitle: t("Click again to confirm deleting this image"),
+        onStateChange: (pending, disk) => {
+            if (pending) {
+                deleteButton.style.setProperty("background-color", disk ? "#7f1d1d" : "#dc3545", "important");
+                deleteButton.style.setProperty("color", disk ? "#ffc9c9" : "#ffffff", "important");
+                deleteButton.style.setProperty("box-shadow", disk
+                    ? "0 0 10px rgba(220, 38, 38, 0.85)"
+                    : "0 0 8px rgba(220, 53, 69, 0.6)", "important");
+                deleteButton.style.setProperty("border-color", disk ? "#ef4444" : "#dc3545", "important");
+            } else {
+                for (const property of ["background-color", "color", "box-shadow", "border-color"]) {
+                    deleteButton.style.removeProperty(property);
+                }
+            }
+        },
         onConfirm: async () => {
             const asset = navAssets[navIndex];
             if (!asset || typeof previewOptions.onDelete !== "function") return;
