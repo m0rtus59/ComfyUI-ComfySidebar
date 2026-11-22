@@ -58,11 +58,15 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
     threshold.min = "25";
     threshold.max = "90";
     threshold.step = "5";
-    threshold.value = "55";
+    const savedSettings = (() => {
+        try { return JSON.parse(localStorage.getItem("comfy-sidebar-similar-prompts-settings-v1") || "{}"); }
+        catch (_) { return {}; }
+    })();
+    threshold.value = String(Math.max(25, Math.min(90, Number(savedSettings.threshold) || 55)));
     Object.assign(threshold.style, { verticalAlign: "middle", accentColor: "var(--primary, var(--p-primary-color, var(--primary-color, var(--accent, currentColor))))", cursor: "pointer" });
     const thresholdValue = document.createElement("span");
     Object.assign(thresholdValue.style, { alignSelf: "center", minWidth: "34px", fontVariantNumeric: "tabular-nums" });
-    thresholdValue.textContent = "55%";
+    thresholdValue.textContent = threshold.value + "%";
     thresholdLabel.append(threshold, thresholdValue);
     controls.appendChild(thresholdLabel);
 
@@ -74,7 +78,7 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
     cardSize.min = "100";
     cardSize.max = "280";
     cardSize.step = "10";
-    cardSize.value = "150";
+    cardSize.value = String(Math.max(100, Math.min(280, Number(savedSettings.cardSize) || 150)));
     Object.assign(cardSize.style, { verticalAlign: "middle", accentColor: "var(--primary, var(--p-primary-color, var(--primary-color, var(--accent, currentColor))))", cursor: "pointer" });
     cardSizeLabel.appendChild(cardSize);
     controls.appendChild(cardSizeLabel);
@@ -89,9 +93,20 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
     overlay.addCleanup(closeGroupViewer);
     setupSpotlightTracker(results, ".comfy-sidebar-card");
 
-    const updateCardSize = () => results.querySelectorAll(".comfy-sidebar-similar-grid").forEach(grid => {
-        grid.style.gridTemplateColumns = `repeat(auto-fill, minmax(${cardSize.value}px, 1fr))`;
-    });
+    const saveSettings = () => {
+        try {
+            localStorage.setItem("comfy-sidebar-similar-prompts-settings-v1", JSON.stringify({
+                threshold: Number(threshold.value),
+                cardSize: Number(cardSize.value)
+            }));
+        } catch (_) {}
+    };
+    const updateCardSize = () => {
+        results.querySelectorAll(".comfy-sidebar-similar-grid").forEach(grid => {
+            grid.style.gridTemplateColumns = `repeat(auto-fill, minmax(${cardSize.value}px, 1fr))`;
+        });
+        saveSettings();
+    };
     cardSize.addEventListener("input", updateCardSize);
 
     const loadGroups = async () => {
@@ -185,6 +200,7 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
                         pid: `similar-${groupIndex}-${item.filename}`,
                         images: [asset],
                         _previewImages: previewAssets,
+                        _onPreviewAssetDeleted: () => card.remove(),
                         workflow: null
                     });
 
@@ -241,6 +257,7 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
 
     threshold.addEventListener("input", () => {
         thresholdValue.textContent = threshold.value + "%";
+        saveSettings();
         clearTimeout(debounce);
         debounce = setTimeout(loadGroups, 250);
     });
