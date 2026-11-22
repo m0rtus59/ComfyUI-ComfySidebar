@@ -65,5 +65,8 @@
   "Comfy Sidebar_Quick Workflow Picker": {
     "name": "Quick Workflow Picker",
     "tooltip": "Show quick workflow picker when creating a new blank workflow"
+  },
+  "Comfy Sidebar_Hide Junk_Run on Comfy Cloud": {
+    "name": "Hide Run on Comfy Cloud button"
   }
 }
