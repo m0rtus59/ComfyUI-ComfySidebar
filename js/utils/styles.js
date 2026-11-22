@@ -170,6 +170,22 @@ export function injectStyles() {
             letter-spacing: 0.3px;
         }
 
+        /* Fullscreen preview trash button uses the same confirmation glow as card deletes. */
+        .comfy-sidebar-preview-delete.confirm-delete,
+        .comfy-sidebar-preview-delete.confirm-delete:hover {
+            background-color: #dc3545 !important;
+            color: #ffffff !important;
+            box-shadow: 0 0 8px rgba(220, 53, 69, 0.6) !important;
+        }
+
+        .comfy-sidebar-preview-delete.confirm-delete-disk,
+        .comfy-sidebar-preview-delete.confirm-delete-disk:hover {
+            background-color: #7f1d1d !important;
+            color: #ffc9c9 !important;
+            box-shadow: 0 0 10px rgba(220, 38, 38, 0.85) !important;
+            border: 1px solid #ef4444 !important;
+        }
+
         /* Delete Confirmation Active State */
         .comfy-sidebar-card-action-btn.confirm-delete,
         .comfy-sidebar-card-action-btn.confirm-delete:hover {
