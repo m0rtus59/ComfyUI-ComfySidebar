@@ -1,5 +1,4 @@
 import { t } from "../core/i18n.js";
-import { showFullscreenPreview } from "../utils/comparison.js";
 import { deleteFileOnServer } from "./mediaActions.js";
 import { attachDeleteConfirmation, setupSpotlightTracker } from "../utils/utils.js";
 import { showNotification } from "../utils/nodeRenumber.js";
@@ -20,6 +19,15 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
         boxShadow: "var(--shadow-lg, 0 18px 60px rgba(0,0,0,.55))",
         overflow: "hidden"
     });
+
+    const backdropStyle = document.createElement("style");
+    backdropStyle.textContent = `
+        dialog.comfy-sidebar-similar-prompts-dialog::backdrop {
+            background: rgba(0, 0, 0, 0.58);
+            backdrop-filter: blur(2px);
+        }
+    `;
+    document.head.appendChild(backdropStyle);
 
     const content = document.createElement("div");
     Object.assign(content.style, {
@@ -91,6 +99,7 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
     dialog.addEventListener("close", () => {
         requestController?.abort();
         dialog.remove();
+        backdropStyle.remove();
     });
     setupSpotlightTracker(results, ".comfy-sidebar-card");
 
