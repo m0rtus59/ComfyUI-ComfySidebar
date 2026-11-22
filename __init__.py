@@ -363,8 +363,8 @@ def _find_similar_prompts(subfolder, threshold, cancel):
             if filename.startswith(".") or os.path.splitext(filename)[1].lower() != ".png":
                 continue
             path = os.path.join(root, filename)
-            prompt = prompt_search.get_prompt_search_text(path)
-            if not prompt:
+            segments = prompt_search.get_prompt_segments(path)
+            if not segments:
                 continue
             try:
                 stat = os.stat(path)
@@ -375,13 +375,15 @@ def _find_similar_prompts(subfolder, threshold, cancel):
                 "filename": filename,
                 "subfolder": _relative_subfolder(root, output_dir),
                 "mtime": stat.st_mtime,
-                "prompt": prompt
+                "segments": segments,
+                "prompt": "\n".join(segments)
             })
 
     groups = prompt_search.find_similar_prompt_groups(documents, threshold)
     for group in groups:
         for item in group["items"]:
             item.pop("prompt", None)
+            item.pop("segments", None)
     return 200, {"groups": groups, "scanned": len(documents)}
 
 

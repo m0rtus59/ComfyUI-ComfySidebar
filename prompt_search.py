@@ -18,6 +18,7 @@ How it works
 import json
 import os
 import re
+import sys
 import threading
 import zlib
 from collections import OrderedDict
@@ -35,7 +36,7 @@ _MAX_PROMPT_CHUNK_BYTES = 16 * 1024 * 1024
 _MAX_TEXT_CHARS_PER_FILE = 50_000
 
 _CACHE_MAX_ENTRIES = 20_000
-_cache = OrderedDict()  # path -> ((mtime_ns, size), lowercased prompt text)
+_cache = OrderedDict()  # path -> ((mtime_ns, size), lowercased prompt text, segments)
 _cache_lock = threading.Lock()
 
 
@@ -95,6 +96,25 @@ def extract_prompt_texts(prompt):
     for node_id in starts:
         visit(node_id, 0)
     return texts
+
+
+def get_prompt_segments_from_graph(prompt):
+    """Return the individual lower-cased prompt strings (one per text input).
+
+    Kept separate (not joined) so callers can tell apart text that is shared
+    verbatim by many images, such as an LLM enhancer's meta-prompt, from the
+    text that is unique to one image. Strings are interned so identical
+    boilerplate is stored once across the whole cache.
+    """
+    segments = []
+    budget = _MAX_TEXT_CHARS_PER_FILE
+    for text in extract_prompt_texts(prompt):
+        if budget <= 0:
+            break
+        text = text.lower()[:budget]
+        budget -= len(text)
+        segments.append(sys.intern(text))
+    return tuple(segments)
 
 
 def get_prompt_search_text_from_graph(prompt):
@@ -163,36 +183,47 @@ def read_png_prompt(fileobj):
 # Cached per-file text
 # --------------------------------------------------------------------------- #
 
-def get_prompt_search_text(path):
-    """Lower-cased prompt text of a PNG ('' if none). Cached by mtime + size."""
+def _load_entry(path):
+    """Return (text, segments) for a PNG, cached by mtime + size."""
     try:
         st = os.stat(path)
     except OSError:
-        return ""
+        return "", ()
     signature = (st.st_mtime_ns, st.st_size)
 
     with _cache_lock:
         hit = _cache.get(path)
         if hit and hit[0] == signature:
             _cache.move_to_end(path)
-            return hit[1]
+            return hit[1], hit[2]
 
-    text = ""
+    text, segments = "", ()
     try:
         with open(path, "rb") as f:
             prompt = read_png_prompt(f)
         if prompt is not None:
             text = get_prompt_search_text_from_graph(prompt)
+            segments = get_prompt_segments_from_graph(prompt)
     except Exception:
         # Corrupt / truncated / non-ComfyUI PNG: treat as "no prompt".
-        text = ""
+        text, segments = "", ()
 
     with _cache_lock:
-        _cache[path] = (signature, text)
+        _cache[path] = (signature, text, segments)
         _cache.move_to_end(path)
         while len(_cache) > _CACHE_MAX_ENTRIES:
             _cache.popitem(last=False)
-    return text
+    return text, segments
+
+
+def get_prompt_search_text(path):
+    """Lower-cased prompt text of a PNG ('' if none). Cached by mtime + size."""
+    return _load_entry(path)[0]
+
+
+def get_prompt_segments(path):
+    """Lower-cased prompt strings of a PNG, one per text input (() if none)."""
+    return _load_entry(path)[1]
 
 
 def clear_cache():
@@ -204,6 +235,59 @@ def clear_cache():
 # Similar-prompt grouping
 # --------------------------------------------------------------------------- #
 
+_BOILERPLATE_MIN_DOCS = 3
+_BOILERPLATE_DISTINCT_RATIO = 0.5
+
+
+def _strip_shared_boilerplate(documents):
+    """Drop text that many *different* images share verbatim.
+
+    Typical case: an LLM prompt-enhancer node whose long meta-prompt is stored
+    in every image made with it. Counting such a string as evidence would put
+    all of those images in one 100% group.
+
+    A string is boilerplate when at least a few images contain it and those
+    images are otherwise different from each other. If they are also identical
+    in all their other text (a plain seed sweep of one prompt), the string is
+    real content and is kept, so true duplicates are still found.
+
+    Documents may carry a "segments" list (one entry per text input); documents
+    without it are left untouched. Returns new dicts with "prompt" rebuilt.
+    """
+    seg_sets = []
+    holders = {}
+    for index, item in enumerate(documents):
+        segments = item.get("segments")
+        normalized = None
+        if segments:
+            normalized = frozenset(
+                " ".join(str(seg).split()) for seg in segments if str(seg).strip()
+            )
+        seg_sets.append(normalized)
+        for seg in normalized or ():
+            holders.setdefault(seg, []).append(index)
+
+    boilerplate = set()
+    for seg, indices in holders.items():
+        if len(indices) < _BOILERPLATE_MIN_DOCS:
+            continue
+        rests = {seg_sets[i] - {seg} for i in indices}
+        if len(rests) / len(indices) >= _BOILERPLATE_DISTINCT_RATIO:
+            boilerplate.add(seg)
+
+    if not boilerplate:
+        return documents
+
+    cleaned = []
+    for item, segs in zip(documents, seg_sets):
+        if segs is None:
+            cleaned.append(item)
+            continue
+        kept = sorted(seg for seg in segs if seg not in boilerplate)
+        cleaned.append({**item, "prompt": "\n".join(kept)})
+    return cleaned
+
+
 def find_similar_prompt_groups(documents, threshold=0.55):
     """Group prompt documents by token-set Jaccard similarity.
 
@@ -211,6 +295,8 @@ def find_similar_prompt_groups(documents, threshold=0.55):
     pairs are generated through an inverted index, avoiding a full all-pairs
     comparison for unrelated prompts.
     """
+    documents = _strip_shared_boilerplate(documents)
+
     docs = []
     for item in documents:
         text = str(item.get("prompt") or "").lower()
