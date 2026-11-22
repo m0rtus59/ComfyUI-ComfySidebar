@@ -568,6 +568,15 @@ export function renderSidebar() {
                     btnDelLabel.textContent = t("Delete File");
                     btnDel.appendChild(btnDelLabel);
 
+                    const btnMove = document.createElement("span");
+                    btnMove.className = "pi pi-folder-open comfy-sidebar-card-action-btn comfy-sidebar-btn-move";
+                    btnMove.title = t("Move selected image to Outputs (Ctrl+Click)");
+                    const btnMoveLabel = document.createElement("span");
+                    btnMoveLabel.className = "comfy-sidebar-move-label";
+                    btnMoveLabel.textContent = t("Move to Outputs");
+                    btnMove.appendChild(btnMoveLabel);
+                    btnMove.style.display = "none";
+
                     attachDeleteConfirmation(btnDel, {
                         idleTitle: t("Remove from batch (Hold Ctrl to delete file from disk)"),
                         confirmTitle: t("Click again to confirm removing from batch"),
@@ -616,7 +625,7 @@ export function renderSidebar() {
                         }
                     });
 
-                    hoverPanel.append(btnImg, btnDel);
+                    hoverPanel.append(btnImg, btnMove, btnDel);
 
                     const leftHoverPanel = document.createElement("div");
                     leftHoverPanel.className = "comfy-sidebar-left-hover-panel";
@@ -675,10 +684,54 @@ export function renderSidebar() {
                         btnCopy,
                         btnFocus,
                         btnDel,
+                        btnMove,
                         firstImgElement: null
                     };
 
                     cardPool.set(cardId, cardObj);
+                }
+
+                if (cardObj.btnMove) {
+                    const canMoveImage = Boolean(
+                        img &&
+                        img.type === "temp" &&
+                        isImageFormat(img.filename || img.url)
+                    );
+
+                    if (canMoveImage) {
+                        cardObj.btnMove.title = t("Move selected image to Outputs (Ctrl+Click)");
+                        cardObj.btnMove.onclick = async (ev) => {
+                            ev.stopPropagation();
+                            if (!ev.ctrlKey && !ev.metaKey) return;
+                            if (cardObj._isMovingTempImage) return;
+
+                            const pid = batchInfo.parentPromptId || batchInfo.pid;
+                            const liveState = store.getPrompt(pid);
+                            const imageToMove = img;
+                            if (!imageToMove || imageToMove.type !== "temp") return;
+
+                            cardObj._isMovingTempImage = true;
+                            cardObj.btnMove.style.opacity = "0.5";
+                            const moved = await moveTempImageToOutput(imageToMove);
+
+                            if (moved?.success) {
+                                updateMovedImageReferences(liveState?.images, imageToMove, moved);
+                                updateMovedImageReferences(liveState?.nodeOutputs, imageToMove, moved);
+                                updateMovedImageReferences(batchInfo.images, imageToMove, moved);
+                                updateMovedImageReferences(batchInfo.nodeOutputs, imageToMove, moved);
+                                if (liveState) store.updatePrompt(pid, liveState);
+                                showNotification(t("Moved selected image to Outputs."), "success", t("Move to Outputs"));
+                                renderSidebar();
+                            } else {
+                                showNotification(t("Failed to move image to Outputs."), "error", t("Move to Outputs"));
+                            }
+
+                            cardObj._isMovingTempImage = false;
+                            cardObj.btnMove.style.opacity = "";
+                        };
+                    } else {
+                        cardObj.btnMove.onclick = null;
+                    }
                 }
 
                 cardObj.placeholder.style.display = "none";
