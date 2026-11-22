@@ -146,15 +146,13 @@ export function findActiveQueueIndicator() {
     const container = findTopbarContainer();
     if (!container) return null;
 
-    const buttons = container.querySelectorAll("button, .p-button, .comfyui-menu-item");
-    for (const btn of buttons) {
-        if (btn.classList.contains("comfy-sidebar-custom-properties-toggle")) continue;
-        const text = (btn.textContent || "").toLowerCase();
-        if (text.includes("active") || text.includes("queued") || text.includes("running") || text.includes("pending")) {
-            return btn;
-        }
-    }
-    return null;
+    // ComfyUI's Active queue control has a distinctive button layout. Match its
+    // structural classes rather than its translated label ("Active", etc.).
+    return container.querySelector(
+        "button.px-3.text-xs.p-2.rounded-lg.h-8, " +
+        ".p-button.px-3.text-xs.p-2.rounded-lg.h-8, " +
+        ".comfyui-menu-item.px-3.text-xs.p-2.rounded-lg.h-8"
+    );
 }
 
 export function findNativeExtensionsPanel() {
