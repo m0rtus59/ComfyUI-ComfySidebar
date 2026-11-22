@@ -18,6 +18,7 @@ How it works
 import json
 import os
 import re
+import struct
 import sys
 import threading
 import zlib
@@ -36,7 +37,7 @@ _MAX_PROMPT_CHUNK_BYTES = 16 * 1024 * 1024
 _MAX_TEXT_CHARS_PER_FILE = 50_000
 
 _CACHE_MAX_ENTRIES = 20_000
-_cache = OrderedDict()  # path -> ((mtime_ns, size), lowercased prompt text, segments)
+_cache = OrderedDict()  # path -> ((mtime_ns, size), lowercased prompt text, segments, (width, height))
 _cache_lock = threading.Lock()
 
 
@@ -152,6 +153,18 @@ def _decode_text_chunk(chunk_type, data, nul):
     return body.decode("utf-8", errors="replace")
 
 
+def read_png_size(fileobj):
+    """Return (width, height) from the IHDR chunk of an open PNG, or (0, 0)."""
+    try:
+        fileobj.seek(0)
+        head = fileobj.read(24)
+        if len(head) == 24 and head[:8] == _PNG_SIGNATURE and head[12:16] == b"IHDR":
+            return struct.unpack(">II", head[16:24])
+    except Exception:
+        pass
+    return (0, 0)
+
+
 def read_png_prompt(fileobj):
     """Return the parsed ``prompt`` JSON from an open PNG file, or None."""
     if fileobj.read(8) != _PNG_SIGNATURE:
@@ -184,22 +197,24 @@ def read_png_prompt(fileobj):
 # --------------------------------------------------------------------------- #
 
 def _load_entry(path):
-    """Return (text, segments) for a PNG, cached by mtime + size."""
+    """Return (text, segments, (width, height)) for a PNG, cached by mtime + size."""
     try:
         st = os.stat(path)
     except OSError:
-        return "", ()
+        return "", (), (0, 0)
     signature = (st.st_mtime_ns, st.st_size)
 
     with _cache_lock:
         hit = _cache.get(path)
         if hit and hit[0] == signature:
             _cache.move_to_end(path)
-            return hit[1], hit[2]
+            return hit[1], hit[2], hit[3]
 
-    text, segments = "", ()
+    text, segments, dims = "", (), (0, 0)
     try:
         with open(path, "rb") as f:
+            dims = read_png_size(f)
+            f.seek(0)
             prompt = read_png_prompt(f)
         if prompt is not None:
             text = get_prompt_search_text_from_graph(prompt)
@@ -209,16 +224,21 @@ def _load_entry(path):
         text, segments = "", ()
 
     with _cache_lock:
-        _cache[path] = (signature, text, segments)
+        _cache[path] = (signature, text, segments, dims)
         _cache.move_to_end(path)
         while len(_cache) > _CACHE_MAX_ENTRIES:
             _cache.popitem(last=False)
-    return text, segments
+    return text, segments, dims
 
 
 def get_prompt_search_text(path):
     """Lower-cased prompt text of a PNG ('' if none). Cached by mtime + size."""
     return _load_entry(path)[0]
+
+
+def get_png_dimensions(path):
+    """(width, height) of a PNG as read from its header, (0, 0) if unknown."""
+    return _load_entry(path)[2]
 
 
 def get_prompt_segments(path):

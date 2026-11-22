@@ -101,52 +101,40 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
             }));
         } catch (_) {}
     };
-    // Masonry layout, same approach as the Gallery/Queue sidebars: flex columns,
-    // each card goes into the currently shortest one so mixed aspect ratios pack
-    // naturally instead of being forced into uniform grid rows.
+    // Justified-row layout: cards flow left to right and wrap like text, each
+    // sized from its real aspect ratio so every card in a row shares a height
+    // and each row fills the width. (Vertical masonry columns looked odd here
+    // because the groups are wide and short, so we read them row by row.)
+    // Dimensions come from the server, so layout is exact before images load.
     const GAP = 8;
+    const ROW_HEIGHT_PER_SIZE = 1.5; // slider value -> target row height in px
     let groupViews = [];
-    const layoutGroup = (view, force = false) => {
-        const width = view.grid.clientWidth;
-        if (!width) return;
-        const cols = Math.max(1, Math.floor((width + GAP) / (Number(cardSize.value) + GAP)));
-        if (!force && cols === view.cols) return;
-        view.cols = cols;
-        const columns = Array.from({ length: cols }, () => {
-            const col = document.createElement("div");
-            col.className = "comfy-sidebar-masonry-col";
-            Object.assign(col.style, {
-                flex: "1", display: "flex", flexDirection: "column", gap: GAP + "px", minWidth: "0"
-            });
-            return col;
-        });
-        view.grid.replaceChildren(...columns);
-        const heights = new Array(cols).fill(0);
-        view.cards.forEach(card => {
-            let shortest = 0;
-            for (let c = 1; c < cols; c++) if (heights[c] < heights[shortest]) shortest = c;
-            columns[shortest].appendChild(card);
-            heights[shortest] += (card.offsetHeight || 160) + GAP;
-        });
+    let cardChrome = null; // horizontal/vertical padding+border of a card
+    const measureChrome = (card) => {
+        const cs = getComputedStyle(card);
+        const px = (v) => parseFloat(v) || 0;
+        return {
+            h: px(cs.paddingLeft) + px(cs.paddingRight) + px(cs.borderLeftWidth) + px(cs.borderRightWidth),
+            v: px(cs.paddingTop) + px(cs.paddingBottom) + px(cs.borderTopWidth) + px(cs.borderBottomWidth)
+        };
     };
-    const relayoutAll = () => groupViews.forEach(view => layoutGroup(view));
+    const sizeCard = (card) => {
+        const rowHeight = Number(cardSize.value) * ROW_HEIGHT_PER_SIZE;
+        const chrome = cardChrome || { h: 18, v: 18 };
+        const basis = card._aspect * Math.max(20, rowHeight - chrome.v) + chrome.h;
+        // Grow in proportion to width so cards in a row keep equal heights.
+        card.style.flex = `${basis} 1 ${basis}px`;
+    };
+    const resizeAllCards = () => {
+        const sample = groupViews.flatMap(view => view.cards)[0];
+        if (sample?.isConnected) cardChrome = measureChrome(sample);
+        groupViews.forEach(view => view.cards.forEach(sizeCard));
+    };
     const updateCardSize = () => {
-        relayoutAll();
+        resizeAllCards();
         saveSettings();
     };
     cardSize.addEventListener("input", updateCardSize);
-    if (window.ResizeObserver) {
-        let resizeFrame = 0;
-        const resizeObserver = new ResizeObserver(() => {
-            cancelAnimationFrame(resizeFrame);
-            resizeFrame = requestAnimationFrame(relayoutAll);
-        });
-        resizeObserver.observe(results);
-        overlay.addCleanup(() => {
-            cancelAnimationFrame(resizeFrame);
-            resizeObserver.disconnect();
-        });
-    }
 
     const loadGroups = async () => {
         if (requestController) requestController.abort();
@@ -191,7 +179,7 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
                     display: "flex", justifyContent: "space-between", fontSize: "11px", opacity: ".8"
                 });
                 const groupName = document.createElement("strong");
-                const view = { grid: null, cards: [], cols: 0 };
+                const view = { grid: null, cards: [] };
                 const updateGroupTitle = () => {
                     groupName.textContent = t("Group") + " " + (groupIndex + 1) + " · " + view.cards.length + " " + t("images");
                 };
@@ -213,9 +201,15 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
                 const grid = document.createElement("div");
                 grid.className = "comfy-sidebar-similar-grid";
                 Object.assign(grid.style, {
-                    display: "flex", gap: GAP + "px", alignItems: "flex-start", width: "100%"
+                    display: "flex", flexWrap: "wrap", gap: GAP + "px", alignItems: "flex-start", width: "100%"
                 });
                 view.grid = grid;
+                // Zero-height spacer soaking up the free space on the last row so
+                // it keeps natural card sizes instead of stretching to full width.
+                const tailSpacer = document.createElement("div");
+                Object.assign(tailSpacer.style, {
+                    flex: "1000000 1 0px", height: "0", marginTop: "-" + GAP + "px"
+                });
 
                 const previewAssets = group.items.map(item => ({
                     filename: item.filename,
@@ -227,13 +221,16 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
                     const card = document.createElement("div");
                     card.className = "comfy-sidebar-card completed";
                     Object.assign(card.style, {
-                        position: "relative", cursor: "pointer", minWidth: "0"
+                        position: "relative", cursor: "pointer", minWidth: "0", boxSizing: "border-box"
                     });
+                    card._aspect = item.width > 0 && item.height > 0 ? item.width / item.height : 1;
 
                     const previewUrl = "/view?filename=" + encodeURIComponent(item.filename) +
                         "&type=output&subfolder=" + encodeURIComponent(item.subfolder || "");
                     const gridContent = document.createElement("div");
                     gridContent.style.width = "100%";
+                    // Reserve the right height before the image arrives.
+                    if (item.width > 0 && item.height > 0) gridContent.style.aspectRatio = item.width + " / " + item.height;
                     const cardObj = {
                         element: card,
                         grid: gridContent,
@@ -292,12 +289,15 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
                     actions.appendChild(deleteButton);
                     card.append(gridContent, nameBadge, actions);
                     view.cards.push(card);
+                    sizeCard(card);
+                    grid.appendChild(card);
                 });
+                grid.appendChild(tailSpacer);
                 updateGroupTitle();
                 section.append(groupHeader, grid);
                 results.appendChild(section);
                 groupViews.push(view);
-                layoutGroup(view, true);
+                if (!cardChrome) resizeAllCards();
             });
         } catch (error) {
             if (error?.name === "AbortError" || id !== requestId) return;

@@ -376,6 +376,8 @@ def _find_similar_prompts(subfolder, threshold, cancel):
                 "subfolder": _relative_subfolder(root, output_dir),
                 "mtime": stat.st_mtime,
                 "segments": segments,
+                "width": prompt_search.get_png_dimensions(path)[0],
+                "height": prompt_search.get_png_dimensions(path)[1],
                 "prompt": "\n".join(segments)
             })
 
