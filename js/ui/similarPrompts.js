@@ -41,7 +41,7 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
     const title = document.createElement("strong");
     title.textContent = t("Similar prompt groups");
     const status = document.createElement("span");
-    Object.assign(status.style, { marginLeft: "auto", fontSize: "11px", opacity: "0.65" });
+    Object.assign(status.style, { marginLeft: "auto", marginRight: "44px", fontSize: "11px", opacity: "0.65" });
     // SidebarOverlay supplies the same round close control used by previews.
     heading.append(title, status);
 
@@ -59,7 +59,7 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
     threshold.max = "90";
     threshold.step = "5";
     threshold.value = "55";
-    Object.assign(threshold.style, { verticalAlign: "middle", accentColor: "var(--p-primary-color, var(--fg-color, #888))", cursor: "pointer" });
+    Object.assign(threshold.style, { verticalAlign: "middle", accentColor: "var(--primary, var(--p-primary-color, var(--primary-color, var(--accent, currentColor))))", cursor: "pointer" });
     const thresholdValue = document.createElement("span");
     Object.assign(thresholdValue.style, { alignSelf: "center", minWidth: "34px", fontVariantNumeric: "tabular-nums" });
     thresholdValue.textContent = "55%";
@@ -75,7 +75,7 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
     cardSize.max = "280";
     cardSize.step = "10";
     cardSize.value = "150";
-    Object.assign(cardSize.style, { verticalAlign: "middle", accentColor: "var(--p-primary-color, var(--fg-color, #888))", cursor: "pointer" });
+    Object.assign(cardSize.style, { verticalAlign: "middle", accentColor: "var(--primary, var(--p-primary-color, var(--primary-color, var(--accent, currentColor))))", cursor: "pointer" });
     cardSizeLabel.appendChild(cardSize);
     controls.appendChild(cardSizeLabel);
 
