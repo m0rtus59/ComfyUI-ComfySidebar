@@ -159,5 +159,21 @@
   "Moved selected image to Outputs.": "Moved selected image to Outputs.",
   "Failed to move image to Outputs.": "Failed to move image to Outputs.",
   "Move to Outputs": "Move to Outputs",
-  "Click again to clear all history": "Click again to clear all history"
+  "Click again to clear all history": "Click again to clear all history",
+  "Card size": "Card size",
+  "Click again to confirm deleting this image": "Click again to confirm deleting this image",
+  "Could not scan prompts": "Could not scan prompts",
+  "Delete current image": "Delete current image",
+  "Delete file": "Delete file",
+  "Find Similar Prompts": "Find Similar Prompts",
+  "Group": "Group",
+  "Next image (→)": "Next image (→)",
+  "No similar prompt groups found at this threshold.": "No similar prompt groups found at this threshold.",
+  "Previous image (←)": "Previous image (←)",
+  "Scanning prompts...": "Scanning prompts...",
+  "Similar prompt groups": "Similar prompt groups",
+  "Similarity threshold": "Similarity threshold",
+  "images": "images",
+  "similarity": "similarity",
+  "{count} groups · {scanned} PNGs scanned": "{count} groups · {scanned} PNGs scanned"
 }
