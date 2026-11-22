@@ -142,5 +142,21 @@
   "Permanently deleted {count} TEMP item(s).": "TEMP 항목 {count}개를 영구 삭제했습니다.",
   "Could not delete {count} TEMP item(s).": "TEMP 항목 {count}개를 삭제할 수 없습니다.",
   "TEMP cleanup stopped because a workflow entered the queue.": "워크플로가 대기열에 추가되어 TEMP 정리를 중단했습니다.",
-  "Click again to clear all history": "모든 기록을 지우려면 한 번 더 클릭하세요"
+  "Click again to clear all history": "모든 기록을 지우려면 한 번 더 클릭하세요",
+  "Card size": "카드 크기",
+  "Click again to confirm deleting this image": "이 이미지를 삭제하려면 다시 클릭하세요",
+  "Could not scan prompts": "프롬프트를 스캔할 수 없습니다",
+  "Delete current image": "현재 이미지 삭제",
+  "Delete file": "파일 삭제",
+  "Find Similar Prompts": "유사한 프롬프트 찾기",
+  "Group": "그룹",
+  "Next image (→)": "다음 이미지 (→)",
+  "No similar prompt groups found at this threshold.": "이 임계값에서는 유사한 프롬프트 그룹을 찾지 못했습니다.",
+  "Previous image (←)": "이전 이미지 (←)",
+  "Scanning prompts...": "프롬프트 스캔 중...",
+  "Similar prompt groups": "유사한 프롬프트 그룹",
+  "Similarity threshold": "유사도 임계값",
+  "images": "개 이미지",
+  "similarity": "유사도",
+  "{count} groups · {scanned} PNGs scanned": "그룹 {count}개 · PNG {scanned}개 스캔 완료"
 }
