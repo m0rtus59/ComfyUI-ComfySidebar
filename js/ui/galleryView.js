@@ -552,6 +552,8 @@ async function openSimilarPromptsDialog() {
 
     let requestId = 0;
     let requestController = null;
+    setupSpotlightTracker(results, ".comfy-sidebar-card");
+
     const loadGroups = async () => {
         if (requestController) requestController.abort();
         const controller = new AbortController();
@@ -628,14 +630,14 @@ async function openSimilarPromptsDialog() {
                     Object.assign(actions.style, { position: "absolute", right: "4px", bottom: "4px", zIndex: "2" });
                     const deleteButton = document.createElement("span");
                     deleteButton.className = "pi pi-trash comfy-sidebar-card-action-btn comfy-sidebar-btn-del";
-                    deleteButton.title = t("Delete file (Hold Ctrl to delete file from disk)");
+                    deleteButton.title = t("Delete file");
                     attachDeleteConfirmation(deleteButton, {
-                        idleTitle: t("Delete file (Hold Ctrl to delete file from disk)"),
+                        idleTitle: t("Delete file"),
                         confirmTitle: t("Click again to confirm deleting file"),
                         confirmDiskTitle: t("Ctrl+Click again to delete file from DISK / TRASH"),
                         onConfirm: async (deleteFromDisk) => {
                             const asset = { filename: item.filename, subfolder: item.subfolder || "", type: "output" };
-                            const action = await deleteFileOnServer(asset, deleteFromDisk);
+                            const action = await deleteFileOnServer(asset);
                             if (action && action !== "missing") {
                                 showNotification(action === "trashed" ? t("Moved file to Recycle Bin.") : t("Permanently deleted file."), "success", t("Delete File"));
                             }
