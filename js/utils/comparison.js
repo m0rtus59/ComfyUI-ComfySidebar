@@ -1,4 +1,4 @@
-import { isVideoFormat, is3DFormat, isAudioFormat, getFilenameFromUrl } from "./utils.js";
+import { isVideoFormat, is3DFormat, isAudioFormat, getFilenameFromUrl, isImageFormat, findImagesInOutputs } from "./utils.js";
 import { create3DViewer } from "./viewer3d.js";
 import { createTextReader } from "./text_reader.js";
 import { stopAllAudioPlayback } from "../ui/audioController.js";
@@ -64,7 +64,14 @@ export function focusRuntimePreviewTarget() {
         if (activePrompt && activePrompt.status === PromptStatus.ACTIVE) {
             const previewSrc = activePrompt._previewBlobUrl || 
                 (activePrompt.images && activePrompt.images.length > 0 ? (activePrompt.images[0].url || activePrompt.images[0].filename) : null);
-            const previewImages = (activePrompt.images || []).filter(img => isImageFormat(img.filename || img.url));
+            const promptImages = [
+                ...(activePrompt.images || []),
+                ...(activePrompt.nodeOutputs ? findImagesInOutputs(activePrompt.nodeOutputs, activePrompt.workflow) : [])
+            ];
+            const previewImages = promptImages.filter((img, index, all) =>
+                img && isImageFormat(img.filename || img.url) &&
+                all.findIndex(other => other && (other.filename || other.url) === (img.filename || img.url)) === index
+            );
             const previewUrls = previewImages.map(img => img.url || `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || "output"}&subfolder=${encodeURIComponent(img.subfolder || "")}${activePrompt.pid ? "&rand=" + encodeURIComponent(activePrompt.pid) : ""}`);
             const startIndex = previewImages.findIndex(img => img.url === previewSrc || img.filename === activePrompt.images?.[0]?.filename);
             showFullscreenPreview(previewUrls.length ? previewUrls : [previewSrc || ""], false, activePrompt.pid, Math.max(0, startIndex));
@@ -80,7 +87,14 @@ export function focusRuntimePreviewTarget() {
             const randParam = latest.pid ? `&rand=${encodeURIComponent(latest.pid)}` : "";
             const src = latest._previewBlobUrl || 
                 (firstImg ? (firstImg.url || `/view?filename=${encodeURIComponent(firstImg.filename)}&type=${firstImg.type || 'output'}&subfolder=${encodeURIComponent(firstImg.subfolder || '')}${randParam}`) : "");
-            const previewImages = (latest.images || []).filter(img => isImageFormat(img.filename || img.url));
+            const promptImages = [
+                ...(latest.images || []),
+                ...(latest.nodeOutputs ? findImagesInOutputs(latest.nodeOutputs, latest.workflow) : [])
+            ];
+            const previewImages = promptImages.filter((img, index, all) =>
+                img && isImageFormat(img.filename || img.url) &&
+                all.findIndex(other => other && (other.filename || other.url) === (img.filename || img.url)) === index
+            );
             const previewUrls = previewImages.map(img => img.url || `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || "output"}&subfolder=${encodeURIComponent(img.subfolder || "")}${randParam}`);
             showFullscreenPreview(previewUrls.length ? previewUrls : [src || ""], false, latest.pid, 0);
         } else {
@@ -916,18 +930,22 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}, navigationItems =
             mediaB = null;
         }
         slider.style.display = "none";
-        mediaA.style.display = "none";
-        mediaA.src = targetSrc;
-        mediaA.onload = () => {
+        // Keep the current frame visible while the next image loads to avoid a blank flash.
+        const preload = new Image();
+        preload.onload = () => {
+            mediaA.onload = null;
+            mediaA.onerror = () => showPlaceholder();
+            mediaA.src = targetSrc;
             hidePlaceholder();
             infoText.style.color = "#aaa";
             infoText.textContent = t("Click image to zoom (100%/Fit) | Shift+Click another card to compare.");
             syncImageScales();
         };
-        if (mediaA.complete && mediaA.naturalWidth) {
-            hidePlaceholder();
-            syncImageScales();
-        }
+        preload.onerror = () => {
+            mediaA.onerror = () => showPlaceholder();
+            mediaA.src = targetSrc;
+        };
+        preload.src = targetSrc;
         if (!isZoomed) {
             scrollContainer.scrollTop = 0;
             scrollContainer.scrollLeft = 0;
