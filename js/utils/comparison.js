@@ -903,7 +903,7 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}, navigationItems =
 
     const navButtonStyle = {
         position: "absolute", top: "50%", transform: "translateY(-50%)",
-        width: "42px", height: "42px", borderRadius: "50%",
+        width: "30px", height: "30px", borderRadius: "50%",
         border: "1px solid var(--border-color, rgba(255,255,255,.18))",
         background: "color-mix(in srgb, var(--card, #181818) 88%, transparent)",
         color: "var(--fg-color, #eee)", fontSize: "18px", cursor: "pointer",
