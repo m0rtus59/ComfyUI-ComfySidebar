@@ -62,5 +62,8 @@
   "Comfy Sidebar_Quick Workflow Picker": {
     "name": "בוחר תהליכי עבודה מהיר",
     "tooltip": "הצג בוחר תהליכי עבודה מהיר בעת יצירת תהליך עבודה ריק חדש"
+  },
+  "Comfy Sidebar_Hide Junk_Run on Comfy Cloud": {
+    "name": "הסתרת כפתור ההפעלה ב-Comfy Cloud"
   }
 }
