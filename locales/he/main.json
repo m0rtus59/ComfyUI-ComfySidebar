@@ -142,5 +142,21 @@
   "Permanently deleted {count} TEMP item(s).": "{count} פריטי TEMP נמחקו לצמיתות.",
   "Could not delete {count} TEMP item(s).": "לא ניתן למחוק {count} פריטי TEMP.",
   "TEMP cleanup stopped because a workflow entered the queue.": "ניקוי TEMP נעצר כי תהליך עבודה נוסף לתור.",
-  "Click again to clear all history": "לחצו שוב כדי לנקות את כל ההיסטוריה"
+  "Click again to clear all history": "לחצו שוב כדי לנקות את כל ההיסטוריה",
+  "Card size": "גודל הכרטיס",
+  "Click again to confirm deleting this image": "לחצו שוב כדי לאשר את מחיקת התמונה הזו",
+  "Could not scan prompts": "לא ניתן לסרוק את הפרומפטים",
+  "Delete current image": "מחיקת התמונה הנוכחית",
+  "Delete file": "מחיקת הקובץ",
+  "Find Similar Prompts": "מציאת פרומפטים דומים",
+  "Group": "קבוצה",
+  "Next image (→)": "התמונה הבאה (→)",
+  "No similar prompt groups found at this threshold.": "לא נמצאו קבוצות של פרומפטים דומים בסף הזה.",
+  "Previous image (←)": "התמונה הקודמת (←)",
+  "Scanning prompts...": "סורק פרומפטים...",
+  "Similar prompt groups": "קבוצות פרומפטים דומים",
+  "Similarity threshold": "סף הדמיון",
+  "images": "תמונות",
+  "similarity": "דמיון",
+  "{count} groups · {scanned} PNGs scanned": "{count} קבוצות · נסרקו {scanned} קובצי PNG"
 }
