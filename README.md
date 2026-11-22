@@ -10,7 +10,7 @@ A compact and powerful layout overhaul for ComfyUI that makes generation results
   
 * **Left or right side:** Choose which side the sidebar appears on in ComfyUI settings.
 
-* **Simplified mouse-friendly workflow** with drag-and-drop support and convenient actions for moving results back into the workflow, opening files, and managing outputs. Hold `Ctrl` for extra actions such as opening an image's location or deleting it directly from your device.
+* **Simplified mouse-friendly workflow** with drag-and-drop support and convenient actions for moving results back into the workflow, opening files, and managing outputs. Hold `Ctrl` for extra actions such as opening an image's location, deleting it directly from your device, or moving a temporary image to your Outputs folder.
 
   <img src="assets/controls.png" alt="ComfySidebar controls overview">
 
