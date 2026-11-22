@@ -194,13 +194,17 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
                         type: "output",
                         url: previewUrl
                     };
+                    const previewAsset = previewAssets.find(candidate =>
+                        candidate.filename === item.filename &&
+                        (candidate.subfolder || "") === (item.subfolder || "")
+                    );
+                    if (previewAsset) previewAsset._onPreviewAssetDeleted = () => card.remove();
                     // Use Gallery's media renderer so the image keeps its native
                     // aspect ratio and the spotlight remains on the card surface.
                     renderCardImages(cardObj, {
                         pid: `similar-${groupIndex}-${item.filename}`,
                         images: [asset],
                         _previewImages: previewAssets,
-                        _onPreviewAssetDeleted: () => card.remove(),
                         workflow: null
                     });
 
