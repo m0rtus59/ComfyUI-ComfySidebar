@@ -3,31 +3,42 @@ import { deleteFileOnServer } from "./mediaActions.js";
 import { attachDeleteConfirmation, setupSpotlightTracker } from "../utils/utils.js";
 import { showNotification } from "../utils/nodeRenumber.js";
 import { renderCardImages } from "./mediaPreview.js";
+import { SidebarOverlay } from "../utils/overlay.js";
 
 export async function openSimilarPromptsDialog(currentSubfolder = "") {
-    // A native modal dialog enters the browser's top layer, above ComfyUI's
-    // sidebars and floating panels, and supplies the dimmed backdrop.
-    const dialog = document.createElement("dialog");
-    dialog.className = "comfy-sidebar-similar-prompts-dialog";
-    Object.assign(dialog.style, {
-        width: "min(1180px, 92vw)", maxWidth: "calc(100vw - 32px)",
-        height: "min(82vh, 900px)", maxHeight: "calc(100vh - 32px)",
+    let requestId = 0;
+    let requestController = null;
+    let debounce = null;
+
+    const closeGroupViewer = () => {
+        requestController?.abort();
+        clearTimeout(debounce);
+    };
+
+    // The group viewer shares the same overlay system as fullscreen previews.
+    // A preview opened from a card is appended later and becomes the top layer.
+    const overlay = new SidebarOverlay({
+        className: "comfy-sidebar-similar-prompts-overlay",
+        background: "rgba(0, 0, 0, 0.58)",
+        zIndex: 1000,
+        closeButton: false,
+        onUserClose: closeGroupViewer
+    });
+
+    const panel = document.createElement("div");
+    panel.className = "comfy-sidebar-similar-prompts-panel";
+    Object.assign(panel.style, {
+        position: "relative", zIndex: "20", pointerEvents: "auto",
+        width: "min(1180px, 92vw)", height: "min(82vh, 900px)",
+        maxWidth: "calc(100vw - 32px)", maxHeight: "calc(100vh - 32px)",
         minWidth: "320px", padding: "16px", boxSizing: "border-box",
         border: "1px solid var(--border-color, rgba(255,255,255,.16))",
         borderRadius: "10px", background: "var(--comfy-menu-bg, var(--comfy-input-bg, #222))",
         color: "var(--fg-color, var(--foreground, #eee))",
         boxShadow: "var(--shadow-lg, 0 18px 60px rgba(0,0,0,.55))",
-        overflow: "hidden"
+        overflow: "hidden", userSelect: "auto"
     });
-
-    const backdropStyle = document.createElement("style");
-    backdropStyle.textContent = `
-        dialog.comfy-sidebar-similar-prompts-dialog::backdrop {
-            background: rgba(0, 0, 0, 0.58);
-            backdrop-filter: blur(2px);
-        }
-    `;
-    document.head.appendChild(backdropStyle);
+    overlay.container.appendChild(panel);
 
     const content = document.createElement("div");
     Object.assign(content.style, {
@@ -51,7 +62,7 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
         width: "30px", height: "30px", padding: "0", border: "0", borderRadius: "5px",
         background: "transparent", color: "inherit", cursor: "pointer", fontSize: "22px"
     });
-    closeButton.addEventListener("click", () => dialog.close());
+    closeButton.addEventListener("click", () => overlay.destroy());
     heading.append(title, status, closeButton);
 
     const controls = document.createElement("div");
@@ -89,18 +100,8 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
         display: "flex", flexDirection: "column", gap: "12px"
     });
     content.append(heading, controls, results);
-    dialog.appendChild(content);
-    dialog.addEventListener("click", (event) => {
-        if (event.target === dialog) dialog.close();
-    });
-
-    let requestId = 0;
-    let requestController = null;
-    dialog.addEventListener("close", () => {
-        requestController?.abort();
-        dialog.remove();
-        backdropStyle.remove();
-    });
+    panel.appendChild(content);
+    overlay.addCleanup(closeGroupViewer);
     setupSpotlightTracker(results, ".comfy-sidebar-card");
 
     const updateCardSize = () => results.querySelectorAll(".comfy-sidebar-similar-grid").forEach(grid => {
@@ -126,7 +127,7 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
             });
             if (!response.ok) throw new Error("HTTP " + response.status);
             const data = await response.json();
-            if (id !== requestId || !dialog.open) return;
+            if (id !== requestId || overlay.destroyed) return;
             status.textContent = t("{count} groups · {scanned} PNGs scanned", {
                 count: data.groups?.length || 0, scanned: data.scanned || 0
             });
@@ -253,14 +254,11 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
         }
     };
 
-    let debounce = null;
     threshold.addEventListener("input", () => {
         thresholdValue.textContent = threshold.value + "%";
         clearTimeout(debounce);
         debounce = setTimeout(loadGroups, 250);
     });
 
-    document.body.appendChild(dialog);
-    dialog.showModal();
     await loadGroups();
 }
