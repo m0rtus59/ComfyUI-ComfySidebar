@@ -101,13 +101,52 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
             }));
         } catch (_) {}
     };
-    const updateCardSize = () => {
-        results.querySelectorAll(".comfy-sidebar-similar-grid").forEach(grid => {
-            grid.style.gridTemplateColumns = `repeat(auto-fill, minmax(${cardSize.value}px, 1fr))`;
+    // Masonry layout, same approach as the Gallery/Queue sidebars: flex columns,
+    // each card goes into the currently shortest one so mixed aspect ratios pack
+    // naturally instead of being forced into uniform grid rows.
+    const GAP = 8;
+    let groupViews = [];
+    const layoutGroup = (view, force = false) => {
+        const width = view.grid.clientWidth;
+        if (!width) return;
+        const cols = Math.max(1, Math.floor((width + GAP) / (Number(cardSize.value) + GAP)));
+        if (!force && cols === view.cols) return;
+        view.cols = cols;
+        const columns = Array.from({ length: cols }, () => {
+            const col = document.createElement("div");
+            col.className = "comfy-sidebar-masonry-col";
+            Object.assign(col.style, {
+                flex: "1", display: "flex", flexDirection: "column", gap: GAP + "px", minWidth: "0"
+            });
+            return col;
         });
+        view.grid.replaceChildren(...columns);
+        const heights = new Array(cols).fill(0);
+        view.cards.forEach(card => {
+            let shortest = 0;
+            for (let c = 1; c < cols; c++) if (heights[c] < heights[shortest]) shortest = c;
+            columns[shortest].appendChild(card);
+            heights[shortest] += (card.offsetHeight || 160) + GAP;
+        });
+    };
+    const relayoutAll = () => groupViews.forEach(view => layoutGroup(view));
+    const updateCardSize = () => {
+        relayoutAll();
         saveSettings();
     };
     cardSize.addEventListener("input", updateCardSize);
+    if (window.ResizeObserver) {
+        let resizeFrame = 0;
+        const resizeObserver = new ResizeObserver(() => {
+            cancelAnimationFrame(resizeFrame);
+            resizeFrame = requestAnimationFrame(relayoutAll);
+        });
+        resizeObserver.observe(results);
+        overlay.addCleanup(() => {
+            cancelAnimationFrame(resizeFrame);
+            resizeObserver.disconnect();
+        });
+    }
 
     const loadGroups = async () => {
         if (requestController) requestController.abort();
@@ -116,6 +155,7 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
         const id = ++requestId;
         status.textContent = t("Scanning prompts...");
         results.replaceChildren();
+        groupViews = [];
         thresholdValue.textContent = threshold.value + "%";
         try {
             const params = new URLSearchParams({
@@ -151,7 +191,21 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
                     display: "flex", justifyContent: "space-between", fontSize: "11px", opacity: ".8"
                 });
                 const groupName = document.createElement("strong");
-                groupName.textContent = t("Group") + " " + (groupIndex + 1) + " · " + group.items.length + " " + t("images");
+                const view = { grid: null, cards: [], cols: 0 };
+                const updateGroupTitle = () => {
+                    groupName.textContent = t("Group") + " " + (groupIndex + 1) + " · " + view.cards.length + " " + t("images");
+                };
+                const removeCard = (card) => {
+                    card.remove();
+                    const at = view.cards.indexOf(card);
+                    if (at >= 0) view.cards.splice(at, 1);
+                    if (!view.cards.length) {
+                        section.remove();
+                        groupViews = groupViews.filter(v => v !== view);
+                    } else {
+                        updateGroupTitle();
+                    }
+                };
                 const score = document.createElement("span");
                 score.textContent = group.similarity + "% " + t("similarity");
                 groupHeader.append(groupName, score);
@@ -159,10 +213,9 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
                 const grid = document.createElement("div");
                 grid.className = "comfy-sidebar-similar-grid";
                 Object.assign(grid.style, {
-                    display: "grid",
-                    gridTemplateColumns: `repeat(auto-fill, minmax(${cardSize.value}px, 1fr))`,
-                    gap: "8px"
+                    display: "flex", gap: GAP + "px", alignItems: "flex-start", width: "100%"
                 });
+                view.grid = grid;
 
                 const previewAssets = group.items.map(item => ({
                     filename: item.filename,
@@ -170,7 +223,7 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
                     type: "output"
                 }));
 
-                group.items.forEach(item => {
+                group.items.forEach((item, itemIndex) => {
                     const card = document.createElement("div");
                     card.className = "comfy-sidebar-card completed";
                     Object.assign(card.style, {
@@ -194,11 +247,7 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
                         type: "output",
                         url: previewUrl
                     };
-                    const previewAsset = previewAssets.find(candidate =>
-                        candidate.filename === item.filename &&
-                        (candidate.subfolder || "") === (item.subfolder || "")
-                    );
-                    if (previewAsset) previewAsset._onPreviewAssetDeleted = () => card.remove();
+                    previewAssets[itemIndex]._onPreviewAssetDeleted = () => removeCard(card);
                     // Use Gallery's media renderer so the image keeps its native
                     // aspect ratio and the spotlight remains on the card surface.
                     renderCardImages(cardObj, {
@@ -237,15 +286,18 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
                                     "success", t("Delete File")
                                 );
                             }
-                            if (action) card.remove();
+                            if (action) removeCard(card);
                         }
                     });
                     actions.appendChild(deleteButton);
                     card.append(gridContent, nameBadge, actions);
-                    grid.appendChild(card);
+                    view.cards.push(card);
                 });
+                updateGroupTitle();
                 section.append(groupHeader, grid);
                 results.appendChild(section);
+                groupViews.push(view);
+                layoutGroup(view, true);
             });
         } catch (error) {
             if (error?.name === "AbortError" || id !== requestId) return;
@@ -267,4 +319,5 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
     });
 
     await loadGroups();
+    return overlay;
 }

@@ -17,6 +17,7 @@ How it works
 
 import json
 import os
+import re
 import threading
 import zlib
 from collections import OrderedDict
@@ -210,8 +211,6 @@ def find_similar_prompt_groups(documents, threshold=0.55):
     pairs are generated through an inverted index, avoiding a full all-pairs
     comparison for unrelated prompts.
     """
-    import re
-
     docs = []
     for item in documents:
         text = str(item.get("prompt") or "").lower()
@@ -242,13 +241,16 @@ def find_similar_prompt_groups(documents, threshold=0.55):
         for token in doc["_tokens"]:
             inverted.setdefault(token, []).append(index)
 
-    candidates = set()
+    # Count shared tokens per candidate pair straight from the inverted index.
+    # Jaccard then needs no set intersection/union: |A∪B| = |A| + |B| - shared.
+    overlaps = {}
     for indices in inverted.values():
         if len(indices) > 500:
             continue
         for offset, left in enumerate(indices):
             for right in indices[offset + 1:]:
-                candidates.add((left, right))
+                key = (left, right)
+                overlaps[key] = overlaps.get(key, 0) + 1
 
     parent = list(range(len(docs)))
     rank = [0] * len(docs)
@@ -270,11 +272,15 @@ def find_similar_prompt_groups(documents, threshold=0.55):
             rank[left_root] += 1
 
     scores = {}
-    for left, right in candidates:
-        a, b = docs[left]["_tokens"], docs[right]["_tokens"]
-        if not a or not b:
+    sizes = [len(doc["_tokens"]) for doc in docs]
+    for (left, right), shared in overlaps.items():
+        size_a, size_b = sizes[left], sizes[right]
+        if not size_a or not size_b:
             continue
-        score = len(a & b) / len(a | b)
+        # Jaccard can never exceed min/max of the set sizes: cheap early exit.
+        if min(size_a, size_b) / max(size_a, size_b) < threshold:
+            continue
+        score = shared / (size_a + size_b - shared)
         if score >= threshold:
             scores[(left, right)] = score
             union(left, right)

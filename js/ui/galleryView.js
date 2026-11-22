@@ -1,6 +1,5 @@
 import { SettingIds, PromptStatus } from "../core/constants.js";
 import { t } from "../core/i18n.js";
-import { showFullscreenPreview } from "../utils/comparison.js";
 import { deleteFileOnServer, openFileOrFolder, copyImageToClipboard } from "./mediaActions.js";
 import { extractWorkflowFromPng, isImageFormat, animateCardRemoval, getScrollContainer, calculateGridColumns, downloadJson, setupSpotlightTracker, attachDeleteConfirmation } from "../utils/utils.js";
 import { getSetting } from "../core/settings.js";
@@ -10,6 +9,7 @@ import { openSimilarPromptsDialog } from "./similarPrompts.js";
 
 let galleryContainerEl = null;
 let cardStackEl = null;
+let similarPromptsDialog = null;
 let scrollToTopBtnEl = null;
 let currentColumnCount = 1;
 let currentSubfolder = "";
@@ -509,8 +509,6 @@ async function navigateToSubfolder(subfolder) {
     renderGallery();
 }
 
-
-
 export function setupGalleryView() {
     const container = document.createElement("div");
     galleryContainerEl = container;
@@ -587,7 +585,10 @@ export function setupGalleryView() {
         renderGallery();
     });
 
-    const btnSimilar = createHeaderBtn("pi pi-clone", t("Find Similar Prompts"), () => openSimilarPromptsDialog(currentSubfolder));
+    const btnSimilar = createHeaderBtn("pi pi-clone", t("Find Similar Prompts"), async () => {
+        if (similarPromptsDialog && !similarPromptsDialog.destroyed) return;
+        similarPromptsDialog = await openSimilarPromptsDialog(currentSubfolder);
+    });
     actionsGroup.append(btnSort, btnUp, btnOpenFolder, btnSimilar, btnRefresh);
     standardHeader.appendChild(actionsGroup);
 
@@ -734,7 +735,7 @@ export function teardownGalleryView() {
         galleryResizeObserver = null;
     }
     if (similarPromptsDialog) {
-        similarPromptsDialog.element.remove();
+        similarPromptsDialog.destroy();
         similarPromptsDialog = null;
     }
     // Reset header-reveal state so a re-opened gallery starts with a visible header
