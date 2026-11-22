@@ -974,7 +974,7 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}, navigationItems =
     deleteIcon.className = "pi pi-trash";
     Object.assign(deleteIcon.style, {
         display: "block", lineHeight: "1", pointerEvents: "none",
-        transform: "translateX(-0.75px)"
+        transform: "none"
     });
     deleteButton.appendChild(deleteIcon);
     attachDeleteConfirmation(deleteButton, {
