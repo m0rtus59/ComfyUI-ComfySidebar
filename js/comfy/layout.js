@@ -454,6 +454,10 @@ function syncAvatarVisibility() {
             styleEl = document.createElement("style");
             styleEl.id = STYLE_AVATAR_ID;
             styleEl.textContent = `
+                /* Current ComfyUI profile/avatar control. Match stable class tokens,
+                   not its localized tooltip or accessible label. */
+                button[class~="hover:bg-transparent"][class~="p-1"][class~="text-xs"][class~="rounded-lg"][class~="h-8"][class~="text-muted-foreground"][class~="bg-transparent"],
+                [role="button"][class~="hover:bg-transparent"][class~="p-1"][class~="text-xs"][class~="rounded-lg"][class~="h-8"][class~="text-muted-foreground"][class~="bg-transparent"],
                 img[alt*="User Avatar"],
                 img[alt*="user avatar"],
                 button:has(img[alt*="User Avatar"]),
