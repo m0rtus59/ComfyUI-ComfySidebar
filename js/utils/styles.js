@@ -16,7 +16,7 @@ export function injectStyles() {
         .comfy-sidebar-card:hover { 
             border-color: color-mix(in srgb, var(--border, var(--border-color, #555)) 50%, var(--foreground, var(--fg-color, #fff)) 50%) !important; 
             background: color-mix(in srgb, var(--card, var(--secondary, var(--p-surface-800, var(--comfy-menu-bg, #262626)))) 85%, var(--foreground, var(--fg-color, #fff)) 15%) !important;
-            transition: border-color 0.2s, background-color 0.2s;
+            transition: border-color 0.1s ease-out, background-color 0.1s ease-out;
         }
 
         /* Border & Frame Spotlight (Uses the theme's main hue) */
@@ -32,7 +32,8 @@ export function injectStyles() {
                 transparent 70%
             );
             opacity: 0;
-            transition: opacity 0.25s ease;
+            /* Leaving fades out quickly so a fast sweep over many cards doesn't leave a glow trail */
+            transition: opacity 0.12s ease-out;
             pointer-events: none;
             z-index: 1;
         }
@@ -40,6 +41,8 @@ export function injectStyles() {
         .comfy-sidebar-card:hover::before,
         .comfy-sidebar-folder-card:hover::before {
             opacity: 0.65;
+            /* Entering is near-instant so the glow keeps up with the cursor */
+            transition: opacity 0.05s ease-out;
         }
         /* Active job uses the theme accent (orange); Cancelled & Error remain standout Yellow & Red */
         .comfy-sidebar-card.active { border-color: var(--primary, var(--p-primary-color, #ea580c)) !important; --hover-color: var(--primary, var(--p-primary-color, #ea580c)); }
@@ -883,7 +886,7 @@ export function injectStyles() {
             display: flex;
             align-items: center;
             gap: 8px;
-            transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
+            transition: border-color 0.1s ease-out, background-color 0.1s ease-out, transform 0.1s ease;
             user-select: none;
             min-width: 0;
             position: relative;
