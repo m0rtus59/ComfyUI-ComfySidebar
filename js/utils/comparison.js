@@ -170,6 +170,7 @@ function createAudioViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = () => 
     let togglePlayFn = () => {};
 
     const overlay = new SidebarOverlay({
+        zIndex: 1100,
         onDestroy,
         onUserClose: () => {
             if (isRuntimePreviewActive) setRuntimePreviewEnabled(false, false);
@@ -528,9 +529,10 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}, navigationItems =
                 e.preventDefault();
                 e.stopPropagation();
                 navigate(e.key === "ArrowRight" ? 1 : -1);
-            } else if (e.key === "Delete" && navAssets[navIndex] && typeof previewOptions.onDelete === "function") {
+            } else if (e.key === "Delete" && !e.repeat && navAssets[navIndex] && typeof previewOptions.onDelete === "function") {
                 e.preventDefault();
                 e.stopPropagation();
+                // Uses the same two-step confirmation state as clicking the trash icon.
                 deleteButton.click();
             } else if (e.key === " " && mediaB) {
                 e.preventDefault();
@@ -936,21 +938,34 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}, navigationItems =
     };
     const prevButton = document.createElement("button");
     prevButton.type = "button";
-    prevButton.textContent = "<";
     prevButton.title = t("Previous image (←)");
-    Object.assign(prevButton.style, navButtonStyle, { left: "18px" });
+    Object.assign(prevButton.style, navButtonStyle, {
+        left: "18px", padding: "0", lineHeight: "1", appearance: "none",
+        display: "flex", alignItems: "center", justifyContent: "center"
+    });
+    const prevIcon = document.createElement("span");
+    prevIcon.className = "pi pi-angle-left";
+    prevIcon.style.pointerEvents = "none";
+    prevButton.appendChild(prevIcon);
+
     const nextButton = document.createElement("button");
     nextButton.type = "button";
-    nextButton.textContent = ">";
     nextButton.title = t("Next image (→)");
-    Object.assign(nextButton.style, navButtonStyle, { right: "18px" });
+    Object.assign(nextButton.style, navButtonStyle, {
+        right: "18px", padding: "0", lineHeight: "1", appearance: "none",
+        display: "flex", alignItems: "center", justifyContent: "center"
+    });
+    const nextIcon = document.createElement("span");
+    nextIcon.className = "pi pi-angle-right";
+    nextIcon.style.pointerEvents = "none";
+    nextButton.appendChild(nextIcon);
 
     const deleteButton = document.createElement("span");
-    deleteButton.className = "pi pi-trash";
+    deleteButton.className = "pi pi-trash comfy-sidebar-preview-delete";
     deleteButton.title = t("Delete current image");
     Object.assign(deleteButton.style, navButtonStyle, {
-        top: "16px", right: "76px", transform: "none", fontSize: "16px",
-        display: "none", alignItems: "center", justifyContent: "center"
+        top: "auto", bottom: "24px", right: "24px", transform: "none",
+        fontSize: "15px", display: "none", alignItems: "center", justifyContent: "center"
     });
     attachDeleteConfirmation(deleteButton, {
         canDiskDelete: false,
