@@ -20,6 +20,8 @@ A compact and powerful layout overhaul for ComfyUI that makes generation results
 
 * **Output Gallery sidebar:** Browse files and subfolders directly from your ComfyUI `output` directory without leaving the interface. Features dedicated cards for images, videos, audio, and 3D assets (`.glb`/`.gltf`), breadcrumb navigation, filename and prompt metadata search across subfolders, and persistent sorting.
 
+  <img src="assets/gallery.png" alt="ComfySidebar Gallery controls overview">
+
 * **Hotkeys on any keyboard layout:** Shortcuts such as `Q`, `Ctrl+Q` and `Alt+R` keep working while a non-Latin layout (for example Russian) is active. Non-Latin keys are treated as the Latin key in the same physical position, and typing in text fields is not affected. Can be turned off with **Fix non-ASCII keybinds** in the settings.
 
 * **Runtime preview mode** combined with workflow overview makes ComfyUI practical for running and monitoring workflows in a more streamlined, queue-oriented way.
