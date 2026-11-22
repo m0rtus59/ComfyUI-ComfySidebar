@@ -496,6 +496,13 @@ async def delete_file_handler(request):
 
         target_file, root = resolve_existing_path(filename, subfolder, folder_type, candidate_roots=delete_roots, strict=True)
 
+        # Normalize nested paths before calling Windows Shell APIs used by send2trash.
+        # Mixed separators are accepted by Python's path helpers but can trigger
+        # ERROR_INVALID_PARAMETER in the Recycle Bin operation on Windows.
+        if target_file:
+            target_file = os.path.realpath(os.path.abspath(os.path.normpath(target_file)))
+            root = os.path.realpath(root) if root else root
+
         if not target_file or not os.path.isfile(target_file) or not is_path_safe(root, target_file):
             return web.json_response({"error": "File not found or outside output directory"}, status=404)
 
