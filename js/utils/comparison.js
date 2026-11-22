@@ -64,7 +64,10 @@ export function focusRuntimePreviewTarget() {
         if (activePrompt && activePrompt.status === PromptStatus.ACTIVE) {
             const previewSrc = activePrompt._previewBlobUrl || 
                 (activePrompt.images && activePrompt.images.length > 0 ? (activePrompt.images[0].url || activePrompt.images[0].filename) : null);
-            showFullscreenPreview([previewSrc || ""], false, activePrompt.pid);
+            const previewImages = (activePrompt.images || []).filter(img => isImageFormat(img.filename || img.url));
+            const previewUrls = previewImages.map(img => img.url || `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || "output"}&subfolder=${encodeURIComponent(img.subfolder || "")}${activePrompt.pid ? "&rand=" + encodeURIComponent(activePrompt.pid) : ""}`);
+            const startIndex = previewImages.findIndex(img => img.url === previewSrc || img.filename === activePrompt.images?.[0]?.filename);
+            showFullscreenPreview(previewUrls.length ? previewUrls : [previewSrc || ""], false, activePrompt.pid, Math.max(0, startIndex));
             return;
         }
 
@@ -77,7 +80,9 @@ export function focusRuntimePreviewTarget() {
             const randParam = latest.pid ? `&rand=${encodeURIComponent(latest.pid)}` : "";
             const src = latest._previewBlobUrl || 
                 (firstImg ? (firstImg.url || `/view?filename=${encodeURIComponent(firstImg.filename)}&type=${firstImg.type || 'output'}&subfolder=${encodeURIComponent(firstImg.subfolder || '')}${randParam}`) : "");
-            showFullscreenPreview([src || ""], false, latest.pid);
+            const previewImages = (latest.images || []).filter(img => isImageFormat(img.filename || img.url));
+            const previewUrls = previewImages.map(img => img.url || `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || "output"}&subfolder=${encodeURIComponent(img.subfolder || "")}${randParam}`);
+            showFullscreenPreview(previewUrls.length ? previewUrls : [src || ""], false, latest.pid, 0);
         } else {
             // Queue is totally empty
             showFullscreenPreview([""], false, null);
