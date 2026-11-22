@@ -73,21 +73,10 @@ function setupKeydownShortcuts() {
     document.addEventListener("keydown", activeKeydownHandler, true);
 }
 
-function setGalleryButtonVisible(visible) {
-    try {
-        const buttons = document.querySelectorAll(".side-bar-button, [data-tab-id]");
-        for (const btn of buttons) {
-            if (btn.getAttribute("data-tab-id") === "classic-comfy-gallery" ||
-                btn.getAttribute("title")?.includes("Gallery") ||
-                btn.querySelector(".pi-folder")) {
-                btn.style.display = visible ? "" : "none";
-                break;
-            }
-        }
-    } catch (e) {
-        console.warn("[ComfySidebar] Error toggling gallery tab button:", e);
-    }
-}
+// Assigned in setup(): registers/unregisters the Gallery sidebar tab to match the
+// "Enable Output Gallery Sidebar" setting. Null until setup() has run (the setting's
+// initial onChange fires earlier, in init(), when there is nothing to toggle yet).
+let syncGalleryTab = null;
 
 function registerSettings() {
     app.ui.settings.addSetting({
@@ -124,7 +113,7 @@ function registerSettings() {
         type: "boolean",
         defaultValue: true,
         onChange: (val) => {
-            setGalleryButtonVisible(val ?? true);
+            syncGalleryTab?.(val ?? true);
         }
     });
 
@@ -468,32 +457,47 @@ app.registerExtension({
             }
         });
 
-        const galleryContainer = setupGalleryView();
-        app.extensionManager.registerSidebarTab({
-            id: "classic-comfy-gallery",
-            icon: "pi pi-folder",
-            title: t("Gallery"),
-            tooltip: t("Gallery (Outputs)"),
-            type: "custom",
-            render: (el) => {
-                document.querySelectorAll(".comfy-sidebar-scroll-top-btn").forEach(btn => { btn.style.display = "none"; });
-                const scrollParent = getScrollContainer(el);
-                if (activeSidebarTab === "queue" && scrollParent) {
-                    queueScrollPos = scrollParent.scrollTop;
-                }
-                activeSidebarTab = "gallery";
-                el.replaceChildren(galleryContainer);
-                requestAnimationFrame(() => {
-                    const sp = getScrollContainer(el);
-                    if (sp) sp.scrollTop = galleryScrollPos;
-                });
-            }
-        });
+        // The Gallery tab is only registered while the setting is enabled. Hiding its
+        // button in the DOM was unreliable: the sidebar renders asynchronously and
+        // re-renders on its own, so the button came back (or the wrong one was hidden).
+        let galleryContainer = null;
+        let galleryTabRegistered = false;
 
-        const isGalleryEnabled = getSetting("Comfy Sidebar.Enable Gallery", true);
-        if (!isGalleryEnabled) {
-            setTimeout(() => setGalleryButtonVisible(false), 50);
-        }
+        const registerGalleryTab = () => {
+            if (galleryTabRegistered) return;
+            galleryContainer ||= setupGalleryView();
+            app.extensionManager.registerSidebarTab({
+                id: "classic-comfy-gallery",
+                icon: "pi pi-folder",
+                title: t("Gallery"),
+                tooltip: t("Gallery (Outputs)"),
+                type: "custom",
+                render: (el) => {
+                    document.querySelectorAll(".comfy-sidebar-scroll-top-btn").forEach(btn => { btn.style.display = "none"; });
+                    const scrollParent = getScrollContainer(el);
+                    if (activeSidebarTab === "queue" && scrollParent) {
+                        queueScrollPos = scrollParent.scrollTop;
+                    }
+                    activeSidebarTab = "gallery";
+                    el.replaceChildren(galleryContainer);
+                    requestAnimationFrame(() => {
+                        const sp = getScrollContainer(el);
+                        if (sp) sp.scrollTop = galleryScrollPos;
+                    });
+                }
+            });
+            galleryTabRegistered = true;
+        };
+
+        const unregisterGalleryTab = () => {
+            if (!galleryTabRegistered) return;
+            if (activeSidebarTab === "gallery") activeSidebarTab = "queue";
+            app.extensionManager.unregisterSidebarTab?.("classic-comfy-gallery");
+            galleryTabRegistered = false;
+        };
+
+        syncGalleryTab = (enabled) => (enabled ? registerGalleryTab() : unregisterGalleryTab());
+        syncGalleryTab(getSetting("Comfy Sidebar.Enable Gallery", true));
 
         requestAnimationFrame(() => {
             applySidebarOverride();
@@ -501,6 +505,7 @@ app.registerExtension({
     },
 
     destroy() {
+        syncGalleryTab = null;
         for (const fn of cleanupFns.splice(0)) {
             try { if (typeof fn === "function") fn(); } catch (e) {}
         }
