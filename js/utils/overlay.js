@@ -107,8 +107,16 @@ export class SidebarOverlay {
 
         // Global Key Handler (Esc to close)
         const onKeyDown = (e) => {
-            // Only the topmost overlay may consume keyboard input.
-            if (activeOverlays[activeOverlays.length - 1] !== this) return;
+            // Highest z-index wins; ties go to the most recently opened overlay.
+            // This lets fullscreen previews remain interactive above utility overlays
+            // even when those overlays are opened afterwards.
+            const topmostOverlay = activeOverlays.reduce((top, candidate) => {
+                if (!top) return candidate;
+                const candidateZ = Number(candidate.container.style.zIndex) || 0;
+                const topZ = Number(top.container.style.zIndex) || 0;
+                return candidateZ >= topZ ? candidate : top;
+            }, null);
+            if (topmostOverlay !== this) return;
             if (e.key === "Escape") {
                 e.preventDefault();
                 e.stopImmediatePropagation();
