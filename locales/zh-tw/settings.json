@@ -62,5 +62,8 @@
   "Comfy Sidebar_Quick Workflow Picker": {
     "name": "快速工作流程選擇器",
     "tooltip": "建立新的空白工作流程時顯示快速工作流程選擇器"
+  },
+  "Comfy Sidebar_Hide Junk_Run on Comfy Cloud": {
+    "name": "隱藏「在 Comfy Cloud 上執行」按鈕"
   }
 }
