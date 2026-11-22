@@ -142,5 +142,21 @@
   "Permanently deleted {count} TEMP item(s).": "TEMP項目を{count}件完全に削除しました。",
   "Could not delete {count} TEMP item(s).": "TEMP項目を{count}件削除できませんでした。",
   "TEMP cleanup stopped because a workflow entered the queue.": "ワークフローがキューに追加されたため、TEMPのクリーンアップを中止しました。",
-  "Click again to clear all history": "もう一度クリックすると、すべての履歴を消去します"
+  "Click again to clear all history": "もう一度クリックすると、すべての履歴を消去します",
+  "Card size": "カードサイズ",
+  "Click again to confirm deleting this image": "この画像の削除を確定するには、もう一度クリックしてください",
+  "Could not scan prompts": "プロンプトをスキャンできませんでした",
+  "Delete current image": "現在の画像を削除",
+  "Delete file": "ファイルを削除",
+  "Find Similar Prompts": "類似プロンプトを検索",
+  "Group": "グループ",
+  "Next image (→)": "次の画像 (→)",
+  "No similar prompt groups found at this threshold.": "このしきい値では類似プロンプトのグループは見つかりませんでした。",
+  "Previous image (←)": "前の画像 (←)",
+  "Scanning prompts...": "プロンプトをスキャン中...",
+  "Similar prompt groups": "類似プロンプトのグループ",
+  "Similarity threshold": "類似度のしきい値",
+  "images": "枚の画像",
+  "similarity": "類似度",
+  "{count} groups · {scanned} PNGs scanned": "{count} グループ · {scanned} 件の PNG をスキャン"
 }
