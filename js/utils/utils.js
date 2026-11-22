@@ -574,6 +574,7 @@ export function attachDeleteConfirmation(btn, options = {}) {
         isDisk = false;
         btn.classList.remove("confirm-delete", "confirm-delete-disk");
         btn.title = typeof idleTitle === "function" ? idleTitle() : idleTitle;
+        if (typeof options.onStateChange === "function") options.onStateChange(false, false);
         if (timer) {
             clearTimeout(timer);
             timer = null;
@@ -590,6 +591,7 @@ export function attachDeleteConfirmation(btn, options = {}) {
             isPending = true;
             isDisk = wantsDisk;
             btn.classList.add(wantsDisk ? "confirm-delete-disk" : "confirm-delete");
+            if (typeof options.onStateChange === "function") options.onStateChange(true, wantsDisk);
             btn.title = wantsDisk
                 ? (typeof confirmDiskTitle === "function" ? confirmDiskTitle() : confirmDiskTitle)
                 : (typeof confirmTitle === "function" ? confirmTitle() : confirmTitle);
