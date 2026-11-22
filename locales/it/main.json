@@ -142,5 +142,21 @@
   "Permanently deleted {count} TEMP item(s).": "{count} elementi TEMP eliminati definitivamente.",
   "Could not delete {count} TEMP item(s).": "Impossibile eliminare {count} elementi TEMP.",
   "TEMP cleanup stopped because a workflow entered the queue.": "Pulizia di TEMP interrotta perché è stato aggiunto un flusso di lavoro alla coda.",
-  "Click again to clear all history": "Fai di nuovo clic per cancellare tutta la cronologia"
+  "Click again to clear all history": "Fai di nuovo clic per cancellare tutta la cronologia",
+  "Card size": "Dimensione scheda",
+  "Click again to confirm deleting this image": "Fai di nuovo clic per confermare l’eliminazione di questa immagine",
+  "Could not scan prompts": "Impossibile analizzare i prompt",
+  "Delete current image": "Elimina immagine corrente",
+  "Delete file": "Elimina file",
+  "Find Similar Prompts": "Trova prompt simili",
+  "Group": "Gruppo",
+  "Next image (→)": "Immagine successiva (→)",
+  "No similar prompt groups found at this threshold.": "Nessun gruppo di prompt simili trovato con questa soglia.",
+  "Previous image (←)": "Immagine precedente (←)",
+  "Scanning prompts...": "Analisi dei prompt...",
+  "Similar prompt groups": "Gruppi di prompt simili",
+  "Similarity threshold": "Soglia di somiglianza",
+  "images": "immagini",
+  "similarity": "somiglianza",
+  "{count} groups · {scanned} PNGs scanned": "{count} gruppi · {scanned} file PNG analizzati"
 }
