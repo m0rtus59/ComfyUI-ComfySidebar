@@ -602,7 +602,8 @@ async function openSimilarPromptsDialog() {
                 });
                 group.items.forEach(item => {
                     const card = document.createElement("div");
-                    Object.assign(card.style, { minWidth: "0", display: "flex", flexDirection: "column", gap: "5px" });
+                    card.className = "comfy-sidebar-card completed";
+                    Object.assign(card.style, { minWidth: "0", display: "flex", flexDirection: "column", gap: "5px", position: "relative", overflow: "hidden" });
                     const image = document.createElement("img");
                     image.loading = "lazy";
                     image.src = "/view?filename=" + encodeURIComponent(item.filename) + "&type=output&subfolder=" + encodeURIComponent(item.subfolder || "");
@@ -622,11 +623,33 @@ async function openSimilarPromptsDialog() {
                         dialog.close();
                         showFullscreenPreview(urls, false, null, Math.max(0, selected));
                     };
+                    const actions = document.createElement("div");
+                    actions.className = "comfy-sidebar-hover-panel";
+                    Object.assign(actions.style, { position: "absolute", right: "4px", bottom: "4px", zIndex: "2" });
+                    const deleteButton = document.createElement("span");
+                    deleteButton.className = "pi pi-trash comfy-sidebar-card-action-btn comfy-sidebar-btn-del";
+                    deleteButton.title = t("Delete file (Hold Ctrl to delete file from disk)");
+                    attachDeleteConfirmation(deleteButton, {
+                        idleTitle: t("Delete file (Hold Ctrl to delete file from disk)"),
+                        confirmTitle: t("Click again to confirm deleting file"),
+                        confirmDiskTitle: t("Ctrl+Click again to delete file from DISK / TRASH"),
+                        onConfirm: async (deleteFromDisk) => {
+                            const asset = { filename: item.filename, subfolder: item.subfolder || "", type: "output" };
+                            const action = await deleteFileOnServer(asset, deleteFromDisk);
+                            if (action && action !== "missing") {
+                                showNotification(action === "trashed" ? t("Moved file to Recycle Bin.") : t("Permanently deleted file."), "success", t("Delete File"));
+                            }
+                            if (action) {
+                                card.remove();
+                            }
+                        }
+                    });
+                    actions.appendChild(deleteButton);
                     const name = document.createElement("span");
                     name.textContent = item.filename;
                     name.title = item.filename;
                     Object.assign(name.style, { fontSize: "10px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" });
-                    card.append(image, name);
+                    card.append(image, name, actions);
                     grid.appendChild(card);
                 });
                 section.append(groupHeader, grid);
