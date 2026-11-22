@@ -6,12 +6,31 @@ import { SidebarOverlay } from "./overlay.js";
 import { store } from "../core/store.js";
 import { PromptStatus } from "../core/constants.js";
 import { t } from "../core/i18n.js";
-import { deleteFileOnServer } from "../ui/mediaActions.js";
+import { deleteFileOnServer, removeImageFromNodeOutputs } from "../ui/mediaActions.js";
 import { showNotification } from "./nodeRenumber.js";
 
 let activeComparisonViewer = null;
 let isRuntimePreviewActive = false;
 let onRuntimePreviewStateChange = null;
+
+async function deletePromptPreviewAsset(state, asset) {
+    const action = await deleteFileOnServer(asset);
+    if (!["trashed", "deleted", "missing"].includes(action)) return false;
+    if (action !== "missing") {
+        showNotification(
+            action === "trashed" ? t("Moved file to Recycle Bin.") : t("Permanently deleted file."),
+            "success", t("Delete File")
+        );
+    }
+    const sameFile = item => item &&
+        item.filename === asset.filename &&
+        (item.subfolder || "") === (asset.subfolder || "") &&
+        (item.type || "output") === (asset.type || "output");
+    state.images = (state.images || []).filter(item => !sameFile(item));
+    if (state.nodeOutputs) removeImageFromNodeOutputs(state.nodeOutputs, asset);
+    store.updatePrompt(state.pid, state);
+    return true;
+}
 
 export function isRuntimePreviewEnabled() {
     return isRuntimePreviewActive;
@@ -76,7 +95,10 @@ export function focusRuntimePreviewTarget() {
             );
             const previewUrls = previewImages.map(img => img.url || `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || "output"}&subfolder=${encodeURIComponent(img.subfolder || "")}${activePrompt.pid ? "&rand=" + encodeURIComponent(activePrompt.pid) : ""}`);
             const startIndex = previewImages.findIndex(img => img.url === previewSrc || img.filename === activePrompt.images?.[0]?.filename);
-            showFullscreenPreview(previewUrls.length ? previewUrls : [previewSrc || ""], false, activePrompt.pid, Math.max(0, startIndex));
+            showFullscreenPreview(previewUrls.length ? previewUrls : [previewSrc || ""], false, activePrompt.pid, Math.max(0, startIndex), {
+                assets: previewImages,
+                onDelete: asset => deletePromptPreviewAsset(activePrompt, asset)
+            });
             return;
         }
 
@@ -98,7 +120,10 @@ export function focusRuntimePreviewTarget() {
                 all.findIndex(other => other && (other.filename || other.url) === (img.filename || img.url)) === index
             );
             const previewUrls = previewImages.map(img => img.url || `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || "output"}&subfolder=${encodeURIComponent(img.subfolder || "")}${randParam}`);
-            showFullscreenPreview(previewUrls.length ? previewUrls : [src || ""], false, latest.pid, 0);
+            showFullscreenPreview(previewUrls.length ? previewUrls : [src || ""], false, latest.pid, 0, {
+                assets: previewImages,
+                onDelete: asset => deletePromptPreviewAsset(latest, asset)
+            });
         } else {
             // Queue is totally empty
             showFullscreenPreview([""], false, null);
