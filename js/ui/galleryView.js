@@ -587,7 +587,7 @@ export function setupGalleryView() {
         renderGallery();
     });
 
-    const btnSimilar = createHeaderBtn("pi pi-clone", t("Find Similar Prompts"), openSimilarPromptsDialog);
+    const btnSimilar = createHeaderBtn("pi pi-clone", t("Find Similar Prompts"), () => openSimilarPromptsDialog(currentSubfolder));
     actionsGroup.append(btnSort, btnUp, btnOpenFolder, btnSimilar, btnRefresh);
     standardHeader.appendChild(actionsGroup);
 
