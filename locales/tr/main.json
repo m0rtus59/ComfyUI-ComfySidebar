@@ -142,5 +142,21 @@
   "Permanently deleted {count} TEMP item(s).": "{count} TEMP öğesi kalıcı olarak silindi.",
   "Could not delete {count} TEMP item(s).": "{count} TEMP öğesi silinemedi.",
   "TEMP cleanup stopped because a workflow entered the queue.": "Kuyruğa bir iş akışı eklendiği için TEMP temizliği durduruldu.",
-  "Click again to clear all history": "Tüm geçmişi temizlemek için tekrar tıklayın"
+  "Click again to clear all history": "Tüm geçmişi temizlemek için tekrar tıklayın",
+  "Card size": "Kart boyutu",
+  "Click again to confirm deleting this image": "Bu görseli silmeyi onaylamak için tekrar tıklayın",
+  "Could not scan prompts": "İstemler taranamadı",
+  "Delete current image": "Geçerli görseli sil",
+  "Delete file": "Dosyayı sil",
+  "Find Similar Prompts": "Benzer istemleri bul",
+  "Group": "Grup",
+  "Next image (→)": "Sonraki görsel (→)",
+  "No similar prompt groups found at this threshold.": "Bu eşikte benzer istem grubu bulunamadı.",
+  "Previous image (←)": "Önceki görsel (←)",
+  "Scanning prompts...": "İstemler taranıyor...",
+  "Similar prompt groups": "Benzer istem grupları",
+  "Similarity threshold": "Benzerlik eşiği",
+  "images": "görsel",
+  "similarity": "benzerlik",
+  "{count} groups · {scanned} PNGs scanned": "{count} grup · {scanned} PNG tarandı"
 }

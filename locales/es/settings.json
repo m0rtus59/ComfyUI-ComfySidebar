@@ -62,5 +62,8 @@
   "Comfy Sidebar_Quick Workflow Picker": {
     "name": "Selector rápido de flujos de trabajo",
     "tooltip": "Mostrar el selector rápido de flujos de trabajo al crear un nuevo flujo en blanco"
+  },
+  "Comfy Sidebar_Hide Junk_Run on Comfy Cloud": {
+    "name": "Ocultar el botón Ejecutar en Comfy Cloud"
   }
 }

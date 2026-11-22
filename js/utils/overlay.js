@@ -1,13 +1,16 @@
 import { findActiveSidebars } from "../comfy/adapter.js";
 
+const activeOverlays = [];
+
 export class SidebarOverlay {
     constructor(options = {}) {
         this.onDestroy = options.onDestroy || (() => {});
         this.onUserClose = options.onUserClose || (() => {});
         this.cleanupFns = [];
         this.observedElements = new Set();
+        activeOverlays.push(this);
 
-        // Elevate sidebars above overlay
+        // Keep sidebars elevated until the final stacked overlay is closed.
         document.body.classList.add("comfy-sidebar-overlay-active");
 
         // Root container: visual backdrop (covers 100% flush from sidebar to sidebar, zero gap)
@@ -19,7 +22,7 @@ export class SidebarOverlay {
             backdropFilter: "blur(8px)",
             color: "var(--fg-color, #eee)",
             display: "flex", flexDirection: "column", alignItems: "center",
-            justifyContent: "center", zIndex: "1000", boxSizing: "border-box",
+            justifyContent: "center", zIndex: String(options.zIndex ?? 1000), boxSizing: "border-box",
             overflow: "hidden", pointerEvents: "none", userSelect: "none"
         });
 
@@ -37,7 +40,7 @@ export class SidebarOverlay {
         });
         this.container.appendChild(this.backdrop);
 
-        // Close button
+        // Optional built-in close button
         this.closeBtn = document.createElement("span");
         this.closeBtn.className = "pi pi-times";
         this.closeBtn.title = "Close (Esc)";
@@ -63,6 +66,7 @@ export class SidebarOverlay {
             this.onUserClose();
             this.destroy();
         };
+        if (options.closeButton === false) this.closeBtn.style.display = "none";
         this.container.appendChild(this.closeBtn);
 
         // ResizeObserver to track live drag-resizing on all active sidebars
@@ -103,10 +107,22 @@ export class SidebarOverlay {
 
         // Global Key Handler (Esc to close)
         const onKeyDown = (e) => {
+            // Highest z-index wins; ties go to the most recently opened overlay.
+            // This lets fullscreen previews remain interactive above utility overlays
+            // even when those overlays are opened afterwards.
+            const topmostOverlay = activeOverlays.reduce((top, candidate) => {
+                if (!top) return candidate;
+                const candidateZ = Number(candidate.container.style.zIndex) || 0;
+                const topZ = Number(top.container.style.zIndex) || 0;
+                return candidateZ >= topZ ? candidate : top;
+            }, null);
+            if (topmostOverlay !== this) return;
             if (e.key === "Escape") {
                 e.preventDefault();
+                e.stopImmediatePropagation();
                 this.onUserClose();
                 this.destroy();
+                return;
             }
             if (options.onKeyDown) options.onKeyDown(e);
         };
@@ -189,7 +205,9 @@ export class SidebarOverlay {
     destroy() {
         if (this.destroyed) return;
         this.destroyed = true;
-        document.body.classList.remove("comfy-sidebar-overlay-active");
+        const stackIndex = activeOverlays.indexOf(this);
+        if (stackIndex >= 0) activeOverlays.splice(stackIndex, 1);
+        if (activeOverlays.length === 0) document.body.classList.remove("comfy-sidebar-overlay-active");
 
         for (const fn of this.cleanupFns.splice(0)) {
             try { fn(); } catch (e) {}

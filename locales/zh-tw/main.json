@@ -142,5 +142,21 @@
   "Permanently deleted {count} TEMP item(s).": "已永久刪除 {count} 個 TEMP 項目。",
   "Could not delete {count} TEMP item(s).": "無法刪除 {count} 個 TEMP 項目。",
   "TEMP cleanup stopped because a workflow entered the queue.": "工作流程進入佇列，因此已停止 TEMP 清理。",
-  "Click again to clear all history": "再次點擊以清除所有歷史記錄"
+  "Click again to clear all history": "再次點擊以清除所有歷史記錄",
+  "Card size": "卡片大小",
+  "Click again to confirm deleting this image": "再次點擊以確認刪除此圖片",
+  "Could not scan prompts": "無法掃描提示詞",
+  "Delete current image": "刪除目前圖片",
+  "Delete file": "刪除檔案",
+  "Find Similar Prompts": "尋找相似提示詞",
+  "Group": "群組",
+  "Next image (→)": "下一張圖片 (→)",
+  "No similar prompt groups found at this threshold.": "在此相似度門檻下找不到相似提示詞群組。",
+  "Previous image (←)": "上一張圖片 (←)",
+  "Scanning prompts...": "正在掃描提示詞...",
+  "Similar prompt groups": "相似提示詞群組",
+  "Similarity threshold": "相似度門檻",
+  "images": "張圖片",
+  "similarity": "相似度",
+  "{count} groups · {scanned} PNGs scanned": "{count} 個群組 · 已掃描 {scanned} 張 PNG"
 }

@@ -62,5 +62,8 @@
   "Comfy Sidebar_Quick Workflow Picker": {
     "name": "Hızlı İş Akışı Seçici",
     "tooltip": "Yeni bir boş iş akışı oluştururken hızlı iş akışı seçiciyi göster"
+  },
+  "Comfy Sidebar_Hide Junk_Run on Comfy Cloud": {
+    "name": "Comfy Cloud'da Çalıştır düğmesini gizle"
   }
 }

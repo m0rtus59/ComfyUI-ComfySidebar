@@ -1,10 +1,11 @@
 import { isImageFormat, isVideoFormat, is3DFormat, isAudioFormat, getFilenameFromUrl, findImagesInOutputs } from "../utils/utils.js";
-import { openFileOrFolder, removeImageFromNodeOutputs } from "./mediaActions.js";
+import { openFileOrFolder, removeImageFromNodeOutputs, deleteFileOnServer } from "./mediaActions.js";
 import { stopAllAudioPlayback, isAudioViewerOpen, setCurrentlyPlayingAudio, getCurrentlyPlayingAudio } from "./audioController.js";
 import { showFullscreenPreview } from "../utils/comparison.js";
 import { store } from "../core/store.js";
 import { handleMissingMedia } from "../queue/missingFiles.js";
 import { t } from "../core/i18n.js";
+import { showNotification } from "../utils/nodeRenumber.js";
 
 export function findWorkflowBackgroundThumbnail(state, randParam = "") {
     if (!state) return null;
@@ -433,6 +434,11 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
 
     const idx = cardObj.currentImageIndex;
     const img = state.images[idx];
+    if (cardObj.element) {
+        cardObj.element._sidebarPreviewAsset = img || null;
+        cardObj.element._sidebarPreviewState = state;
+        cardObj.element._sidebarPreviewCardObj = cardObj;
+    }
 
     // The Queue's advanced action follows the currently selected batch image.
     if (cardObj.btnMove) {
@@ -564,7 +570,94 @@ export function renderCardImages(cardObj, state, onNavigateBatch) {
                 activeSrc = canvas.toDataURL("image/png");
             } catch (_) {}
         }
-        showFullscreenPreview([activeSrc], ev.shiftKey, state?.pid); 
+        const visibleCardAssets = Array.from(store.ui.cardStack?.querySelectorAll(".comfy-sidebar-card") || [])
+            .filter(card => card._sidebarPreviewAsset && isImageFormat(card._sidebarPreviewAsset.filename || card._sidebarPreviewAsset.url))
+            .map(card => ({
+                ...card._sidebarPreviewAsset,
+                _sidebarOwnerState: card._sidebarPreviewState,
+                _sidebarOwnerCardObj: card._sidebarPreviewCardObj
+            }));
+        const sourceItems = state?._previewImages || (visibleCardAssets.length > 1 ? visibleCardAssets : (state?.images || [img]));
+        const previewSourceItems = sourceItems
+            .filter(item => item && isImageFormat(item.filename || item.url))
+            .map(item => item._sidebarOwnerState ? item : {
+                ...item,
+                _sidebarOwnerState: state,
+                _sidebarOwnerCardObj: cardObj
+            });
+        const previewItems = previewSourceItems.map(item =>
+            item.url || "/view?filename=" + encodeURIComponent(item.filename) +
+                "&type=" + encodeURIComponent(item.type || "output") +
+                "&subfolder=" + encodeURIComponent(item.subfolder || "") +
+                (state?.pid ? "&rand=" + encodeURIComponent(state.pid) : "")
+        );
+        const currentIndex = Math.max(0, previewSourceItems.findIndex(item =>
+            item.filename === img.filename && (item.subfolder || "") === (img.subfolder || "")
+        ));
+        if (previewItems.length) previewItems[currentIndex] = activeSrc;
+
+        const onDeletePreviewAsset = async (asset) => {
+            const action = await deleteFileOnServer(asset);
+            if (!["trashed", "deleted", "missing"].includes(action)) return false;
+            if (action !== "missing") {
+                showNotification(
+                    action === "trashed" ? t("Moved file to Recycle Bin.") : t("Permanently deleted file."),
+                    "success", t("Delete File")
+                );
+            }
+            const ownerState = asset._sidebarOwnerState || state;
+            const ownerCardObj = asset._sidebarOwnerCardObj || cardObj;
+            if (typeof asset?._onPreviewAssetDeleted === "function") {
+                asset._onPreviewAssetDeleted();
+            } else if (typeof ownerState?._onPreviewAssetDeleted === "function") {
+                ownerState._onPreviewAssetDeleted(asset);
+            } else {
+                const sameFile = candidate => candidate &&
+                    candidate.filename === asset.filename &&
+                    (candidate.subfolder || "") === (asset.subfolder || "") &&
+                    (candidate.type || "output") === (asset.type || "output");
+                const cardId = ownerCardObj.element?.id || "";
+                if (cardId.startsWith("card-batch-")) {
+                    const batchInfo = store.ui.activeSubmenuBatchImages;
+                    if (Array.isArray(batchInfo?.images)) {
+                        const index = batchInfo.images.findIndex(sameFile);
+                        if (index >= 0) batchInfo.images.splice(index, 1);
+                    }
+                    const parentPid = ownerState.parentPromptId || batchInfo?.parentPromptId || ownerState.pid;
+                    const parent = store.getPrompt(parentPid);
+                    if (parent) {
+                        parent.images = (parent.images || []).filter(item => !sameFile(item));
+                        if (parent.nodeOutputs) removeImageFromNodeOutputs(parent.nodeOutputs, asset);
+                        store.updatePrompt(parentPid, parent);
+                    }
+                    ownerCardObj.element?.remove();
+                } else if (cardId.startsWith("card-submenu-")) {
+                    ownerState.images = (ownerState.images || []).filter(item => !sameFile(item));
+                    const parent = store.getPrompt(ownerState.pid);
+                    if (parent?.nodeOutputs) {
+                        removeImageFromNodeOutputs(parent.nodeOutputs, asset);
+                        store.updatePrompt(parent.pid, parent);
+                    }
+                    if (ownerState.images.length) renderCardImages(ownerCardObj, ownerState, onNavigateBatch);
+                    else ownerCardObj.element?.remove();
+                } else {
+                    const liveState = store.getPrompt(ownerState.pid) || ownerState;
+                    liveState.images = (liveState.images || []).filter(item => !sameFile(item));
+                    if (liveState.nodeOutputs) removeImageFromNodeOutputs(liveState.nodeOutputs, asset);
+                    if (store.getPrompt(liveState.pid)) store.updatePrompt(liveState.pid, liveState);
+                    else if (liveState.images.length) renderCardImages(ownerCardObj, liveState, onNavigateBatch);
+                    else ownerCardObj.element?.remove();
+                }
+            }
+            return true;
+        };
+        showFullscreenPreview(
+            previewItems.length ? previewItems : [activeSrc],
+            ev.shiftKey,
+            state?.pid,
+            currentIndex,
+            { assets: previewSourceItems, onDelete: onDeletePreviewAsset }
+        );
     };
 
     mediaEl.onerror = () => {

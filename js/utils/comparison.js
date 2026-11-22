@@ -1,4 +1,4 @@
-import { isVideoFormat, is3DFormat, isAudioFormat, getFilenameFromUrl } from "./utils.js";
+import { isVideoFormat, is3DFormat, isAudioFormat, getFilenameFromUrl, isImageFormat, findImagesInOutputs, attachDeleteConfirmation } from "./utils.js";
 import { create3DViewer } from "./viewer3d.js";
 import { createTextReader } from "./text_reader.js";
 import { stopAllAudioPlayback } from "../ui/audioController.js";
@@ -6,10 +6,31 @@ import { SidebarOverlay } from "./overlay.js";
 import { store } from "../core/store.js";
 import { PromptStatus } from "../core/constants.js";
 import { t } from "../core/i18n.js";
+import { deleteFileOnServer, removeImageFromNodeOutputs } from "../ui/mediaActions.js";
+import { showNotification } from "./nodeRenumber.js";
 
 let activeComparisonViewer = null;
 let isRuntimePreviewActive = false;
 let onRuntimePreviewStateChange = null;
+
+async function deletePromptPreviewAsset(state, asset) {
+    const action = await deleteFileOnServer(asset);
+    if (!["trashed", "deleted", "missing"].includes(action)) return false;
+    if (action !== "missing") {
+        showNotification(
+            action === "trashed" ? t("Moved file to Recycle Bin.") : t("Permanently deleted file."),
+            "success", t("Delete File")
+        );
+    }
+    const sameFile = item => item &&
+        item.filename === asset.filename &&
+        (item.subfolder || "") === (asset.subfolder || "") &&
+        (item.type || "output") === (asset.type || "output");
+    state.images = (state.images || []).filter(item => !sameFile(item));
+    if (state.nodeOutputs) removeImageFromNodeOutputs(state.nodeOutputs, asset);
+    store.updatePrompt(state.pid, state);
+    return true;
+}
 
 export function isRuntimePreviewEnabled() {
     return isRuntimePreviewActive;
@@ -64,7 +85,20 @@ export function focusRuntimePreviewTarget() {
         if (activePrompt && activePrompt.status === PromptStatus.ACTIVE) {
             const previewSrc = activePrompt._previewBlobUrl || 
                 (activePrompt.images && activePrompt.images.length > 0 ? (activePrompt.images[0].url || activePrompt.images[0].filename) : null);
-            showFullscreenPreview([previewSrc || ""], false, activePrompt.pid);
+            const promptImages = [
+                ...(activePrompt.images || []),
+                ...(activePrompt.nodeOutputs ? findImagesInOutputs(activePrompt.nodeOutputs, activePrompt.workflow) : [])
+            ];
+            const previewImages = promptImages.filter((img, index, all) =>
+                img && isImageFormat(img.filename || img.url) &&
+                all.findIndex(other => other && (other.filename || other.url) === (img.filename || img.url)) === index
+            );
+            const previewUrls = previewImages.map(img => img.url || `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || "output"}&subfolder=${encodeURIComponent(img.subfolder || "")}${activePrompt.pid ? "&rand=" + encodeURIComponent(activePrompt.pid) : ""}`);
+            const startIndex = previewImages.findIndex(img => img.url === previewSrc || img.filename === activePrompt.images?.[0]?.filename);
+            showFullscreenPreview(previewUrls.length ? previewUrls : [previewSrc || ""], false, activePrompt.pid, Math.max(0, startIndex), {
+                assets: previewImages,
+                onDelete: asset => deletePromptPreviewAsset(activePrompt, asset)
+            });
             return;
         }
 
@@ -77,7 +111,19 @@ export function focusRuntimePreviewTarget() {
             const randParam = latest.pid ? `&rand=${encodeURIComponent(latest.pid)}` : "";
             const src = latest._previewBlobUrl || 
                 (firstImg ? (firstImg.url || `/view?filename=${encodeURIComponent(firstImg.filename)}&type=${firstImg.type || 'output'}&subfolder=${encodeURIComponent(firstImg.subfolder || '')}${randParam}`) : "");
-            showFullscreenPreview([src || ""], false, latest.pid);
+            const promptImages = [
+                ...(latest.images || []),
+                ...(latest.nodeOutputs ? findImagesInOutputs(latest.nodeOutputs, latest.workflow) : [])
+            ];
+            const previewImages = promptImages.filter((img, index, all) =>
+                img && isImageFormat(img.filename || img.url) &&
+                all.findIndex(other => other && (other.filename || other.url) === (img.filename || img.url)) === index
+            );
+            const previewUrls = previewImages.map(img => img.url || `/view?filename=${encodeURIComponent(img.filename)}&type=${img.type || "output"}&subfolder=${encodeURIComponent(img.subfolder || "")}${randParam}`);
+            showFullscreenPreview(previewUrls.length ? previewUrls : [src || ""], false, latest.pid, 0, {
+                assets: previewImages,
+                onDelete: asset => deletePromptPreviewAsset(latest, asset)
+            });
         } else {
             // Queue is totally empty
             showFullscreenPreview([""], false, null);
@@ -124,6 +170,7 @@ function createAudioViewer(baseSrc, onSwitchMedia = () => {}, onDestroy = () => 
     let togglePlayFn = () => {};
 
     const overlay = new SidebarOverlay({
+        zIndex: 1100,
         onDestroy,
         onUserClose: () => {
             if (isRuntimePreviewActive) setRuntimePreviewEnabled(false, false);
@@ -463,18 +510,32 @@ const setupVideoPlayback = (vid, container) => {
     };
 };
 
-function createComparisonViewer(baseSrc, onDestroy = () => {}) {
+function createComparisonViewer(baseSrc, onDestroy = () => {}, navigationItems = [], startIndex = 0, previewOptions = {}) {
     const isBaseVideo = isVideoFormat(baseSrc);
-    let splitRatio = 50; 
+    let splitRatio = 50;
     let mediaB = null;
+    let navItems = Array.isArray(navigationItems) ? navigationItems.filter(Boolean) : [];
+    let navAssets = Array.isArray(previewOptions.assets) ? previewOptions.assets.slice() : [];
+    let navIndex = Math.max(0, Math.min(startIndex, navItems.length - 1));
+    let navigate = () => {};
 
     const overlay = new SidebarOverlay({
+        zIndex: 1100,
         onDestroy,
         onUserClose: () => {
             if (isRuntimePreviewActive) setRuntimePreviewEnabled(false, false);
         },
         onKeyDown: (e) => {
-            if (e.key === " " && mediaB) {
+            if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && navItems.length > 1) {
+                e.preventDefault();
+                e.stopPropagation();
+                navigate(e.key === "ArrowRight" ? 1 : -1);
+            } else if (e.key === "Delete" && !e.repeat && navAssets[navIndex] && typeof previewOptions.onDelete === "function") {
+                e.preventDefault();
+                e.stopPropagation();
+                // Uses the same two-step confirmation state as clicking the trash icon.
+                deleteButton.click();
+            } else if (e.key === " " && mediaB) {
                 e.preventDefault();
                 updateSliderPosition(splitRatio > 50 ? 0 : 100);
             }
@@ -630,6 +691,13 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
         const hA = mediaA.naturalHeight || mediaA.videoHeight || 0;
         if (!wA || !hA) return;
 
+        // Runtime previews always stay centered and fitted, without changing the
+        // zoom preference retained for ordinary image inspection.
+        if (isRuntimePreviewActive) {
+            scrollContainer.scrollTop = 0;
+            scrollContainer.scrollLeft = 0;
+        }
+
         // Calculate available space inside the preview area
         const availW = Math.max(100, (scrollContainer.clientWidth || window.innerWidth) - 48);
         const availH = Math.max(100, (scrollContainer.clientHeight || window.innerHeight) - 96);
@@ -647,9 +715,9 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
 
         if (!mediaB) {
             slider.style.display = "none";
-            wrapper.style.cursor = isBaseVideo ? "default" : (isZoomed ? "zoom-out" : "zoom-in");
+            wrapper.style.cursor = isBaseVideo || isRuntimePreviewActive ? "default" : (isZoomed ? "zoom-out" : "zoom-in");
             if (mediaA) mediaA.style.pointerEvents = isBaseVideo ? "none" : "auto";
-            if (isZoomed) {
+            if (isZoomed && !isRuntimePreviewActive) {
                 wrapper.style.maxWidth = "none";
                 wrapper.style.maxHeight = "none";
                 wrapper.style.width = `${wA}px`;
@@ -776,7 +844,7 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
     }
 
     const toggleZoom = () => {
-        if (isBaseVideo) return;
+        if (isBaseVideo || isRuntimePreviewActive) return;
         isZoomed = !isZoomed;
         syncImageScales();
         if (!isZoomed) {
@@ -861,8 +929,142 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
         cleanupMedia(mediaB);
     });
 
+    const navButtonStyle = {
+        position: "absolute", top: "50%", transform: "translateY(-50%)",
+        width: "30px", height: "30px", borderRadius: "50%",
+        border: "1px solid var(--border-color, rgba(255,255,255,.18))",
+        background: "color-mix(in srgb, var(--card, #181818) 88%, transparent)",
+        color: "var(--fg-color, #eee)", fontSize: "18px", cursor: "pointer",
+        zIndex: "35", pointerEvents: "auto", backdropFilter: "blur(8px)"
+    };
+    const prevButton = document.createElement("button");
+    prevButton.type = "button";
+    prevButton.title = t("Previous image (←)");
+    Object.assign(prevButton.style, navButtonStyle, {
+        left: "18px", padding: "0", lineHeight: "1", appearance: "none",
+        display: "flex", alignItems: "center", justifyContent: "center"
+    });
+    const prevIcon = document.createElement("span");
+    prevIcon.className = "pi pi-angle-left";
+    prevIcon.style.pointerEvents = "none";
+    prevButton.appendChild(prevIcon);
+
+    const nextButton = document.createElement("button");
+    nextButton.type = "button";
+    nextButton.title = t("Next image (→)");
+    Object.assign(nextButton.style, navButtonStyle, {
+        right: "18px", padding: "0", lineHeight: "1", appearance: "none",
+        display: "flex", alignItems: "center", justifyContent: "center"
+    });
+    const nextIcon = document.createElement("span");
+    nextIcon.className = "pi pi-angle-right";
+    nextIcon.style.pointerEvents = "none";
+    nextButton.appendChild(nextIcon);
+
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "comfy-sidebar-preview-delete";
+    deleteButton.title = t("Delete current image");
+    Object.assign(deleteButton.style, navButtonStyle, {
+        top: "auto", bottom: "24px", right: "24px", transform: "none",
+        padding: "0", lineHeight: "1", appearance: "none",
+        fontSize: "15px", display: "none", alignItems: "center", justifyContent: "center"
+    });
+    const deleteIcon = document.createElement("span");
+    deleteIcon.className = "pi pi-trash";
+    Object.assign(deleteIcon.style, {
+        display: "block", lineHeight: "1", pointerEvents: "none",
+        transform: "none"
+    });
+    deleteButton.appendChild(deleteIcon);
+    attachDeleteConfirmation(deleteButton, {
+        canDiskDelete: false,
+        idleTitle: t("Delete current image"),
+        confirmTitle: t("Click again to confirm deleting this image"),
+        confirmDiskTitle: t("Click again to confirm deleting this image"),
+        onStateChange: (pending, disk) => {
+            if (pending) {
+                deleteButton.style.setProperty("background-color", disk ? "#7f1d1d" : "#dc3545", "important");
+                deleteButton.style.setProperty("color", disk ? "#ffc9c9" : "#ffffff", "important");
+                deleteButton.style.setProperty("box-shadow", disk
+                    ? "0 0 10px rgba(220, 38, 38, 0.85)"
+                    : "0 0 8px rgba(220, 53, 69, 0.6)", "important");
+                deleteButton.style.setProperty("border-color", disk ? "#ef4444" : "#dc3545", "important");
+            } else {
+                for (const property of ["background-color", "color", "box-shadow", "border-color"]) {
+                    deleteButton.style.removeProperty(property);
+                }
+            }
+        },
+        onConfirm: async () => {
+            const asset = navAssets[navIndex];
+            if (!asset || typeof previewOptions.onDelete !== "function") return;
+            const removed = await previewOptions.onDelete(asset);
+            if (!removed) return;
+            navItems.splice(navIndex, 1);
+            navAssets.splice(navIndex, 1);
+            if (!navItems.length) {
+                overlay.destroy();
+                return;
+            }
+            navIndex = Math.min(navIndex, navItems.length - 1);
+            navigate(0);
+            updateNavigation();
+        }
+    });
+    const updateNavigation = () => {
+        const visible = navItems.length > 1;
+        prevButton.style.display = nextButton.style.display = visible ? "flex" : "none";
+        prevButton.style.alignItems = nextButton.style.alignItems = "center";
+        prevButton.style.justifyContent = nextButton.style.justifyContent = "center";
+        deleteButton.style.display = navAssets[navIndex] && typeof previewOptions.onDelete === "function" ? "flex" : "none";
+    };
+    navigate = (delta) => {
+        if (!navItems.length || (navItems.length < 2 && delta !== 0)) return;
+        navIndex = (navIndex + delta + navItems.length) % navItems.length;
+        const targetSrc = navItems[navIndex];
+        if (!targetSrc) return;
+        if (mediaB) {
+            cleanupMedia(mediaB);
+            mediaB.remove();
+            mediaB = null;
+        }
+        slider.style.display = "none";
+        // Keep the current frame visible while the next image loads to avoid a blank flash.
+        const preload = new Image();
+        preload.onload = () => {
+            mediaA.onload = null;
+            mediaA.onerror = () => showPlaceholder();
+            mediaA.src = targetSrc;
+            hidePlaceholder();
+            infoText.style.color = "#aaa";
+            infoText.textContent = t("Click image to zoom (100%/Fit) | Shift+Click another card to compare.");
+            syncImageScales();
+        };
+        preload.onerror = () => {
+            mediaA.onerror = () => showPlaceholder();
+            mediaA.src = targetSrc;
+        };
+        preload.src = targetSrc;
+        if (!isZoomed) {
+            scrollContainer.scrollTop = 0;
+            scrollContainer.scrollLeft = 0;
+        }
+    };
+    prevButton.onclick = (e) => { e.stopPropagation(); navigate(-1); };
+    nextButton.onclick = (e) => { e.stopPropagation(); navigate(1); };
+    overlay.container.append(prevButton, nextButton, deleteButton);
+    updateNavigation();
+
     return {
         is3D: false,
+        setNavigationItems(items, index = 0, assets = null, options = null) {
+            navItems = Array.isArray(items) ? items.filter(Boolean) : [];
+            if (Array.isArray(assets)) navAssets = assets.slice();
+            if (options) previewOptions = options;
+            navIndex = Math.max(0, Math.min(index, navItems.length - 1));
+            updateNavigation();
+        },
         isAudio: false,
         isText: false,
         loadTarget(targetSrc, isShiftClick) {
@@ -915,10 +1117,14 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}) {
     };
 }
 
-export function showFullscreenPreview(imgSrcs, isShiftClick = false, pid = null) {
+export function showFullscreenPreview(imgSrcs, isShiftClick = false, pid = null, startIndex = 0, previewOptions = {}) {
     if (!imgSrcs || imgSrcs.length === 0) return;
 
-    const item = imgSrcs[0];
+    const selectedIndex = Math.max(0, Math.min(Number(startIndex) || 0, imgSrcs.length - 1));
+    const item = imgSrcs[selectedIndex];
+    const navigationItems = imgSrcs.map(entry =>
+        typeof entry === "string" ? entry : (entry?.url || entry?.filename || "")
+    ).filter(Boolean);
     const targetPid = pid || (typeof item === "object" && item ? item.pid : null);
     const pidStr = targetPid ? String(targetPid) : null;
 
@@ -1006,14 +1212,18 @@ export function showFullscreenPreview(imgSrcs, isShiftClick = false, pid = null)
             activeComparisonViewer = null;
         } else {
             activeComparisonViewer.targetPid = pidStr;
+            activeComparisonViewer.setNavigationItems?.(navigationItems, selectedIndex, previewOptions.assets, previewOptions);
             activeComparisonViewer.loadTarget(src, isShiftClick);
             return;
         }
     }
 
     activeComparisonViewer = createComparisonViewer(
-        src, 
-        () => { activeComparisonViewer = null; }
+        src,
+        () => { activeComparisonViewer = null; },
+        navigationItems,
+        selectedIndex,
+        previewOptions
     );
     if (activeComparisonViewer) {
         activeComparisonViewer.targetPid = pidStr;

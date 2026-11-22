@@ -5,9 +5,11 @@ import { extractWorkflowFromPng, isImageFormat, animateCardRemoval, getScrollCon
 import { getSetting } from "../core/settings.js";
 import { renderCardImages } from "./mediaPreview.js";
 import { showNotification } from "../utils/nodeRenumber.js";
+import { openSimilarPromptsDialog } from "./similarPrompts.js";
 
 let galleryContainerEl = null;
 let cardStackEl = null;
+let similarPromptsDialog = null;
 let scrollToTopBtnEl = null;
 let currentColumnCount = 1;
 let currentSubfolder = "";
@@ -274,6 +276,7 @@ function createFileCard(file) {
         pid: `gallery-${file.filename}`,
         status: PromptStatus.COMPLETED,
         images: [fileAsset],
+        _previewImages: cachedFiles,
         workflow: null
     });
 
@@ -582,7 +585,11 @@ export function setupGalleryView() {
         renderGallery();
     });
 
-    actionsGroup.append(btnSort, btnUp, btnOpenFolder, btnRefresh);
+    const btnSimilar = createHeaderBtn("pi pi-clone", t("Find Similar Prompts"), async () => {
+        if (similarPromptsDialog && !similarPromptsDialog.destroyed) return;
+        similarPromptsDialog = await openSimilarPromptsDialog(currentSubfolder);
+    });
+    actionsGroup.append(btnSort, btnUp, btnOpenFolder, btnSimilar, btnRefresh);
     standardHeader.appendChild(actionsGroup);
 
     const searchContainer = document.createElement("div");
@@ -726,6 +733,10 @@ export function teardownGalleryView() {
     if (galleryResizeObserver) {
         galleryResizeObserver.disconnect();
         galleryResizeObserver = null;
+    }
+    if (similarPromptsDialog) {
+        similarPromptsDialog.destroy();
+        similarPromptsDialog = null;
     }
     // Reset header-reveal state so a re-opened gallery starts with a visible header
     lastScrollTop = 0;

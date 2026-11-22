@@ -62,5 +62,8 @@
   "Comfy Sidebar_Quick Workflow Picker": {
     "name": "انتخابگر سریع گردش کار",
     "tooltip": "نمایش انتخابگر سریع گردش کار هنگام ایجاد یک گردش کار خالی جدید"
+  },
+  "Comfy Sidebar_Hide Junk_Run on Comfy Cloud": {
+    "name": "پنهان کردن دکمه اجرا در Comfy Cloud"
   }
 }

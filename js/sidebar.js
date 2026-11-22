@@ -182,6 +182,16 @@ function registerSettings() {
     });
 
     app.ui.settings.addSetting({
+        id: "Comfy Sidebar.Hide Junk.Run on Comfy Cloud",
+        name: t("Hide Run on Comfy Cloud button"),
+        type: "boolean",
+        defaultValue: false,
+        onChange: () => {
+            setTimeout(() => { syncClassicLayout(); }, 0);
+        }
+    });
+
+    app.ui.settings.addSetting({
         id: "Comfy Sidebar.Hide Junk.Floating Canvas Controls",
         name: t("Floating Canvas Controls"),
         type: "combo",

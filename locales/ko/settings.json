@@ -62,5 +62,8 @@
   "Comfy Sidebar_Quick Workflow Picker": {
     "name": "빠른 워크플로우 선택기",
     "tooltip": "새 빈 워크플로우를 만들 때 빠른 워크플로우 선택기 표시"
+  },
+  "Comfy Sidebar_Hide Junk_Run on Comfy Cloud": {
+    "name": "Comfy Cloud에서 실행 버튼 숨기기"
   }
 }

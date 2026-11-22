@@ -454,6 +454,10 @@ function syncAvatarVisibility() {
             styleEl = document.createElement("style");
             styleEl.id = STYLE_AVATAR_ID;
             styleEl.textContent = `
+                /* Current ComfyUI profile/avatar control. Match stable class tokens,
+                   not its localized tooltip or accessible label. */
+                button[class~="hover:bg-transparent"][class~="p-1"][class~="text-xs"][class~="rounded-lg"][class~="h-8"][class~="text-muted-foreground"][class~="bg-transparent"],
+                [role="button"][class~="hover:bg-transparent"][class~="p-1"][class~="text-xs"][class~="rounded-lg"][class~="h-8"][class~="text-muted-foreground"][class~="bg-transparent"],
                 img[alt*="User Avatar"],
                 img[alt*="user avatar"],
                 button:has(img[alt*="User Avatar"]),
@@ -681,6 +685,25 @@ function syncActiveQueueIndicator(isClassicLayoutEnabled) {
     }
 }
 
+function syncRunOnComfyCloudButton() {
+    const shouldHide = getSetting("Comfy Sidebar.Hide Junk.Run on Comfy Cloud", false);
+    const container = findTopbarContainer();
+    if (!container) return;
+
+    // The cloud action is currently the second compact square button in the
+    // topbar. Keep this scoped to the action bar to avoid matching other UI.
+    const cloudButton = container.querySelector("button.rounded-lg.size-8:nth-of-type(2)");
+    if (!cloudButton) return;
+
+    if (shouldHide) {
+        if (cloudButton.style.display !== "none") {
+            cloudButton.style.setProperty("display", "none", "important");
+        }
+    } else if (cloudButton.style.display === "none") {
+        cloudButton.style.removeProperty("display");
+    }
+}
+
 export function syncRuntimePreviewButton() {
     const panel = findPropertiesPanel();
     if (!panel) return;
@@ -756,6 +779,7 @@ export function syncClassicLayout() {
         syncExtensionsPanel(isClassicLayoutEnabled);
         syncPropertiesButton(isClassicLayoutEnabled);
         syncActiveQueueIndicator(isClassicLayoutEnabled);
+        syncRunOnComfyCloudButton();
         updateSidebarTabsVisibility();
         applySidebarOverride();
         if (!sidebarTopObserver) {

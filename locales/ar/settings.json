@@ -62,5 +62,8 @@
   "Comfy Sidebar_Quick Workflow Picker": {
     "name": "منتقي سير العمل السريع",
     "tooltip": "إظهار منتقي سير العمل السريع عند إنشاء سير عمل فارغ جديد"
+  },
+  "Comfy Sidebar_Hide Junk_Run on Comfy Cloud": {
+    "name": "إخفاء زر التشغيل على Comfy Cloud"
   }
 }

@@ -65,5 +65,8 @@
   "Comfy Sidebar_Quick Workflow Picker": {
     "name": "Быстрый выбор рабочего процесса",
     "tooltip": "Показывать быстрый выбор при создании нового пустого рабочего процесса"
+  },
+  "Comfy Sidebar_Hide Junk_Run on Comfy Cloud": {
+    "name": "Скрыть кнопку «Запустить в Comfy Cloud»"
   }
 }

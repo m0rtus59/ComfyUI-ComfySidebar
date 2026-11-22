@@ -16,7 +16,7 @@ export function injectStyles() {
         .comfy-sidebar-card:hover { 
             border-color: color-mix(in srgb, var(--border, var(--border-color, #555)) 50%, var(--foreground, var(--fg-color, #fff)) 50%) !important; 
             background: color-mix(in srgb, var(--card, var(--secondary, var(--p-surface-800, var(--comfy-menu-bg, #262626)))) 85%, var(--foreground, var(--fg-color, #fff)) 15%) !important;
-            transition: border-color 0.2s, background-color 0.2s;
+            transition: border-color 0.1s ease-out, background-color 0.1s ease-out;
         }
 
         /* Border & Frame Spotlight (Uses the theme's main hue) */
@@ -32,7 +32,8 @@ export function injectStyles() {
                 transparent 70%
             );
             opacity: 0;
-            transition: opacity 0.25s ease;
+            /* Leaving fades out quickly so a fast sweep over many cards doesn't leave a glow trail */
+            transition: opacity 0.12s ease-out;
             pointer-events: none;
             z-index: 1;
         }
@@ -40,6 +41,8 @@ export function injectStyles() {
         .comfy-sidebar-card:hover::before,
         .comfy-sidebar-folder-card:hover::before {
             opacity: 0.65;
+            /* Entering is near-instant so the glow keeps up with the cursor */
+            transition: opacity 0.05s ease-out;
         }
         /* Active job uses the theme accent (orange); Cancelled & Error remain standout Yellow & Red */
         .comfy-sidebar-card.active { border-color: var(--primary, var(--p-primary-color, #ea580c)) !important; --hover-color: var(--primary, var(--p-primary-color, #ea580c)); }
@@ -149,7 +152,12 @@ export function injectStyles() {
             font-size: 13px !important;
             border-radius: 6px !important;
             cursor: pointer !important;
-            transition: all 0.15s ease !important;
+            /* Constant box: Ctrl mode only recolors the border, so size and padding
+               never animate. Only colors transition (no slide/grow effects). */
+            box-sizing: border-box;
+            border: 1px solid transparent;
+            transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease,
+                        box-shadow 0.15s ease, opacity 0.15s ease !important;
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
             z-index: 20 !important;
             transform: translateZ(0);
@@ -168,6 +176,22 @@ export function injectStyles() {
             white-space: nowrap;
             font-family: sans-serif;
             letter-spacing: 0.3px;
+        }
+
+        /* Fullscreen preview trash button uses the same confirmation glow as card deletes. */
+        .comfy-sidebar-preview-delete.confirm-delete,
+        .comfy-sidebar-preview-delete.confirm-delete:hover {
+            background-color: #dc3545 !important;
+            color: #ffffff !important;
+            box-shadow: 0 0 8px rgba(220, 53, 69, 0.6) !important;
+        }
+
+        .comfy-sidebar-preview-delete.confirm-delete-disk,
+        .comfy-sidebar-preview-delete.confirm-delete-disk:hover {
+            background-color: #7f1d1d !important;
+            color: #ffc9c9 !important;
+            box-shadow: 0 0 10px rgba(220, 38, 38, 0.85) !important;
+            border: 1px solid #ef4444 !important;
         }
 
         /* Delete Confirmation Active State */
@@ -215,7 +239,7 @@ export function injectStyles() {
             display: inline-flex !important;
             background-color: #166534 !important;
             color: #ffffff !important;
-            border: 1px solid #22c55e !important;
+            border-color: #22c55e !important;
             width: auto !important;
             padding: 0 8px !important;
         }
@@ -223,15 +247,31 @@ export function injectStyles() {
         body.comfy-sidebar-ctrl-active .comfy-sidebar-btn-del {
             background-color: #991b1b !important;
             color: #ffffff !important;
-            border: 1px solid #ef4444 !important;
-            width: auto !important;
-            padding: 0 8px !important;
+            border-color: #ef4444 !important;
             border-radius: 6px !important;
             box-shadow: 0 0 10px rgba(239, 68, 68, 0.6) !important;
         }
 
+        /* Only buttons that gain a text label (Queue/Gallery) get wider; icon-only
+           delete buttons (Similar Prompts) keep their size and just glow. */
+        body.comfy-sidebar-ctrl-active .comfy-sidebar-btn-del:has(.comfy-sidebar-del-label) {
+            width: auto !important;
+            padding: 0 8px !important;
+        }
+
         body.comfy-sidebar-ctrl-active .comfy-sidebar-btn-del .comfy-sidebar-del-label {
             display: inline;
+        }
+
+        /* Anything that appears because Ctrl is held fades in instead of sliding/growing. */
+        @keyframes comfy-sidebar-fade-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        body.comfy-sidebar-ctrl-active .comfy-sidebar-btn-move,
+        body.comfy-sidebar-ctrl-active .comfy-sidebar-gallery-btn-del,
+        body.comfy-sidebar-ctrl-active .comfy-sidebar-btn-del .comfy-sidebar-del-label {
+            animation: comfy-sidebar-fade-in 0.15s ease both;
         }
 
         /* Translucent Folder Indicator on Ctrl Press */
@@ -846,7 +886,7 @@ export function injectStyles() {
             display: flex;
             align-items: center;
             gap: 8px;
-            transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
+            transition: border-color 0.1s ease-out, background-color 0.1s ease-out, transform 0.1s ease;
             user-select: none;
             min-width: 0;
             position: relative;
