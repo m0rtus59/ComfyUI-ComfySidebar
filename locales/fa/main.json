@@ -142,5 +142,21 @@
   "Permanently deleted {count} TEMP item(s).": "{count} مورد TEMP برای همیشه حذف شد.",
   "Could not delete {count} TEMP item(s).": "حذف {count} مورد TEMP ممکن نشد.",
   "TEMP cleanup stopped because a workflow entered the queue.": "پاک‌سازی TEMP متوقف شد، چون یک گردش‌کار وارد صف شد.",
-  "Click again to clear all history": "برای پاک کردن کل تاریخچه دوباره کلیک کنید"
+  "Click again to clear all history": "برای پاک کردن کل تاریخچه دوباره کلیک کنید",
+  "Card size": "اندازه کارت",
+  "Click again to confirm deleting this image": "برای تأیید حذف این تصویر دوباره کلیک کنید",
+  "Could not scan prompts": "اسکن پرامپت‌ها انجام نشد",
+  "Delete current image": "حذف تصویر فعلی",
+  "Delete file": "حذف فایل",
+  "Find Similar Prompts": "پیدا کردن پرامپت‌های مشابه",
+  "Group": "گروه",
+  "Next image (→)": "تصویر بعدی (→)",
+  "No similar prompt groups found at this threshold.": "در این آستانه، گروهی از پرامپت‌های مشابه پیدا نشد.",
+  "Previous image (←)": "تصویر قبلی (←)",
+  "Scanning prompts...": "در حال اسکن پرامپت‌ها...",
+  "Similar prompt groups": "گروه‌های پرامپت مشابه",
+  "Similarity threshold": "آستانه شباهت",
+  "images": "تصاویر",
+  "similarity": "شباهت",
+  "{count} groups · {scanned} PNGs scanned": "{count} گروه · {scanned} فایل PNG اسکن شد"
 }
