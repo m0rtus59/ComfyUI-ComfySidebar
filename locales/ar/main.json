@@ -142,5 +142,21 @@
   "Permanently deleted {count} TEMP item(s).": "تم حذف {count} من عناصر TEMP نهائيًا.",
   "Could not delete {count} TEMP item(s).": "تعذّر حذف {count} من عناصر TEMP.",
   "TEMP cleanup stopped because a workflow entered the queue.": "توقّف تنظيف TEMP بسبب دخول مهمة سير عمل إلى قائمة الانتظار.",
-  "Click again to clear all history": "انقر مرة أخرى لمسح السجل بالكامل"
+  "Click again to clear all history": "انقر مرة أخرى لمسح السجل بالكامل",
+  "Card size": "حجم البطاقة",
+  "Click again to confirm deleting this image": "انقر مرة أخرى لتأكيد حذف هذه الصورة",
+  "Could not scan prompts": "تعذّر فحص المطالبات",
+  "Delete current image": "حذف الصورة الحالية",
+  "Delete file": "حذف الملف",
+  "Find Similar Prompts": "العثور على مطالبات مشابهة",
+  "Group": "مجموعة",
+  "Next image (→)": "الصورة التالية (→)",
+  "No similar prompt groups found at this threshold.": "لم يتم العثور على مجموعات مطالبات مشابهة عند حدّ التشابه هذا.",
+  "Previous image (←)": "الصورة السابقة (←)",
+  "Scanning prompts...": "جارٍ فحص المطالبات...",
+  "Similar prompt groups": "مجموعات المطالبات المتشابهة",
+  "Similarity threshold": "حدّ التشابه",
+  "images": "صور",
+  "similarity": "التشابه",
+  "{count} groups · {scanned} PNGs scanned": "{count} مجموعة · تم فحص {scanned} صورة PNG"
 }
