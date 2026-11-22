@@ -1,29 +1,56 @@
-import { ComfyDialog } from "/scripts/ui.js";
 import { t } from "../core/i18n.js";
 import { showFullscreenPreview } from "../utils/comparison.js";
 import { deleteFileOnServer } from "./mediaActions.js";
 import { attachDeleteConfirmation, setupSpotlightTracker } from "../utils/utils.js";
 import { showNotification } from "../utils/nodeRenumber.js";
+import { renderCardImages } from "./mediaPreview.js";
 
 export async function openSimilarPromptsDialog(currentSubfolder = "") {
-    const dialog = new ComfyDialog();
-    const content = document.createElement("div");
-    content.className = "comfy-sidebar-similar-prompts-dialog";
-    Object.assign(content.style, {
+    // A native modal dialog enters the browser's top layer, above ComfyUI's
+    // sidebars and floating panels, and supplies the dimmed backdrop.
+    const dialog = document.createElement("dialog");
+    dialog.className = "comfy-sidebar-similar-prompts-dialog";
+    Object.assign(dialog.style, {
         width: "min(1180px, 92vw)", maxWidth: "calc(100vw - 32px)",
-        minWidth: "320px", height: "min(82vh, 900px)", maxHeight: "82vh", display: "flex",
-        flexDirection: "column", gap: "12px", color: "var(--fg-color, #eee)"
+        height: "min(82vh, 900px)", maxHeight: "calc(100vh - 32px)",
+        minWidth: "320px", padding: "16px", boxSizing: "border-box",
+        border: "1px solid var(--border-color, rgba(255,255,255,.16))",
+        borderRadius: "10px", background: "var(--comfy-menu-bg, var(--comfy-input-bg, #222))",
+        color: "var(--fg-color, var(--foreground, #eee))",
+        boxShadow: "var(--shadow-lg, 0 18px 60px rgba(0,0,0,.55))",
+        overflow: "hidden"
     });
+
+    const content = document.createElement("div");
+    Object.assign(content.style, {
+        width: "100%", height: "100%", minHeight: "0", display: "flex",
+        flexDirection: "column", gap: "12px", font: "inherit"
+    });
+
     const heading = document.createElement("div");
-    Object.assign(heading.style, { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" });
+    Object.assign(heading.style, {
+        display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flex: "none"
+    });
     const title = document.createElement("strong");
     title.textContent = t("Similar prompt groups");
     const status = document.createElement("span");
-    Object.assign(status.style, { fontSize: "11px", opacity: "0.65" });
-    heading.append(title, status);
+    Object.assign(status.style, { marginLeft: "auto", fontSize: "11px", opacity: "0.65" });
+    const closeButton = document.createElement("button");
+    closeButton.type = "button";
+    closeButton.textContent = "×";
+    closeButton.title = t("Close");
+    Object.assign(closeButton.style, {
+        width: "30px", height: "30px", padding: "0", border: "0", borderRadius: "5px",
+        background: "transparent", color: "inherit", cursor: "pointer", fontSize: "22px"
+    });
+    closeButton.addEventListener("click", () => dialog.close());
+    heading.append(title, status, closeButton);
 
     const controls = document.createElement("div");
-    Object.assign(controls.style, { display: "flex", alignItems: "center", gap: "10px", fontSize: "12px" });
+    Object.assign(controls.style, {
+        display: "flex", alignItems: "center", flexWrap: "wrap", gap: "10px",
+        fontSize: "12px", flex: "none"
+    });
     const thresholdLabel = document.createElement("label");
     thresholdLabel.textContent = t("Similarity threshold");
     const threshold = document.createElement("input");
@@ -40,20 +67,33 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
     const cardSizeLabel = document.createElement("label");
     cardSizeLabel.textContent = t("Card size");
     const cardSize = document.createElement("input");
-    cardSize.type = "range"; cardSize.min = "100"; cardSize.max = "280"; cardSize.step = "10"; cardSize.value = "150";
+    cardSize.type = "range";
+    cardSize.min = "100";
+    cardSize.max = "280";
+    cardSize.step = "10";
+    cardSize.value = "150";
     cardSizeLabel.appendChild(cardSize);
     controls.appendChild(cardSizeLabel);
 
     const results = document.createElement("div");
     Object.assign(results.style, {
-        overflowY: "auto", minHeight: "180px", paddingRight: "4px",
+        overflowY: "auto", minHeight: "0", flex: "1", paddingRight: "4px",
         display: "flex", flexDirection: "column", gap: "12px"
     });
     content.append(heading, controls, results);
+    dialog.appendChild(content);
+    dialog.addEventListener("click", (event) => {
+        if (event.target === dialog) dialog.close();
+    });
 
     let requestId = 0;
     let requestController = null;
+    dialog.addEventListener("close", () => {
+        requestController?.abort();
+        dialog.remove();
+    });
     setupSpotlightTracker(results, ".comfy-sidebar-card");
+
     const updateCardSize = () => results.querySelectorAll(".comfy-sidebar-similar-grid").forEach(grid => {
         grid.style.gridTemplateColumns = `repeat(auto-fill, minmax(${cardSize.value}px, 1fr))`;
     });
@@ -77,7 +117,7 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
             });
             if (!response.ok) throw new Error("HTTP " + response.status);
             const data = await response.json();
-            if (id !== requestId) return;
+            if (id !== requestId || !dialog.open) return;
             status.textContent = t("{count} groups · {scanned} PNGs scanned", {
                 count: data.groups?.length || 0, scanned: data.scanned || 0
             });
@@ -88,6 +128,7 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
                 results.appendChild(empty);
                 return;
             }
+
             data.groups.forEach((group, groupIndex) => {
                 const section = document.createElement("section");
                 Object.assign(section.style, {
@@ -96,68 +137,96 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
                     flexDirection: "column", gap: "8px"
                 });
                 const groupHeader = document.createElement("div");
-                Object.assign(groupHeader.style, { display: "flex", justifyContent: "space-between", fontSize: "11px", opacity: ".8" });
+                Object.assign(groupHeader.style, {
+                    display: "flex", justifyContent: "space-between", fontSize: "11px", opacity: ".8"
+                });
                 const groupName = document.createElement("strong");
                 groupName.textContent = t("Group") + " " + (groupIndex + 1) + " · " + group.items.length + " " + t("images");
                 const score = document.createElement("span");
                 score.textContent = group.similarity + "% " + t("similarity");
                 groupHeader.append(groupName, score);
+
                 const grid = document.createElement("div");
                 grid.className = "comfy-sidebar-similar-grid";
                 Object.assign(grid.style, {
-                    display: "grid", gridTemplateColumns: `repeat(auto-fill, minmax(${cardSize.value}px, 1fr))`,
+                    display: "grid",
+                    gridTemplateColumns: `repeat(auto-fill, minmax(${cardSize.value}px, 1fr))`,
                     gap: "8px"
                 });
+
+                const previewAssets = group.items.map(item => ({
+                    filename: item.filename,
+                    subfolder: item.subfolder || "",
+                    type: "output"
+                }));
+
                 group.items.forEach(item => {
                     const card = document.createElement("div");
                     card.className = "comfy-sidebar-card completed";
-                    Object.assign(card.style, { minWidth: "0", display: "flex", flexDirection: "column", gap: "5px", position: "relative", overflow: "hidden" });
-                    const image = document.createElement("img");
-                    image.loading = "lazy";
-                    image.src = "/view?filename=" + encodeURIComponent(item.filename) + "&type=output&subfolder=" + encodeURIComponent(item.subfolder || "");
-                    image.alt = item.filename;
-                    Object.assign(image.style, {
-                        width: "100%", aspectRatio: "1 / 1", objectFit: "contain",
-                        background: "rgba(0,0,0,.18)", borderRadius: "5px", cursor: "pointer"
+                    Object.assign(card.style, {
+                        position: "relative", cursor: "pointer", minWidth: "0"
                     });
-                    image.onclick = () => {
-                        const urls = group.items.map(entry =>
-                            "/view?filename=" + encodeURIComponent(entry.filename) +
-                            "&type=output&subfolder=" + encodeURIComponent(entry.subfolder || "")
-                        );
-                        const selected = group.items.findIndex(entry =>
-                            entry.filename === item.filename && (entry.subfolder || "") === (item.subfolder || "")
-                        );
-                        dialog.close();
-                        showFullscreenPreview(urls, false, null, Math.max(0, selected));
+
+                    const previewUrl = "/view?filename=" + encodeURIComponent(item.filename) +
+                        "&type=output&subfolder=" + encodeURIComponent(item.subfolder || "");
+                    const gridContent = document.createElement("div");
+                    gridContent.style.width = "100%";
+                    const cardObj = {
+                        element: card,
+                        grid: gridContent,
+                        dimEl: null,
+                        currentImageIndex: 0,
+                        firstImgElement: null
                     };
+                    const asset = {
+                        filename: item.filename,
+                        subfolder: item.subfolder || "",
+                        type: "output",
+                        url: previewUrl
+                    };
+                    // Use Gallery's media renderer so the image keeps its native
+                    // aspect ratio and the spotlight remains on the card surface.
+                    renderCardImages(cardObj, {
+                        pid: `similar-${groupIndex}-${item.filename}`,
+                        images: [asset],
+                        _previewImages: previewAssets,
+                        workflow: null
+                    });
+
+                    const nameBadge = document.createElement("div");
+                    nameBadge.className = "comfy-sidebar-card-filename-badge";
+                    nameBadge.textContent = item.filename;
+                    nameBadge.title = item.filename;
+
                     const actions = document.createElement("div");
                     actions.className = "comfy-sidebar-hover-panel";
-                    Object.assign(actions.style, { position: "absolute", right: "4px", bottom: "4px", zIndex: "2" });
+                    Object.assign(actions.style, {
+                        position: "absolute", bottom: "4px", right: "4px",
+                        flexDirection: "column", gap: "4px", zIndex: "20"
+                    });
                     const deleteButton = document.createElement("span");
                     deleteButton.className = "pi pi-trash comfy-sidebar-card-action-btn comfy-sidebar-btn-del";
-                    deleteButton.title = t("Delete file");
                     attachDeleteConfirmation(deleteButton, {
                         idleTitle: t("Delete file"),
                         confirmTitle: t("Click again to confirm deleting file"),
                         confirmDiskTitle: t("Ctrl+Click again to delete file from DISK / TRASH"),
-                        onConfirm: async (deleteFromDisk) => {
-                            const asset = { filename: item.filename, subfolder: item.subfolder || "", type: "output" };
-                            const action = await deleteFileOnServer(asset);
+                        onConfirm: async () => {
+                            const action = await deleteFileOnServer({
+                                filename: item.filename,
+                                subfolder: item.subfolder || "",
+                                type: "output"
+                            });
                             if (action && action !== "missing") {
-                                showNotification(action === "trashed" ? t("Moved file to Recycle Bin.") : t("Permanently deleted file."), "success", t("Delete File"));
+                                showNotification(
+                                    action === "trashed" ? t("Moved file to Recycle Bin.") : t("Permanently deleted file."),
+                                    "success", t("Delete File")
+                                );
                             }
-                            if (action) {
-                                card.remove();
-                            }
+                            if (action) card.remove();
                         }
                     });
                     actions.appendChild(deleteButton);
-                    const name = document.createElement("span");
-                    name.textContent = item.filename;
-                    name.title = item.filename;
-                    Object.assign(name.style, { fontSize: "10px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" });
-                    card.append(image, name, actions);
+                    card.append(gridContent, nameBadge, actions);
                     grid.appendChild(card);
                 });
                 section.append(groupHeader, grid);
@@ -174,13 +243,15 @@ export async function openSimilarPromptsDialog(currentSubfolder = "") {
             if (requestController === controller) requestController = null;
         }
     };
+
     let debounce = null;
     threshold.addEventListener("input", () => {
         thresholdValue.textContent = threshold.value + "%";
         clearTimeout(debounce);
         debounce = setTimeout(loadGroups, 250);
     });
-    dialog.show(content);
+
+    document.body.appendChild(dialog);
+    dialog.showModal();
     await loadGroups();
 }
-
