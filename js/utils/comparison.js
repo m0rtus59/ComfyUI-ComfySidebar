@@ -6,6 +6,9 @@ import { SidebarOverlay } from "./overlay.js";
 import { store } from "../core/store.js";
 import { PromptStatus } from "../core/constants.js";
 import { t } from "../core/i18n.js";
+import { attachDeleteConfirmation } from "./utils.js";
+import { deleteFileOnServer } from "../ui/mediaActions.js";
+import { showNotification } from "./nodeRenumber.js";
 
 let activeComparisonViewer = null;
 let isRuntimePreviewActive = false;
@@ -482,11 +485,12 @@ const setupVideoPlayback = (vid, container) => {
     };
 };
 
-function createComparisonViewer(baseSrc, onDestroy = () => {}, navigationItems = [], startIndex = 0) {
+function createComparisonViewer(baseSrc, onDestroy = () => {}, navigationItems = [], startIndex = 0, previewOptions = {}) {
     const isBaseVideo = isVideoFormat(baseSrc);
     let splitRatio = 50;
     let mediaB = null;
     let navItems = Array.isArray(navigationItems) ? navigationItems.filter(Boolean) : [];
+    let navAssets = Array.isArray(previewOptions.assets) ? previewOptions.assets.slice() : [];
     let navIndex = Math.max(0, Math.min(startIndex, navItems.length - 1));
     let navigate = () => {};
 
@@ -500,6 +504,10 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}, navigationItems =
                 e.preventDefault();
                 e.stopPropagation();
                 navigate(e.key === "ArrowRight" ? 1 : -1);
+            } else if (e.key === "Delete" && navAssets[navIndex] && typeof previewOptions.onDelete === "function") {
+                e.preventDefault();
+                e.stopPropagation();
+                deleteButton.click();
             } else if (e.key === " " && mediaB) {
                 e.preventDefault();
                 updateSliderPosition(splitRatio > 50 ? 0 : 100);
@@ -896,10 +904,10 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}, navigationItems =
 
     const navButtonStyle = {
         position: "absolute", top: "50%", transform: "translateY(-50%)",
-        width: "42px", height: "56px", borderRadius: "8px",
+        width: "42px", height: "42px", borderRadius: "50%",
         border: "1px solid var(--border-color, rgba(255,255,255,.18))",
         background: "color-mix(in srgb, var(--card, #181818) 88%, transparent)",
-        color: "var(--fg-color, #eee)", fontSize: "24px", cursor: "pointer",
+        color: "var(--fg-color, #eee)", fontSize: "18px", cursor: "pointer",
         zIndex: "35", pointerEvents: "auto", backdropFilter: "blur(8px)"
     };
     const prevButton = document.createElement("button");
@@ -913,14 +921,42 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}, navigationItems =
     nextButton.title = t("Next image (→)");
     Object.assign(nextButton.style, navButtonStyle, { right: "18px" });
 
+    const deleteButton = document.createElement("span");
+    deleteButton.className = "pi pi-trash";
+    deleteButton.title = t("Delete current image");
+    Object.assign(deleteButton.style, navButtonStyle, {
+        top: "16px", right: "76px", transform: "none", fontSize: "16px",
+        display: "none", alignItems: "center", justifyContent: "center"
+    });
+    attachDeleteConfirmation(deleteButton, {
+        idleTitle: t("Delete current image"),
+        confirmTitle: t("Click again to confirm deleting this image"),
+        confirmDiskTitle: t("Ctrl+Click again to permanently delete this image"),
+        onConfirm: async () => {
+            const asset = navAssets[navIndex];
+            if (!asset || typeof previewOptions.onDelete !== "function") return;
+            const removed = await previewOptions.onDelete(asset);
+            if (!removed) return;
+            navItems.splice(navIndex, 1);
+            navAssets.splice(navIndex, 1);
+            if (!navItems.length) {
+                overlay.destroy();
+                return;
+            }
+            navIndex = Math.min(navIndex, navItems.length - 1);
+            navigate(0);
+            updateNavigation();
+        }
+    });
     const updateNavigation = () => {
         const visible = navItems.length > 1;
         prevButton.style.display = nextButton.style.display = visible ? "flex" : "none";
         prevButton.style.alignItems = nextButton.style.alignItems = "center";
         prevButton.style.justifyContent = nextButton.style.justifyContent = "center";
+        deleteButton.style.display = navAssets[navIndex] && typeof previewOptions.onDelete === "function" ? "flex" : "none";
     };
     navigate = (delta) => {
-        if (navItems.length < 2) return;
+        if (!navItems.length || (navItems.length < 2 && delta !== 0)) return;
         navIndex = (navIndex + delta + navItems.length) % navItems.length;
         const targetSrc = navItems[navIndex];
         if (!targetSrc) return;
@@ -953,13 +989,15 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}, navigationItems =
     };
     prevButton.onclick = (e) => { e.stopPropagation(); navigate(-1); };
     nextButton.onclick = (e) => { e.stopPropagation(); navigate(1); };
-    overlay.container.append(prevButton, nextButton);
+    overlay.container.append(prevButton, nextButton, deleteButton);
     updateNavigation();
 
     return {
         is3D: false,
-        setNavigationItems(items, index = 0) {
+        setNavigationItems(items, index = 0, assets = null, options = null) {
             navItems = Array.isArray(items) ? items.filter(Boolean) : [];
+            if (Array.isArray(assets)) navAssets = assets.slice();
+            if (options) previewOptions = options;
             navIndex = Math.max(0, Math.min(index, navItems.length - 1));
             updateNavigation();
         },
@@ -1015,7 +1053,7 @@ function createComparisonViewer(baseSrc, onDestroy = () => {}, navigationItems =
     };
 }
 
-export function showFullscreenPreview(imgSrcs, isShiftClick = false, pid = null, startIndex = 0) {
+export function showFullscreenPreview(imgSrcs, isShiftClick = false, pid = null, startIndex = 0, previewOptions = {}) {
     if (!imgSrcs || imgSrcs.length === 0) return;
 
     const selectedIndex = Math.max(0, Math.min(Number(startIndex) || 0, imgSrcs.length - 1));
@@ -1110,7 +1148,7 @@ export function showFullscreenPreview(imgSrcs, isShiftClick = false, pid = null,
             activeComparisonViewer = null;
         } else {
             activeComparisonViewer.targetPid = pidStr;
-            activeComparisonViewer.setNavigationItems?.(navigationItems, selectedIndex);
+            activeComparisonViewer.setNavigationItems?.(navigationItems, selectedIndex, previewOptions.assets, previewOptions);
             activeComparisonViewer.loadTarget(src, isShiftClick);
             return;
         }
@@ -1120,7 +1158,8 @@ export function showFullscreenPreview(imgSrcs, isShiftClick = false, pid = null,
         src,
         () => { activeComparisonViewer = null; },
         navigationItems,
-        selectedIndex
+        selectedIndex,
+        previewOptions
     );
     if (activeComparisonViewer) {
         activeComparisonViewer.targetPid = pidStr;
