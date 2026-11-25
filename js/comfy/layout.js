@@ -1049,33 +1049,42 @@ export function setupPropertiesPanelToggleFix() {
 
     if (domObserver) domObserver.disconnect();
 
-    domObserver = new MutationObserver((mutations) => {
-        let shouldSync = false;
+    // Anything under these is ours, or is graph-node content (Vue node bodies churn constantly while a
+    // workflow runs) - none of it can change where the sidebar / top bar / canvas menu sit.
+    const INTERNAL_SELECTOR = '.comfyui-sidebar, .comfy-sidebar, .comfy-sidebar-comparison-overlay, .comfy-sidebar-wf-picker, [data-node-id]';
 
-        const isInternalSidebarMutation = (node) => {
-            if (!node || node.nodeType !== 1) return false;
-            return node.closest?.('.comfyui-sidebar, .comfy-sidebar, .comfy-sidebar-comparison-overlay, .comfy-sidebar-wf-picker') ||
-                   node.classList?.contains('comfy-sidebar-card');
-        };
+    const isInternalNode = (node) =>
+        node.nodeType !== 1 ||
+        !!node.closest(INTERNAL_SELECTOR) ||
+        node.classList.contains('comfy-sidebar-card');
+
+    const hasExternalElement = (nodeList) => {
+        for (let i = 0; i < nodeList.length; i++) {
+            if (!isInternalNode(nodeList[i])) return true;
+        }
+        return false;
+    };
+
+    domObserver = new MutationObserver((mutations) => {
+        // A sync is already queued; analysing more records can't change the outcome.
+        if (syncScheduled) return;
 
         for (const mutation of mutations) {
-            if (mutation.addedNodes.length > 0 || mutation.removedNodes.length > 0) {
-                const hasExternalElementMutation = 
-                    Array.from(mutation.addedNodes).some(node => node.nodeType === 1 && !isInternalSidebarMutation(node)) ||
-                    Array.from(mutation.removedNodes).some(node => node.nodeType === 1 && !isInternalSidebarMutation(node));
-                
-                if (hasExternalElementMutation) {
-                    shouldSync = true;
-                    break;
-                }
+            if (mutation.addedNodes.length === 0 && mutation.removedNodes.length === 0) continue;
+
+            // Children of an internal parent are internal too (closest() walks up), so one check
+            // per record replaces one per added/removed node in the common case.
+            const target = mutation.target;
+            if (target.nodeType === 1 && target.closest(INTERNAL_SELECTOR)) continue;
+
+            if (hasExternalElement(mutation.addedNodes) || hasExternalElement(mutation.removedNodes)) {
+                syncScheduled = true;
+                requestAnimationFrame(() => {
+                    syncClassicLayout();
+                    syncScheduled = false;
+                });
+                return;
             }
-        }
-        if (shouldSync && !syncScheduled) {
-            syncScheduled = true;
-            requestAnimationFrame(() => {
-                syncClassicLayout();
-                syncScheduled = false;
-            });
         }
     });
 
