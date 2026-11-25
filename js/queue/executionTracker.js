@@ -59,7 +59,7 @@ export function setupExecutionTracker(onTargetedProgressUpdate) {
             const prompt = store.getPrompt(pid);
             const percent = Math.round((e.detail.value / e.detail.max) * 100);
             updatePromptProgress(prompt, percent);
-            store.updatePrompt(pid, prompt);
+            store.updatePrompt(pid, prompt, { throttleSave: true });
 
             if (typeof onTargetedProgressUpdate === "function") {
                 onTargetedProgressUpdate(pid, percent, prompt.activeNodeName);
@@ -105,7 +105,8 @@ export function setupExecutionTracker(onTargetedProgressUpdate) {
             prompt._oldPreviewBlobUrl = prompt._previewBlobUrl;
             prompt._previewBlobUrl = newBlobUrl;
             prompt.images = [{ url: newBlobUrl }];
-            store.updatePrompt(prompt.pid, prompt);
+            // blob: previews are never persisted, so don't let preview frames drive saves
+            store.updatePrompt(prompt.pid, prompt, { throttleSave: true });
 
             // Update live fullscreen preview if currently open
             updateActiveComparisonPreview(prompt.pid, newBlobUrl);

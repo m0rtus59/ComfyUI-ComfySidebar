@@ -62,8 +62,15 @@ class Store {
         return ++this.ui.sequenceNumber;
     }
 
-    scheduleSave(delay = 250) {
-        if (this._saveTimer) clearTimeout(this._saveTimer);
+    // `throttle` is for high-frequency, non-critical updates (progress ticks, live preview frames):
+    // they ride the already-pending timer instead of resetting it, so a burst of them neither
+    // postpones the save forever nor triggers one full-store serialization per tick.
+    // A regular (debounced) call still resets the timer, so important changes save promptly.
+    scheduleSave(delay = 250, { throttle = false } = {}) {
+        if (this._saveTimer) {
+            if (throttle) return;
+            clearTimeout(this._saveTimer);
+        }
         this._saveTimer = setTimeout(() => {
             this._saveTimer = null;
             PersistenceAdapter.save(this.prompts);
@@ -91,12 +98,13 @@ class Store {
         return state;
     }
 
-    updatePrompt(pid, patch) {
+    updatePrompt(pid, patch, { throttleSave = false } = {}) {
         const key = String(pid);
         const state = this.prompts.get(key);
         if (!state) return null;
         Object.assign(state, patch);
-        this.scheduleSave();
+        if (throttleSave) this.scheduleSave(1000, { throttle: true });
+        else this.scheduleSave();
         this.emit(StoreEvents.PROMPT_UPDATED, { pid: key, prompt: state, patch });
         return state;
     }
