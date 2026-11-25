@@ -77,6 +77,14 @@ function updateScrollTopVisibility() {
     }
 }
 
+// Scroll events don't bubble, so we listen in the capture phase on `document`, which fires for EVERY
+// scrolling element in ComfyUI. Skip everything except the scroller that hosts our card stack.
+function onScrollCapture(e) {
+    const t = e.target;
+    if (t && t.nodeType === 1 && !t.contains(cardStackEl)) return;
+    updateScrollTopVisibility();
+}
+
 function handleHeaderScroll(scrollEl) {
     if (!stickyHeaderGroupEl) return;
 
@@ -707,7 +715,7 @@ export function setupGalleryView() {
     // Reveal Spotlight: track cursor position over Gallery card and folder borders
     setupSpotlightTracker(container, ".comfy-sidebar-card, .comfy-sidebar-folder-card");
 
-    document.addEventListener("scroll", updateScrollTopVisibility, { capture: true, passive: true });
+    document.addEventListener("scroll", onScrollCapture, { capture: true, passive: true });
 
     galleryResizeObserver = new ResizeObserver((entries) => {
         const threshold = getSetting(SettingIds.GRID_COLUMNS_THRESHOLD, 350);
@@ -725,7 +733,7 @@ export function setupGalleryView() {
 }
 
 export function teardownGalleryView() {
-    document.removeEventListener("scroll", updateScrollTopVisibility, { capture: true, passive: true });
+    document.removeEventListener("scroll", onScrollCapture, { capture: true, passive: true });
     window.removeEventListener("keydown", handleCtrlDown);
     window.removeEventListener("keyup", handleCtrlUp);
     window.removeEventListener("blur", handleCtrlBlur);

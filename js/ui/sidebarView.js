@@ -174,6 +174,15 @@ function updateScrollTopBtnVisibility() {
     }
 }
 
+// Scroll events don't bubble, so we have to listen in the capture phase on `document`, which means
+// this fires for EVERY scrolling element in ComfyUI (canvas panels, dropdowns, other sidebar tabs...).
+// Bail out early unless the scroller actually hosts our card stack (it is an ancestor of it).
+function onScrollCapture(e) {
+    const t = e.target;
+    if (t && t.nodeType === 1 && !t.contains(store.ui.cardStack)) return;
+    updateScrollTopBtnVisibility();
+}
+
 const handleGlobalKeyDown = (e) => {
     if (e.key === "Control" || e.key === "Meta") {
         document.body.classList.add("comfy-sidebar-ctrl-active");
@@ -434,7 +443,7 @@ export function setupSidebarView() {
     // Reveal Spotlight: track cursor position over Queue card borders
     setupSpotlightTracker(container, ".comfy-sidebar-card");
 
-    document.addEventListener("scroll", updateScrollTopBtnVisibility, { capture: true, passive: true });
+    document.addEventListener("scroll", onScrollCapture, { capture: true, passive: true });
 
     new ResizeObserver((entries) => {
         const threshold = getSetting(SettingIds.GRID_COLUMNS_THRESHOLD, 350);
@@ -1156,7 +1165,7 @@ export function teardownSidebarView() {
     window.removeEventListener("keyup", handleGlobalKeyUp);
     window.removeEventListener("blur", handleGlobalBlur);
     document.removeEventListener("click", handleGlobalClick, true);
-    document.removeEventListener("scroll", updateScrollTopBtnVisibility, { capture: true, passive: true });
+    document.removeEventListener("scroll", onScrollCapture, { capture: true, passive: true });
 
     if (activeTimerInterval) {
         clearInterval(activeTimerInterval);
