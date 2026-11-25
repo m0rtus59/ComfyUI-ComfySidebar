@@ -95,9 +95,16 @@ export function setupVueNodeObserver() {
     if (nodeDOMObserver) nodeDOMObserver.disconnect();
 
     let timeoutId = null;
+    // Our own UI (cards, overlays, pickers) churns a lot and never contains graph nodes; skip it before
+    // paying for a subtree querySelector() on every element we render.
+    const OWN_UI_SELECTOR = '.comfyui-sidebar, .comfy-sidebar-comparison-overlay, .comfy-sidebar-wf-picker';
+
     nodeDOMObserver = new MutationObserver((mutations) => {
         let hasNodeMutation = false;
         for (const m of mutations) {
+            if (m.addedNodes.length === 0) continue;
+            const target = m.target;
+            if (target.nodeType === 1 && target.closest(OWN_UI_SELECTOR)) continue;
             for (const node of m.addedNodes) {
                 if (node.nodeType === 1) {
                     if (node.hasAttribute?.("data-node-id") || 

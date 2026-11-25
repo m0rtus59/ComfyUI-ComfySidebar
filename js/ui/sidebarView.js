@@ -455,6 +455,7 @@ export function setupSidebarView() {
     }).observe(container);
 
     activeTimerInterval = setInterval(() => {
+        if (document.hidden) return; // nobody is looking at the elapsed-time label
         const activePid = store.ui.currentlyActivePromptId;
         if (!activePid) return;
         const prompt = store.getPrompt(activePid);
@@ -467,9 +468,13 @@ export function setupSidebarView() {
     }, 250);
 
     store.on(StoreEvents.QUEUE_SYNCED, () => {
-        const pendingCount = store.getAllPrompts().filter(t => t.status === PromptStatus.PENDING).length;
-        const runningCount = store.getAllPrompts().filter(t => t.status === PromptStatus.ACTIVE).length;
-        updateSidebarBadge(pendingCount + (runningCount > 0 ? 1 : 0));
+        let pendingCount = 0;
+        let hasRunning = false;
+        for (const t of store.prompts.values()) {
+            if (t.status === PromptStatus.PENDING) pendingCount++;
+            else if (t.status === PromptStatus.ACTIVE) hasRunning = true;
+        }
+        updateSidebarBadge(pendingCount + (hasRunning ? 1 : 0));
         renderSidebar();
     });
 
